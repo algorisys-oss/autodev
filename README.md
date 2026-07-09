@@ -8,8 +8,10 @@ an optional autonomous build loop.
 Built with Tauri (Rust core) and SolidJS. See [`PLAN.md`](PLAN.md) for the full roadmap
 and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
 
-> Status: early. Phase 0 (foundation) is done. Phases 1–9 are in progress — see
-> [`handoff.md`](handoff.md) for exactly what works today.
+> Status: all planned phases (0–9) are implemented — workspaces, multi-agent
+> orchestration, prompt composer, git-worktree isolation, voice input, screenshot +
+> annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop. See
+> [`handoff.md`](handoff.md) for exactly what works today and the known gaps.
 
 ## Prerequisites
 

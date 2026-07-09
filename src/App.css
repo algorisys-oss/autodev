@@ -199,6 +199,110 @@ button.launch {
   flex: 0 0 auto;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.view-tabs button.active {
+  border-color: #396cd8;
+  color: #396cd8;
+}
+
+.loop-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loop-new {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.loop-new textarea {
+  flex: 1 1 auto;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+.loop-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.loop-tabs button.active {
+  border-color: #396cd8;
+}
+
+.loop-meta,
+.loop-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.loop-meta {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.loop-step textarea {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+.phase {
+  font-size: 0.8em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.phase.planning { background: rgba(10, 132, 255, 0.18); color: #0a84ff; }
+.phase.generating { background: rgba(255, 204, 0, 0.2); color: #9a7d00; }
+.phase.evaluating { background: rgba(175, 82, 222, 0.18); color: #af52de; }
+.phase.passed { background: rgba(46, 160, 67, 0.18); color: #1a7f37; }
+.phase.failed { background: rgba(176, 0, 32, 0.15); color: #b00020; }
+
+.contract {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.contract li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.9em;
+}
+
+.contract .check.ok { color: #1a7f37; }
+.contract .check.bad { color: #b00020; }
+
+.loop-pass {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
 .composer {
   margin-top: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.12);

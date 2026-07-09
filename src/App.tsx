@@ -6,10 +6,12 @@ import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
 import { PromptComposer } from "./components/prompt-composer";
+import { LoopPanel } from "./components/loop-panel";
 import "./App.css";
 
 function App() {
   const [info, setInfo] = createSignal<AppInfo | null>(null);
+  const [view, setView] = createSignal<"workspace" | "loops">("workspace");
   const workspaces = createWorkspaceStore();
   const agents = createAgentStore();
 
@@ -54,15 +56,31 @@ function App() {
         <Show when={info()} fallback={<span class="muted">connecting…</span>}>
           {(i) => <span class="muted">v{i().version}</span>}
         </Show>
+        <span class="spacer" />
+        <nav class="view-tabs">
+          <button classList={{ active: view() === "workspace" }} onClick={() => setView("workspace")}>
+            Workspace
+          </button>
+          <button classList={{ active: view() === "loops" }} onClick={() => setView("loops")}>
+            Loops
+          </button>
+        </nav>
       </header>
 
       <div class="app-body">
         <WorkspaceSidebar store={workspaces} />
 
         <main class="main-panel">
-          <Show
-            when={selected()}
-            fallback={<p class="muted">Create a workspace and add project directories to begin.</p>}
+          <Show when={view() === "loops"}>
+            <LoopPanel agents={agents} defaultProjectDir={selected()?.projects[0]?.path ?? null} />
+          </Show>
+
+          <Show when={view() === "workspace" && selected()}
+            fallback={
+              <Show when={view() === "workspace"}>
+                <p class="muted">Create a workspace and add project directories to begin.</p>
+              </Show>
+            }
           >
             {(ws) => (
               <div class="workspace-detail">

@@ -5,9 +5,13 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 8 — browser handoff. Complete.
-- **Phases done:** 0–8.
-- **Next up:** Phase 9 — autonomous loop engine (Planner/Generator/Evaluator). See `PLAN.md`.
+- **Last task:** Phase 9 — autonomous loop engine. Complete.
+- **Phases done:** 0–9. **All planned phases are built.** The full ecosystem from `PLAN.md`
+  is implemented: workspaces, multi-agent orchestration, composer, worktrees, voice,
+  screenshot, browser handoff, and the Planner/Generator/Evaluator loop.
+- **Next up:** hardening — fully autonomous loop auto-advance (parse agent output to fill
+  the contract and verdicts), a settings UI for the pluggable commands, and richer status
+  detection. See each phase's deferrals in `implement.md`.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
@@ -36,7 +40,11 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
 - Browser handoff: 🌐 in the composer opens a modal to describe a web task and generate a
   structured handoff prompt; copy it into a browser AI (Comet-style) or run a configured
   `browserCommand` (e.g. Playwright) on it.
-- `./dev.sh test` — Rust `cargo test` (27 tests) + Vitest (28).
+- Loops (header tab): create an autonomous loop from a spec; run Planner → Generator →
+  Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
+  and the loop advances (pass / retry / fail). State lives on disk under
+  `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
+- `./dev.sh test` — Rust `cargo test` (32 tests) + Vitest (28).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

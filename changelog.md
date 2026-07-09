@@ -4,6 +4,18 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 9 — Autonomous loop engine
+- Rust `loop_engine`: `Role` (planner/generator/evaluator) with a distinct system prompt
+  each (role separation, LOOPS XXVIII); `LoopState` (phase, iteration, contract, features,
+  progress); `Criterion` (testable done-assertion, LOOPS XXIX). `grade_and_advance` = all
+  met → passed, else retry to `max_iterations` then failed (LOOPS XXXI). Disk state under
+  `~/.autodev/loops/<id>/` — state.json, contract.md, feature-list.json, progress.md, log.md
+  (LOOPS XXX). Eight `loop_*` commands.
+- Frontend `LoopPanel` (Loops header tab): create a loop from a spec, run each role as a
+  real agent in the project dir, set the contract, grade criteria, watch the phase advance.
+- Tests: +5 Rust (role prompts, phase transitions, retry-until-max, disk roundtrip).
+  Total 32 Rust + 28 frontend. Full-app boot re-verified.
+
 ### Phase 8 — Browser handoff
 - Rust `handoff` module: `build_handoff(task, url, context)` produces a structured
   browser-AI prompt (goal / starting point / context / steps / report-back), with

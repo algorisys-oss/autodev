@@ -195,3 +195,62 @@ export function generateHandoff(task: string, url: string, context: string): Pro
 export function runBrowserHandoff(handoff: string): Promise<string> {
   return invoke<string>("run_browser_handoff", { handoff });
 }
+
+// --- Autonomous loop engine (Phase 9) ---
+
+export type LoopPhase = "planning" | "generating" | "evaluating" | "passed" | "failed";
+export type Role = "planner" | "generator" | "evaluator";
+
+export interface Criterion {
+  text: string;
+  met: boolean | null;
+}
+
+export interface LoopState {
+  id: string;
+  spec: string;
+  projectDir: string;
+  phase: LoopPhase;
+  iteration: number;
+  maxIterations: number;
+  contract: Criterion[];
+  features: string[];
+  progress: string;
+}
+
+export interface RolePrompt {
+  role: Role;
+  prompt: string;
+}
+
+export function loopCreate(spec: string, projectDir: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_create", { spec, projectDir });
+}
+
+export function loopList(): Promise<LoopState[]> {
+  return invoke<LoopState[]>("loop_list");
+}
+
+export function loopGet(id: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_get", { id });
+}
+
+export function loopSetContract(
+  id: string,
+  criteria: string[],
+  features: string[],
+): Promise<LoopState> {
+  return invoke<LoopState>("loop_set_contract", { id, criteria, features });
+}
+
+export function loopReadyToEvaluate(id: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_ready_to_evaluate", { id });
+}
+
+export function loopGrade(id: string, verdicts: boolean[]): Promise<LoopState> {
+  return invoke<LoopState>("loop_grade", { id, verdicts });
+}
+
+export function loopCurrentPrompt(id: string, diff: string): Promise<RolePrompt | null> {
+  return invoke<RolePrompt | null>("loop_current_prompt", { id, diff });
+}

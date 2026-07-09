@@ -4,6 +4,7 @@ mod commands;
 mod error;
 mod git;
 mod handoff;
+mod loop_engine;
 mod state;
 mod transcribe;
 mod workspace;
@@ -54,6 +55,13 @@ pub fn run() {
             commands::save_shot,
             commands::generate_handoff,
             commands::run_browser_handoff,
+            commands::loop_create,
+            commands::loop_get,
+            commands::loop_list,
+            commands::loop_set_contract,
+            commands::loop_ready_to_evaluate,
+            commands::loop_grade,
+            commands::loop_current_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

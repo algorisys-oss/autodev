@@ -360,3 +360,117 @@ pub fn run_browser_handoff(handoff: String) -> AppResult<String> {
     let _ = std::fs::remove_file(&file);
     result
 }
+
+// --- Autonomous loop engine (Phase 9) ---
+
+use crate::loop_engine::{self, LoopState, Role};
+
+fn loop_slug(spec: &str) -> String {
+    let base: String = spec
+        .trim()
+        .to_lowercase()
+        .chars()
+        .take(30)
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect();
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    format!("{}-{nonce}", base.trim_matches('-'))
+}
+
+#[tauri::command]
+pub fn loop_create(spec: String, project_dir: String) -> AppResult<LoopState> {
+    let id = loop_slug(&spec);
+    let state = LoopState::new(id.clone(), spec, project_dir);
+    let base = state::loops_dir()?;
+    loop_engine::save(&base, &state)?;
+    loop_engine::append_log(&base, &id, "created; phase=planning")?;
+    Ok(state)
+}
+
+#[tauri::command]
+pub fn loop_get(id: String) -> AppResult<LoopState> {
+    loop_engine::load(&state::loops_dir()?, &id)
+}
+
+#[tauri::command]
+pub fn loop_list() -> AppResult<Vec<LoopState>> {
+    let base = state::loops_dir()?;
+    let mut out = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for e in entries.flatten() {
+            if let Some(name) = e.file_name().to_str() {
+                if let Ok(s) = loop_engine::load(&base, name) {
+                    out.push(s);
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Record the planner's contract, move to Generating.
+#[tauri::command]
+pub fn loop_set_contract(
+    id: String,
+    criteria: Vec<String>,
+    features: Vec<String>,
+) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    s.contract = criteria
+        .into_iter()
+        .map(|text| loop_engine::Criterion { text, met: None })
+        .collect();
+    s.features = features;
+    s.phase = loop_engine::LoopPhase::Generating;
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(
+        &base,
+        &id,
+        &format!("contract set: {} criteria", s.contract.len()),
+    )?;
+    Ok(s)
+}
+
+/// Move Generating → Evaluating (the generator finished a round).
+#[tauri::command]
+pub fn loop_ready_to_evaluate(id: String) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    s.phase = loop_engine::LoopPhase::Evaluating;
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(&base, &id, "generation done; evaluating")?;
+    Ok(s)
+}
+
+/// Apply the evaluator's per-criterion verdicts and advance (pass / retry / fail).
+#[tauri::command]
+pub fn loop_grade(id: String, verdicts: Vec<bool>) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    loop_engine::grade_and_advance(&mut s, &verdicts);
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(
+        &base,
+        &id,
+        &format!("graded: phase={:?} iteration={}", s.phase, s.iteration),
+    )?;
+    Ok(s)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RolePrompt {
+    pub role: Role,
+    pub prompt: String,
+}
+
+/// The role + prompt to run for the loop's current phase (None once passed/failed).
+#[tauri::command]
+pub fn loop_current_prompt(id: String, diff: String) -> AppResult<Option<RolePrompt>> {
+    let s = loop_engine::load(&state::loops_dir()?, &id)?;
+    Ok(loop_engine::prompt_for_phase(&s, &diff).map(|(role, prompt)| RolePrompt { role, prompt }))
+}

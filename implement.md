@@ -2,6 +2,31 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 9 — Autonomous loop engine — COMPLETE
+
+**Decided:** Realize the LOOPS Tier 6 architecture concretely: three roles with separate
+system prompts, a contract of testable criteria, disk-backed state, and a phase machine
+that retries on failure until `max_iterations` then fails. The pure pieces (role prompts,
+`grade_and_advance`, disk roundtrip) are fully unit-tested. Each role runs as a real agent
+in the loop's project dir via the existing agent infra. Human-in-the-loop for now: the
+user runs a role, then records its contract / grades its verdicts.
+
+**Built:**
+- `src-tauri/src/loop_engine.rs` (+5 tests) — roles, `LoopState`, `Criterion`, prompts,
+  `grade_and_advance`, disk save/load/append_log; `state::loops_dir`.
+- 8 `loop_*` commands; `src/components/loop-panel.tsx` + a Workspace/Loops header tab.
+
+**Status:** complete. `./dev.sh verify` green (32 Rust + 28 frontend). Full-app boot
+re-verified with all commands registered.
+
+**Deliberate deferrals (the honest gap vs a fully hands-off loop):**
+- Not yet auto-advancing: the loop doesn't parse the planner's output into the contract or
+  the evaluator's output into verdicts automatically — the user transcribes those. Closing
+  this needs reliable agent-completion detection + structured-output parsing (the real next
+  bottleneck, LOOPS XXXV). The state machine, prompts, and disk state are all in place for it.
+- Evaluator runs with an empty diff argument; wiring `git diff` of the loop branch into the
+  evaluator prompt is a small follow-up.
+
 ## Phase 8 — Browser handoff — COMPLETE
 
 **Decided:** The valuable, reproducible core is *generating* a good handoff prompt (pure,

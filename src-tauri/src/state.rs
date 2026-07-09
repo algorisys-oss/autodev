@@ -54,6 +54,11 @@ pub fn logs_dir() -> AppResult<PathBuf> {
     Ok(data_dir()?.join("logs"))
 }
 
+/// Directory holding autonomous-loop state: `~/.autodev/loops`.
+pub fn loops_dir() -> AppResult<PathBuf> {
+    Ok(data_dir()?.join("loops"))
+}
+
 /// Read settings from `dir/settings.json`, returning defaults if it is absent.
 pub fn load_settings_from(dir: &Path) -> AppResult<AppSettings> {
     let path = dir.join("settings.json");
