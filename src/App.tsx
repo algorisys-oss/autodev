@@ -1,15 +1,15 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { appInfo, type AppInfo, type AgentBackend, type Project } from "./lib/ipc";
+import { appInfo, type AppInfo } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore } from "./lib/agent-store";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
+import { PromptComposer } from "./components/prompt-composer";
 import "./App.css";
 
 function App() {
   const [info, setInfo] = createSignal<AppInfo | null>(null);
-  const [launchError, setLaunchError] = createSignal<string | null>(null);
   const workspaces = createWorkspaceStore();
   const agents = createAgentStore();
 
@@ -25,15 +25,6 @@ function App() {
   onCleanup(() => agents.dispose());
 
   const selected = () => workspaces.selected();
-
-  async function launch(project: Project, backend: AgentBackend) {
-    setLaunchError(null);
-    try {
-      await agents.spawn({ backend, cwd: project.path }, project.name);
-    } catch (e) {
-      setLaunchError(String(e));
-    }
-  }
 
   return (
     <div class="app">
@@ -63,22 +54,15 @@ function App() {
                     <For each={ws().projects}>
                       {(p) => (
                         <li>
-                          <div class="project-line">
-                            <span class="project-name">{p.name}</span>
-                            <code class="project-path">{p.path}</code>
-                            <button class="launch" onClick={() => launch(p, "claude")}>
-                              ▶ Claude
-                            </button>
-                            <button class="launch" onClick={() => launch(p, "codex")}>
-                              ▶ Codex
-                            </button>
-                          </div>
+                          <span class="project-name">{p.name}</span>
+                          <code class="project-path">{p.path}</code>
                         </li>
                       )}
                     </For>
                   </ul>
                 </Show>
-                <Show when={launchError()}>{(e) => <p class="error">{e()}</p>}</Show>
+
+                <PromptComposer workspace={ws()} agents={agents} />
               </div>
             )}
           </Show>

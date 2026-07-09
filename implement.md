@@ -2,6 +2,30 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 4 — Prompt composer — COMPLETE
+
+**Decided:** `@`-mentions resolve to project `--add-dir` context (matches how the video
+adds context). Difficulty drives suggestions via a pure `suggestForDifficulty` table
+(1→1 agent/no plan, 10→6 agents/plan/ultrathink); moving the slider re-applies count +
+plan + ultrathink, all still user-overridable. Ultrathink appends the "ultrathink" hint
+to the Claude prompt. Arg-building was pulled into a pure `command_line` so the exact
+argv (including `--add-dir`) is unit-tested rather than asserted as "is_ok".
+
+**Built:**
+- `src/lib/difficulty.ts`, `src/lib/mentions.ts` (+ `composer.test.ts`, 8 tests).
+- `src/components/prompt-composer.tsx`; App now launches via the composer (removed the
+  per-project quick-launch buttons — single launch path).
+- Rust: `command_line` (pure) + `add_dirs`; `state` prompt history + 2 commands.
+
+**Status:** complete. `./dev.sh verify` green (13 Rust + 25 frontend).
+
+**Deliberate deferrals:**
+- "Effort (high/extra-high)" from the video is not wired — neither CLI takes it as a
+  launch flag; it is a session/settings concern. `AppSettings.default_effort` exists for
+  when that lands.
+- `@`-mention has no live autocomplete dropdown yet; it resolves on submit and shows
+  resolved/unresolved chips. Autocomplete can come later.
+
 ## Phase 3 — Multi-agent orchestration — COMPLETE
 
 **Decided:** A single global listener pair in the frontend `agent-store` feeds all agents

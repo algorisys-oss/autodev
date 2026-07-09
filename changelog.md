@@ -4,6 +4,17 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 4 — Prompt composer
+- `PromptComposer`: textarea with `@`-mention resolution against workspace projects
+  (resolved/unresolved chips), a difficulty 1–10 slider that suggests agent count and
+  plan/ultrathink, toggles for plan/bypass/ultrathink, backend + working-dir selectors,
+  and a fan-out launch to N agents. Mentioned projects pass as `--add-dir` context.
+- Rust: `AgentOptions.add_dirs` → Claude `--add-dir`; arg-building refactored into a pure,
+  unit-tested `command_line`. Prompt history persisted to `~/.autodev/prompts.json` with
+  dedupe + cap; `get_prompt_history`/`add_prompt_history` commands.
+- Tests: +2 Rust (claude/codex argv incl. add-dir; prompt-history dedupe/order) and +8
+  frontend (difficulty heuristic, mention parse/resolve). Total 13 Rust + 25 frontend.
+
 ### Phase 3 — Multi-agent orchestration
 - Frontend `agent-store`: one global pair of `agent://output`/`agent://exit` listeners
   feeds every agent; per-agent output is buffered (1 MB cap) and replayed when a terminal

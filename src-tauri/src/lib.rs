@@ -37,6 +37,8 @@ pub fn run() {
             commands::agent_kill,
             commands::agent_list,
             commands::agent_kill_all,
+            commands::get_prompt_history,
+            commands::add_prompt_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

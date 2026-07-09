@@ -36,48 +36,57 @@ pub struct AgentOptions {
     /// Prompt to start the session with, passed as the CLI's positional prompt.
     #[serde(default)]
     pub initial_prompt: Option<String>,
+    /// Extra directories to give the agent context on (from `@`-mentions). Passed as
+    /// `--add-dir` to Claude Code.
+    #[serde(default)]
+    pub add_dirs: Vec<String>,
     /// For `Mock`: the command to run, e.g. `["bash", "script.sh"]`.
     #[serde(default)]
     pub mock_command: Option<Vec<String>>,
 }
 
-/// Build the process command line for a backend from its options.
+/// Compute the program and argument vector for a backend from its options. Pure and
+/// therefore unit-tested; `build_command` wraps it into a `CommandBuilder`.
 ///
 /// Flags verified against the installed CLIs: `claude --permission-mode plan`,
-/// `claude --dangerously-skip-permissions`; `codex --dangerously-bypass-approvals-and-sandbox`.
-pub fn build_command(opts: &AgentOptions) -> AppResult<CommandBuilder> {
-    let mut cmd = match &opts.backend {
+/// `claude --dangerously-skip-permissions`, `claude --add-dir`;
+/// `codex --dangerously-bypass-approvals-and-sandbox`.
+pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
+    let mut args: Vec<String> = Vec::new();
+    let program = match &opts.backend {
         AgentBackend::Claude => {
-            let mut c = CommandBuilder::new("claude");
             if opts.plan_mode {
-                c.arg("--permission-mode");
-                c.arg("plan");
+                args.push("--permission-mode".into());
+                args.push("plan".into());
             }
             if opts.bypass_permissions {
-                c.arg("--dangerously-skip-permissions");
+                args.push("--dangerously-skip-permissions".into());
             }
             if let Some(m) = &opts.model {
-                c.arg("--model");
-                c.arg(m);
+                args.push("--model".into());
+                args.push(m.clone());
+            }
+            for dir in &opts.add_dirs {
+                args.push("--add-dir".into());
+                args.push(dir.clone());
             }
             if let Some(p) = &opts.initial_prompt {
-                c.arg(p);
+                args.push(p.clone());
             }
-            c
+            "claude".to_string()
         }
         AgentBackend::Codex => {
-            let mut c = CommandBuilder::new("codex");
             if opts.bypass_permissions {
-                c.arg("--dangerously-bypass-approvals-and-sandbox");
+                args.push("--dangerously-bypass-approvals-and-sandbox".into());
             }
             if let Some(m) = &opts.model {
-                c.arg("-m");
-                c.arg(m);
+                args.push("-m".into());
+                args.push(m.clone());
             }
             if let Some(p) = &opts.initial_prompt {
-                c.arg(p);
+                args.push(p.clone());
             }
-            c
+            "codex".to_string()
         }
         AgentBackend::Mock => {
             let parts = opts
@@ -85,13 +94,20 @@ pub fn build_command(opts: &AgentOptions) -> AppResult<CommandBuilder> {
                 .as_ref()
                 .filter(|v| !v.is_empty())
                 .ok_or_else(|| AppError::NotFound("mock_command".to_string()))?;
-            let mut c = CommandBuilder::new(&parts[0]);
-            for a in &parts[1..] {
-                c.arg(a);
-            }
-            c
+            args.extend(parts[1..].iter().cloned());
+            parts[0].clone()
         }
     };
+    Ok((program, args))
+}
+
+/// Build the process command line for a backend from its options.
+pub fn build_command(opts: &AgentOptions) -> AppResult<CommandBuilder> {
+    let (program, args) = command_line(opts)?;
+    let mut cmd = CommandBuilder::new(program);
+    for a in args {
+        cmd.arg(a);
+    }
     cmd.cwd(&opts.cwd);
     // A sensible default term so agents emit normal escape sequences.
     cmd.env("TERM", "xterm-256color");
@@ -292,12 +308,13 @@ mod tests {
             bypass_permissions: false,
             model: None,
             initial_prompt: None,
+            add_dirs: vec![],
             mock_command: Some(cmd.into_iter().map(String::from).collect()),
         }
     }
 
     #[test]
-    fn build_command_maps_claude_flags() {
+    fn claude_command_line_maps_flags_and_add_dirs() {
         let opts = AgentOptions {
             backend: AgentBackend::Claude,
             cwd: "/tmp".into(),
@@ -305,10 +322,46 @@ mod tests {
             bypass_permissions: true,
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
+            add_dirs: vec!["/a".into(), "/b".into()],
             mock_command: None,
         };
-        // build_command must succeed and not panic; exact argv is covered by running it.
-        assert!(build_command(&opts).is_ok());
+        let (program, args) = command_line(&opts).unwrap();
+        assert_eq!(program, "claude");
+        assert_eq!(
+            args,
+            vec![
+                "--permission-mode",
+                "plan",
+                "--dangerously-skip-permissions",
+                "--model",
+                "claude-opus-4-8",
+                "--add-dir",
+                "/a",
+                "--add-dir",
+                "/b",
+                "hello",
+            ]
+        );
+    }
+
+    #[test]
+    fn codex_command_line_maps_bypass_and_model() {
+        let opts = AgentOptions {
+            backend: AgentBackend::Codex,
+            cwd: "/tmp".into(),
+            plan_mode: false,
+            bypass_permissions: true,
+            model: Some("o3".into()),
+            initial_prompt: None,
+            add_dirs: vec![],
+            mock_command: None,
+        };
+        let (program, args) = command_line(&opts).unwrap();
+        assert_eq!(program, "codex");
+        assert_eq!(
+            args,
+            vec!["--dangerously-bypass-approvals-and-sandbox", "-m", "o3"]
+        );
     }
 
     #[test]

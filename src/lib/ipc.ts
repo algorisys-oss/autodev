@@ -82,6 +82,7 @@ export interface AgentOptions {
   bypassPermissions?: boolean;
   model?: string | null;
   initialPrompt?: string | null;
+  addDirs?: string[];
   mockCommand?: string[] | null;
 }
 
@@ -114,4 +115,14 @@ export function agentList(): Promise<AgentInfo[]> {
 
 export function agentKillAll(): Promise<number> {
   return invoke<number>("agent_kill_all");
+}
+
+// --- Prompt history (Phase 4) ---
+
+export function getPromptHistory(): Promise<string[]> {
+  return invoke<string[]>("get_prompt_history");
+}
+
+export function addPromptHistory(text: string): Promise<string[]> {
+  return invoke<string[]>("add_prompt_history", { text });
 }

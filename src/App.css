@@ -199,6 +199,128 @@ button.launch {
   flex: 0 0 auto;
 }
 
+.composer {
+  margin-top: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.composer-text {
+  width: 100%;
+  resize: vertical;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+.mention-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  font-size: 0.8em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.chip.ok {
+  background: rgba(46, 160, 67, 0.15);
+  color: #1a7f37;
+}
+
+.chip.bad {
+  background: rgba(176, 0, 32, 0.12);
+  color: #b00020;
+}
+
+.composer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8em;
+  color: #555;
+}
+
+.control.grow {
+  flex: 1 1 160px;
+}
+
+.control select,
+.control input {
+  font-size: 0.95rem;
+}
+
+.composer-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  font-size: 0.9em;
+}
+
+.composer-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+button.primary {
+  background: #396cd8;
+  color: #fff;
+  border-color: #396cd8;
+}
+
+button.primary:hover {
+  background: #2f5cbf;
+}
+
+.history summary {
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.history ul {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.85em;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.history-item:hover {
+  background: rgba(57, 108, 216, 0.1);
+}
+
 .agent-grid-header {
   display: flex;
   align-items: center;
@@ -310,6 +432,19 @@ button.danger {
   .agent-grid .card {
     background: #2a2a2a;
     border-color: rgba(255, 255, 255, 0.15);
+  }
+  .composer {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  .composer-text,
+  .composer select,
+  .composer input[type="number"] {
+    background: #2a2a2a;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .control {
+    color: #aaa;
   }
 }
 

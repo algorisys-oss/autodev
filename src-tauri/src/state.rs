@@ -66,6 +66,44 @@ pub fn save_settings(settings: &AppSettings) -> AppResult<()> {
     save_settings_to(&data_dir()?, settings)
 }
 
+const MAX_PROMPT_HISTORY: usize = 50;
+
+/// Load saved prompts (newest first) from `dir/prompts.json`, empty if absent.
+pub fn load_prompts_from(dir: &Path) -> AppResult<Vec<String>> {
+    match fs::read_to_string(dir.join("prompts.json")) {
+        Ok(raw) => Ok(serde_json::from_str(&raw)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(e) => Err(AppError::Io(e)),
+    }
+}
+
+/// Prepend `text` to the prompt history (de-duplicated, capped) and persist it.
+pub fn add_prompt_to(dir: &Path, text: &str) -> AppResult<Vec<String>> {
+    let text = text.trim();
+    let mut prompts = load_prompts_from(dir)?;
+    prompts.retain(|p| p != text);
+    if !text.is_empty() {
+        prompts.insert(0, text.to_string());
+    }
+    prompts.truncate(MAX_PROMPT_HISTORY);
+    fs::create_dir_all(dir)?;
+    fs::write(
+        dir.join("prompts.json"),
+        serde_json::to_string_pretty(&prompts)?,
+    )?;
+    Ok(prompts)
+}
+
+/// Load prompt history from the real data directory.
+pub fn load_prompts() -> AppResult<Vec<String>> {
+    load_prompts_from(&data_dir()?)
+}
+
+/// Add a prompt to the history in the real data directory.
+pub fn add_prompt(text: &str) -> AppResult<Vec<String>> {
+    add_prompt_to(&data_dir()?, text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,6 +136,17 @@ mod tests {
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();
         assert_eq!(loaded, custom);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn prompt_history_dedupes_and_orders_newest_first() {
+        let dir = temp_dir("prompts");
+        add_prompt_to(&dir, "first").unwrap();
+        add_prompt_to(&dir, "second").unwrap();
+        let after = add_prompt_to(&dir, "first").unwrap(); // re-adding moves it to front
+        assert_eq!(after, vec!["first", "second"]);
+        assert_eq!(load_prompts_from(&dir).unwrap(), vec!["first", "second"]);
         let _ = fs::remove_dir_all(&dir);
     }
 }

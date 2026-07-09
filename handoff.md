@@ -5,19 +5,20 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 3 — multi-agent orchestration. Complete.
-- **Phases done:** 0–3 (foundation, workspaces, single agent, multi-agent orchestration).
-- **Next up:** Phase 4 — prompt composer (@-mention, difficulty→agents heuristic, mode
-  toggles: plan/bypass/ultrathink/effort). See `PLAN.md`.
+- **Last task:** Phase 4 — prompt composer. Complete.
+- **Phases done:** 0–4 (foundation, workspaces, single agent, orchestration, composer).
+- **Next up:** Phase 5 — git worktree isolation + merge-back. See `PLAN.md`.
 
 ## What runs
 
-- `./dev.sh dev` — launch the app. Sidebar manages workspaces + project dirs. Each project
-  has “▶ Claude” and “▶ Codex” launchers; spawn many at once across projects. An agent
-  grid shows every session with a live status dot (running/idle/exited); click a card to
-  focus its terminal. “Kill all” stops everything; closing the window kills all agents so
-  none are orphaned. Per-agent output is also logged to `~/.autodev/logs/<id>.log`.
-- `./dev.sh test` — Rust `cargo test` (11 tests, incl. PTY mock-agent) + Vitest (17).
+- `./dev.sh dev` — launch the app. Sidebar manages workspaces + project dirs. A prompt
+  composer drives launches: type a task, `@mention` projects to attach them as context
+  (`--add-dir`), set a difficulty 1–10 (auto-suggests agent count + plan/ultrathink),
+  toggle plan/bypass/ultrathink, pick backend + working dir, and fan out to N agents.
+  Prompt history persists (`~/.autodev/prompts.json`). The agent grid shows every session
+  with a live status dot; click to focus its terminal. “Kill all” and window-close kill
+  every agent (no orphans). Per-agent output logs to `~/.autodev/logs/<id>.log`.
+- `./dev.sh test` — Rust `cargo test` (13 tests) + Vitest (25).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

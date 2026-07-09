@@ -200,3 +200,15 @@ pub fn agent_list(manager: State<'_, AgentManager>) -> Vec<AgentInfo> {
 pub fn agent_kill_all(manager: State<'_, AgentManager>) -> usize {
     manager.kill_all()
 }
+
+// --- Prompt history (Phase 4) ---
+
+#[tauri::command]
+pub fn get_prompt_history() -> AppResult<Vec<String>> {
+    state::load_prompts()
+}
+
+#[tauri::command]
+pub fn add_prompt_history(text: String) -> AppResult<Vec<String>> {
+    state::add_prompt(&text)
+}
