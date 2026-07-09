@@ -11,6 +11,8 @@ export interface AgentView {
   cwd: string;
   status: AgentStatus;
   exitCode: number | null;
+  /** Set when the agent runs in an isolated git worktree (Phase 5). */
+  worktree?: ipc.WorktreeInfo;
 }
 
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
@@ -101,7 +103,11 @@ export function createAgentStore(deps?: {
     unlistens.forEach((p) => void p.then((u) => u()));
   }
 
-  async function spawn(options: ipc.AgentOptions, label: string): Promise<string> {
+  async function spawn(
+    options: ipc.AgentOptions,
+    label: string,
+    worktree?: ipc.WorktreeInfo,
+  ): Promise<string> {
     const id = await api.agentSpawn(options);
     buffers.set(id, []);
     bufferBytes.set(id, 0);
@@ -113,6 +119,7 @@ export function createAgentStore(deps?: {
       cwd: options.cwd,
       status: "running",
       exitCode: null,
+      worktree,
     });
     setState("focusedId", id);
     return id;

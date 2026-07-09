@@ -2,6 +2,27 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 5 — Git worktree isolation + merge-back — COMPLETE
+
+**Decided:** Shell out to `git` (no libgit2 dep, LOOPS VIII). Merge refuses a dirty target
+working tree so it never clobbers uncommitted local work (LOOPS XXIII/XXXVI: keep
+destructive git safe). Each fanned-out agent gets its own worktree + branch, which is what
+makes parallel agents on one repo safe by construction. Worktrees live under
+`~/.autodev/worktrees/<branch-slug>`.
+
+**Built:**
+- `src-tauri/src/git.rs` (+3 tests: real create→commit→diff→merge→remove; dirty-refusal).
+- 6 `git_*` commands; composer “Isolate” toggle; `AgentView.worktree`; merge/remove UI.
+
+**Status:** complete. `./dev.sh verify` green (16 Rust + 25 frontend).
+
+**Deliberate deferrals:**
+- Merge only brings in *committed* work on the branch. Uncommitted changes in a worktree
+  are not auto-committed; a "commit worktree" action can come later. The agent itself
+  (esp. in bypass mode) usually commits.
+- No conflict-resolution UI: a conflicting merge surfaces git's error text; resolve in the
+  repo directly for now.
+
 ## Phase 4 — Prompt composer — COMPLETE
 
 **Decided:** `@`-mentions resolve to project `--add-dir` context (matches how the video

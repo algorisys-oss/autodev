@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 5 — Git worktree isolation + merge-back
+- Rust `git` module (shells out to `git`): `is_repo`, `current_branch`, `status`
+  (branch + dirty), `create_worktree`, `diff`, `merge` (no-ff, refuses a dirty target),
+  `remove_worktree`. Six `git_*` commands; worktrees created under `~/.autodev/worktrees/`.
+- Composer “Isolate (worktree)” toggle: each fanned-out agent gets its own worktree +
+  branch (`autodev/<project>-<ts>-<i>`), so parallel agents on one repo don't collide.
+  Agent bar shows the branch with Merge / Remove actions.
+- Tests: +3 Rust (real create→commit→diff→merge→remove flow; merge refuses dirty target).
+  Total 16 Rust + 25 frontend.
+
 ### Phase 4 — Prompt composer
 - `PromptComposer`: textarea with `@`-mention resolution against workspace projects
   (resolved/unresolved chips), a difficulty 1–10 slider that suggests agent count and

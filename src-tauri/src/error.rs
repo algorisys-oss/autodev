@@ -23,6 +23,9 @@ pub enum AppError {
 
     #[error("pty error: {0}")]
     Pty(String),
+
+    #[error("git error: {0}")]
+    Git(String),
 }
 
 impl Serialize for AppError {

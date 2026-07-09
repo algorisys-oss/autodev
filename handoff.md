@@ -5,9 +5,10 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 4 — prompt composer. Complete.
-- **Phases done:** 0–4 (foundation, workspaces, single agent, orchestration, composer).
-- **Next up:** Phase 5 — git worktree isolation + merge-back. See `PLAN.md`.
+- **Last task:** Phase 5 — git worktree isolation + merge-back. Complete.
+- **Phases done:** 0–5. The core product (workspaces → orchestration → composer →
+  worktrees) is usable end to end.
+- **Next up:** Phase 6 — voice-to-text (pluggable transcription). See `PLAN.md`.
 
 ## What runs
 
@@ -18,7 +19,10 @@ Updated as the final step of every task (LOOPS XXVI).
   Prompt history persists (`~/.autodev/prompts.json`). The agent grid shows every session
   with a live status dot; click to focus its terminal. “Kill all” and window-close kill
   every agent (no orphans). Per-agent output logs to `~/.autodev/logs/<id>.log`.
-- `./dev.sh test` — Rust `cargo test` (13 tests) + Vitest (25).
+- Isolate: tick “Isolate (worktree)” in the composer to run each agent in its own
+  `git worktree` (own branch), so parallel agents never collide. The focused agent's bar
+  shows the branch with Merge / Remove actions (merge refuses a dirty target).
+- `./dev.sh test` — Rust `cargo test` (16 tests, incl. real git worktree flow) + Vitest (25).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

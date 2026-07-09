@@ -212,3 +212,71 @@ pub fn get_prompt_history() -> AppResult<Vec<String>> {
 pub fn add_prompt_history(text: String) -> AppResult<Vec<String>> {
     state::add_prompt(&text)
 }
+
+// --- Git worktrees (Phase 5) ---
+
+use crate::git::{self, WorktreeStatus};
+use std::path::{Path, PathBuf};
+
+/// A worktree created for isolated agent work.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeInfo {
+    pub repo: String,
+    pub path: String,
+    pub branch: String,
+}
+
+#[tauri::command]
+pub fn git_is_repo(dir: String) -> bool {
+    git::is_repo(Path::new(&dir))
+}
+
+/// Turn a branch name into a directory-safe slug for the worktree folder.
+fn worktree_slug(branch: &str) -> String {
+    branch
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect()
+}
+
+#[tauri::command]
+pub fn git_create_worktree(repo: String, branch: String) -> AppResult<WorktreeInfo> {
+    let repo_path = PathBuf::from(&repo);
+    let path = state::data_dir()?
+        .join("worktrees")
+        .join(worktree_slug(&branch));
+    if path.exists() {
+        return Err(crate::error::AppError::Conflict(format!(
+            "worktree path already exists: {}",
+            path.display()
+        )));
+    }
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    git::create_worktree(&repo_path, &path, &branch)?;
+    Ok(WorktreeInfo {
+        repo,
+        path: path.to_string_lossy().to_string(),
+        branch,
+    })
+}
+
+#[tauri::command]
+pub fn git_worktree_status(path: String) -> AppResult<WorktreeStatus> {
+    git::status(Path::new(&path))
+}
+
+#[tauri::command]
+pub fn git_diff(repo: String, branch: String) -> AppResult<String> {
+    git::diff(Path::new(&repo), &branch)
+}
+
+#[tauri::command]
+pub fn git_merge_worktree(repo: String, branch: String) -> AppResult<String> {
+    git::merge(Path::new(&repo), &branch)
+}
+
+#[tauri::command]
+pub fn git_remove_worktree(repo: String, path: String, force: bool) -> AppResult<()> {
+    git::remove_worktree(Path::new(&repo), Path::new(&path), force)
+}

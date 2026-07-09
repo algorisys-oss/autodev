@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { appInfo, type AppInfo } from "./lib/ipc";
+import { appInfo, gitMergeWorktree, gitRemoveWorktree, type AppInfo } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore } from "./lib/agent-store";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -25,6 +25,27 @@ function App() {
   onCleanup(() => agents.dispose());
 
   const selected = () => workspaces.selected();
+  const [wtMsg, setWtMsg] = createSignal<string | null>(null);
+
+  async function mergeWorktree(repo: string, branch: string) {
+    setWtMsg("merging…");
+    try {
+      await gitMergeWorktree(repo, branch);
+      setWtMsg(`merged ${branch}`);
+    } catch (e) {
+      setWtMsg(String(e));
+    }
+  }
+
+  async function removeWorktree(repo: string, path: string) {
+    setWtMsg("removing…");
+    try {
+      await gitRemoveWorktree(repo, path, false);
+      setWtMsg("worktree removed");
+    } catch (e) {
+      setWtMsg(String(e));
+    }
+  }
 
   return (
     <div class="app">
@@ -81,6 +102,17 @@ function App() {
                     <button onClick={() => agents.kill(a.id)}>Kill</button>
                   </Show>
                 </div>
+                <Show when={a.worktree}>
+                  {(wt) => (
+                    <div class="worktree-bar">
+                      <span class="muted">worktree · {wt().branch}</span>
+                      <span class="spacer" />
+                      <button onClick={() => mergeWorktree(wt().repo, wt().branch)}>Merge</button>
+                      <button onClick={() => removeWorktree(wt().repo, wt().path)}>Remove</button>
+                      <Show when={wtMsg()}>{(m) => <span class="wt-msg">{m()}</span>}</Show>
+                    </div>
+                  )}
+                </Show>
                 <TerminalPane agentId={a.id} store={agents} />
               </section>
             )}

@@ -1,6 +1,7 @@
 mod agent;
 mod commands;
 mod error;
+mod git;
 mod state;
 mod workspace;
 
@@ -39,6 +40,12 @@ pub fn run() {
             commands::agent_kill_all,
             commands::get_prompt_history,
             commands::add_prompt_history,
+            commands::git_is_repo,
+            commands::git_create_worktree,
+            commands::git_worktree_status,
+            commands::git_diff,
+            commands::git_merge_worktree,
+            commands::git_remove_worktree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

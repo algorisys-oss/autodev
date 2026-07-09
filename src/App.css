@@ -415,6 +415,20 @@ button.danger {
   font-size: 0.9em;
 }
 
+.worktree-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85em;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.wt-msg {
+  color: #555;
+  font-size: 0.9em;
+}
+
 .terminal-pane {
   height: 420px;
   padding: 4px;

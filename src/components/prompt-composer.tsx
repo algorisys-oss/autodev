@@ -2,8 +2,11 @@ import { createSignal, createMemo, createEffect, on, onMount, For, Show } from "
 import {
   addPromptHistory,
   getPromptHistory,
+  gitCreateWorktree,
+  gitIsRepo,
   type AgentBackend,
   type Workspace,
+  type WorktreeInfo,
 } from "../lib/ipc";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { resolveMentions } from "../lib/mentions";
@@ -22,6 +25,7 @@ export function PromptComposer(props: {
   const [planMode, setPlanMode] = createSignal(false);
   const [bypass, setBypass] = createSignal(false);
   const [ultrathink, setUltrathink] = createSignal(false);
+  const [isolate, setIsolate] = createSignal(false);
   const [runIn, setRunIn] = createSignal<string>("");
   const [history, setHistory] = createSignal<string[]>([]);
   const [error, setError] = createSignal<string | null>(null);
@@ -73,18 +77,28 @@ export function PromptComposer(props: {
     if (ultrathink() && backend() === "claude") prompt = prompt ? `${prompt} ultrathink` : "ultrathink";
 
     const n = Math.max(1, agentCount());
+    const useWorktree = isolate() && (await gitIsRepo(cwdProject.path).catch(() => false));
     try {
       for (let i = 0; i < n; i++) {
+        let cwd = cwdProject.path;
+        let worktree: WorktreeInfo | undefined;
+        if (useWorktree) {
+          const slug = cwdProject.name.replace(/[^a-zA-Z0-9]+/g, "-");
+          const branch = `autodev/${slug}-${Date.now().toString(36)}-${i}`;
+          worktree = await gitCreateWorktree(cwdProject.path, branch);
+          cwd = worktree.path;
+        }
         await props.agents.spawn(
           {
             backend: backend(),
-            cwd: cwdProject.path,
+            cwd,
             planMode: planMode(),
             bypassPermissions: bypass(),
             addDirs,
             initialPrompt: prompt || null,
           },
           n > 1 ? `${cwdProject.name} #${i + 1}` : cwdProject.name,
+          worktree,
         );
       }
       if (raw) setHistory(await addPromptHistory(raw));
@@ -160,6 +174,7 @@ export function PromptComposer(props: {
         <label><input type="checkbox" checked={planMode()} onChange={(e) => setPlanMode(e.currentTarget.checked)} /> Plan mode</label>
         <label><input type="checkbox" checked={bypass()} onChange={(e) => setBypass(e.currentTarget.checked)} /> Bypass permissions</label>
         <label><input type="checkbox" checked={ultrathink()} onChange={(e) => setUltrathink(e.currentTarget.checked)} /> Ultrathink</label>
+        <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>
         <span class="spacer" />
         <button class="primary" onClick={launch}>
           Launch {agentCount()} agent{agentCount() > 1 ? "s" : ""}

@@ -126,3 +126,40 @@ export function getPromptHistory(): Promise<string[]> {
 export function addPromptHistory(text: string): Promise<string[]> {
   return invoke<string[]>("add_prompt_history", { text });
 }
+
+// --- Git worktrees (Phase 5) ---
+
+export interface WorktreeInfo {
+  repo: string;
+  path: string;
+  branch: string;
+}
+
+export interface WorktreeStatus {
+  branch: string;
+  dirty: boolean;
+}
+
+export function gitIsRepo(dir: string): Promise<boolean> {
+  return invoke<boolean>("git_is_repo", { dir });
+}
+
+export function gitCreateWorktree(repo: string, branch: string): Promise<WorktreeInfo> {
+  return invoke<WorktreeInfo>("git_create_worktree", { repo, branch });
+}
+
+export function gitWorktreeStatus(path: string): Promise<WorktreeStatus> {
+  return invoke<WorktreeStatus>("git_worktree_status", { path });
+}
+
+export function gitDiff(repo: string, branch: string): Promise<string> {
+  return invoke<string>("git_diff", { repo, branch });
+}
+
+export function gitMergeWorktree(repo: string, branch: string): Promise<string> {
+  return invoke<string>("git_merge_worktree", { repo, branch });
+}
+
+export function gitRemoveWorktree(repo: string, path: string, force: boolean): Promise<void> {
+  return invoke<void>("git_remove_worktree", { repo, path, force });
+}
