@@ -15,6 +15,7 @@ import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { resolveMentions } from "../lib/mentions";
 import { Annotator } from "./annotator";
+import { BrowserHandoff } from "./browser-handoff";
 import type { createAgentStore } from "../lib/agent-store";
 
 /** Compose a prompt, pick a difficulty (which suggests agent count + modes), attach
@@ -38,6 +39,7 @@ export function PromptComposer(props: {
   const [transcribing, setTranscribing] = createSignal(false);
   const [captured, setCaptured] = createSignal<string | null>(null);
   const [images, setImages] = createSignal<string[]>([]);
+  const [showHandoff, setShowHandoff] = createSignal(false);
 
   onMount(async () => {
     try {
@@ -185,7 +187,15 @@ export function PromptComposer(props: {
         <button class="mic" title="Screenshot" onClick={takeScreenshot}>
           📷
         </button>
+        <button class="mic" title="Browser handoff" onClick={() => setShowHandoff(true)}>
+          🌐
+        </button>
       </div>
+
+      <Show when={showHandoff()}>
+        <BrowserHandoff onClose={() => setShowHandoff(false)} />
+      </Show>
+
 
       <Show when={images().length}>
         <div class="mention-row">

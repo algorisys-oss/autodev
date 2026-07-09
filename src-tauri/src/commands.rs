@@ -334,3 +334,29 @@ pub fn save_shot(data: String) -> AppResult<String> {
     let path = crate::capture::save_png(&dir, &data)?;
     Ok(path.to_string_lossy().to_string())
 }
+
+// --- Browser handoff (Phase 8) ---
+
+#[tauri::command]
+pub fn generate_handoff(task: String, url: String, context: String) -> String {
+    crate::handoff::build_handoff(&task, &url, &context)
+}
+
+/// Run the configured `browserCommand` against the handoff text. Errors clearly if no
+/// command is set (the handoff is still useful to copy into a browser AI manually).
+#[tauri::command]
+pub fn run_browser_handoff(handoff: String) -> AppResult<String> {
+    let template = state::load_settings()?.browser_command.ok_or_else(|| {
+        crate::error::AppError::Browser(
+            "no browserCommand configured in settings; copy the handoff into a browser AI instead"
+                .into(),
+        )
+    })?;
+    let dir = state::data_dir()?.join("tmp");
+    std::fs::create_dir_all(&dir)?;
+    let file = dir.join("handoff.txt");
+    std::fs::write(&file, &handoff)?;
+    let result = crate::handoff::run_browser(&template, &file);
+    let _ = std::fs::remove_file(&file);
+    result
+}

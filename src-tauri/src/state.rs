@@ -25,6 +25,10 @@ pub struct AppSettings {
     /// Example: `grim {file}` (Wayland), `scrot {file}` (X11), `screencapture {file}` (macOS).
     #[serde(default)]
     pub screenshot_command: Option<String>,
+    /// Shell command template to execute a browser handoff. `{file}` is replaced with a
+    /// path to a file holding the handoff prompt. Example: a Playwright runner script.
+    #[serde(default)]
+    pub browser_command: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -34,6 +38,7 @@ impl Default for AppSettings {
             default_effort: "high".to_string(),
             transcribe_command: None,
             screenshot_command: None,
+            browser_command: None,
         }
     }
 }
@@ -145,6 +150,7 @@ mod tests {
             default_effort: "extra-high".to_string(),
             transcribe_command: Some("whisper {file}".to_string()),
             screenshot_command: Some("grim {file}".to_string()),
+            browser_command: Some("node run.js {file}".to_string()),
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

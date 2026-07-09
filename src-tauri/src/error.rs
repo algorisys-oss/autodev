@@ -32,6 +32,9 @@ pub enum AppError {
 
     #[error("screenshot error: {0}")]
     Capture(String),
+
+    #[error("browser error: {0}")]
+    Browser(String),
 }
 
 impl Serialize for AppError {

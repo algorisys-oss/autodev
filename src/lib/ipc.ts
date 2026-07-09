@@ -13,6 +13,7 @@ export interface AppSettings {
   defaultEffort: "high" | "extra-high";
   transcribeCommand?: string | null;
   screenshotCommand?: string | null;
+  browserCommand?: string | null;
 }
 
 export function appInfo(): Promise<AppInfo> {
@@ -183,4 +184,14 @@ export function captureScreen(): Promise<string> {
 /** Save an annotated base64 PNG; returns its file path. */
 export function saveShot(data: string): Promise<string> {
   return invoke<string>("save_shot", { data });
+}
+
+// --- Browser handoff (Phase 8) ---
+
+export function generateHandoff(task: string, url: string, context: string): Promise<string> {
+  return invoke<string>("generate_handoff", { task, url, context });
+}
+
+export function runBrowserHandoff(handoff: string): Promise<string> {
+  return invoke<string>("run_browser_handoff", { handoff });
 }

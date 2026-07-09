@@ -3,6 +3,7 @@ mod capture;
 mod commands;
 mod error;
 mod git;
+mod handoff;
 mod state;
 mod transcribe;
 mod workspace;
@@ -51,6 +52,8 @@ pub fn run() {
             commands::transcribe_audio,
             commands::capture_screen,
             commands::save_shot,
+            commands::generate_handoff,
+            commands::run_browser_handoff,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

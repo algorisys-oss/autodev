@@ -4,6 +4,17 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 8 — Browser handoff
+- Rust `handoff` module: `build_handoff(task, url, context)` produces a structured
+  browser-AI prompt (goal / starting point / context / steps / report-back), with
+  fallbacks for empty fields. `run_browser` runs a configured `browserCommand` on the
+  handoff file. `generate_handoff` + `run_browser_handoff` commands; `browserCommand`
+  setting; `AppError::Browser`.
+- Frontend `BrowserHandoff` modal (🌐 in the composer): task/url/context form → generate,
+  copy to clipboard, or run the browserCommand and show its output.
+- Tests: +3 Rust (handoff sections, empty fallbacks, browser file pass-through).
+  Total 27 Rust + 28 frontend.
+
 ### Phase 7 — Screenshot + annotate
 - Pluggable capture: `AppSettings.screenshotCommand` (`{file}` → PNG path, run via `sh -c`,
   e.g. grim/scrot/screencapture). Rust `capture` module runs it and returns base64;

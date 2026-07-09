@@ -2,6 +2,25 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 8 — Browser handoff — COMPLETE
+
+**Decided:** The valuable, reproducible core is *generating* a good handoff prompt (pure,
+tested). Actual browser control is left pluggable via `browserCommand` (e.g. a Playwright
+runner reading the handoff from `{file}`) rather than bundling Playwright — mirrors the
+video's Comet flow where an agent writes a handoff and a browser AI executes it. Without a
+`browserCommand`, the user copies the handoff into any browser AI.
+
+**Built:**
+- `src-tauri/src/handoff.rs` (+3 tests) — `build_handoff`, `run_browser`;
+  `generate_handoff` + `run_browser_handoff` commands; `browserCommand` setting.
+- `src/components/browser-handoff.tsx` modal; 🌐 button in the composer.
+
+**Status:** complete. `./dev.sh verify` green (27 Rust + 28 frontend).
+
+**Deliberate deferrals:**
+- No bundled browser automation; `browserCommand` is the seam. A first-class Playwright
+  integration can land later.
+
 ## Phase 7 — Screenshot + annotate — COMPLETE
 
 **Decided:** Screen capture is a pluggable shell command (`screenshotCommand`), same

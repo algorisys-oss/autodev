@@ -308,6 +308,90 @@ button.mic.recording {
   touch-action: none;
 }
 
+.handoff-modal {
+  background: #fff;
+  color: #0f0f0f;
+  border-radius: 8px;
+  padding: 1rem;
+  width: min(680px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.handoff-head {
+  display: flex;
+  align-items: center;
+}
+
+.handoff-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85em;
+  color: #555;
+}
+
+.handoff-field textarea,
+.handoff-field input {
+  font: inherit;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.4rem;
+}
+
+.handoff-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.handoff-field.grow {
+  flex: 1 1 auto;
+}
+
+.handoff-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.handoff-output {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8em;
+  white-space: pre;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  padding: 0.5rem;
+}
+
+.handoff-result {
+  background: #f0f0f0;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.8em;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow: auto;
+}
+
+@media (prefers-color-scheme: dark) {
+  .handoff-modal {
+    background: #2a2a2a;
+    color: #f6f6f6;
+  }
+  .handoff-field textarea,
+  .handoff-field input,
+  .handoff-output {
+    background: #1f1f1f;
+    color: #f6f6f6;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .handoff-result {
+    background: #1a1a1a;
+  }
+}
+
 .mention-row {
   display: flex;
   flex-wrap: wrap;

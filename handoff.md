@@ -5,16 +5,18 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 7 — screenshot + annotate. Complete.
-- **Phases done:** 0–7.
-- **Next up:** Phase 8 — browser handoff. See `PLAN.md`.
+- **Last task:** Phase 8 — browser handoff. Complete.
+- **Phases done:** 0–8.
+- **Next up:** Phase 9 — autonomous loop engine (Planner/Generator/Evaluator). See `PLAN.md`.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
 - `transcribeCommand` — e.g. `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`
 - `screenshotCommand` — e.g. `grim {file}` (Wayland), `scrot {file}` (X11),
   `screencapture {file}` (macOS)
-Without them, the mic / screenshot buttons return a clear "not configured" error.
+- `browserCommand` — optional; a script (e.g. Playwright) that reads the handoff from
+  `{file}`. Without it, generate + copy the handoff into a browser AI manually.
+Without them, the mic / screenshot / run buttons return a clear "not configured" error.
 
 ## What runs
 
@@ -31,7 +33,10 @@ Without them, the mic / screenshot buttons return a clear "not configured" error
 - Screenshot: 📷 in the composer captures the screen, opens an annotator (arrow/box/pen
   + colors + undo), and attaches the annotated PNG to the next launch (Codex gets it via
   `-i`; Claude gets the path referenced in the prompt).
-- `./dev.sh test` — Rust `cargo test` (24 tests) + Vitest (28).
+- Browser handoff: 🌐 in the composer opens a modal to describe a web task and generate a
+  structured handoff prompt; copy it into a browser AI (Comet-style) or run a configured
+  `browserCommand` (e.g. Playwright) on it.
+- `./dev.sh test` — Rust `cargo test` (27 tests) + Vitest (28).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 
