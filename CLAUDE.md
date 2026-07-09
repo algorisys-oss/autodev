@@ -77,21 +77,25 @@ This app spawns processes and can run agents in bypass/yolo mode. Be strict:
 
 ## Build / test / run
 
-Filled in during Phase 0. Until then, the intended commands are:
+Use `dev.sh` — it is the single entry point and handles the snap env scrub needed to
+launch the app on this machine:
 
-- `cargo test` — Rust core unit tests.
-- `npm test` (Vitest) — frontend unit tests.
-- `npm run tauri dev` — run the app in dev.
-- `npm run tauri build` — production build.
-- `cargo clippy` + `eslint` — lint.
+- `./dev.sh setup` — install npm + cargo dependencies.
+- `./dev.sh dev` — run the app with hot reload (do NOT call `npm run tauri dev` directly
+  from a snap shell; it crashes on snap's libpthread — see README).
+- `./dev.sh test` — Vitest (frontend) + `cargo test` (core).
+- `./dev.sh lint` — eslint + tsc + clippy + rustfmt check.
+- `./dev.sh verify` — everything CI runs; run this before every commit.
 
 Keep this section accurate as it changes (LOOPS XXVI).
 
 ## Naming
 
-All source files and folders, and all on-disk state files, are **lowercase-hyphenated**
-(`agent-adapter.rs`, `process-manager/`, `terminal-pane.tsx`, `feature-list.json`). The
-only exceptions are `CLAUDE.md` (the harness loads it by that exact name) and `LOOPS.md`.
+Frontend files/folders, scripts, configs, and on-disk state files are
+**lowercase-hyphenated** (`terminal-pane.tsx`, `feature-list.json`, `dev.sh`). **Rust
+module files use snake_case** (`agent_adapter.rs`, `process_manager.rs`) — hyphens are
+invalid in Rust module names, and per LOOPS XXXVI we use the target language's idioms
+rather than fight them. Uppercase docs `CLAUDE.md` and `LOOPS.md` keep their fixed names.
 
 ## Style
 

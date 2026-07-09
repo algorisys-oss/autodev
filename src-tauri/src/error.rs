@@ -1,0 +1,29 @@
+use serde::Serialize;
+
+/// Errors returned across the Tauri command boundary.
+///
+/// Every variant serializes to a plain string so the frontend receives a
+/// readable message rather than an opaque object.
+#[derive(Debug, thiserror::Error)]
+pub enum AppError {
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("json error: {0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("could not resolve the home directory")]
+    NoHomeDir,
+}
+
+impl Serialize for AppError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+/// Result alias for anything that crosses a command boundary.
+pub type AppResult<T> = Result<T, AppError>;

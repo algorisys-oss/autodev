@@ -1,0 +1,98 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use serde::{Deserialize, Serialize};
+
+use crate::error::{AppError, AppResult};
+
+/// Persisted application settings.
+///
+/// This is the whole on-disk state for Phase 0. Later phases add sibling files
+/// (workspaces, agent sessions) under the same data directory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppSettings {
+    /// UI theme: "system" | "light" | "dark".
+    pub theme: String,
+    /// Default reasoning effort for new agents: "high" | "extra-high".
+    pub default_effort: String,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: "system".to_string(),
+            default_effort: "high".to_string(),
+        }
+    }
+}
+
+/// Root data directory for AutoDev state: `~/.autodev`.
+pub fn data_dir() -> AppResult<PathBuf> {
+    let home = dirs::home_dir().ok_or(AppError::NoHomeDir)?;
+    Ok(home.join(".autodev"))
+}
+
+/// Read settings from `dir/settings.json`, returning defaults if it is absent.
+pub fn load_settings_from(dir: &Path) -> AppResult<AppSettings> {
+    let path = dir.join("settings.json");
+    match fs::read_to_string(&path) {
+        Ok(raw) => Ok(serde_json::from_str(&raw)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AppSettings::default()),
+        Err(e) => Err(AppError::Io(e)),
+    }
+}
+
+/// Write settings to `dir/settings.json`, creating `dir` if needed.
+pub fn save_settings_to(dir: &Path, settings: &AppSettings) -> AppResult<()> {
+    fs::create_dir_all(dir)?;
+    let raw = serde_json::to_string_pretty(settings)?;
+    fs::write(dir.join("settings.json"), raw)?;
+    Ok(())
+}
+
+/// Load settings from the real data directory.
+pub fn load_settings() -> AppResult<AppSettings> {
+    load_settings_from(&data_dir()?)
+}
+
+/// Save settings to the real data directory.
+pub fn save_settings(settings: &AppSettings) -> AppResult<()> {
+    save_settings_to(&data_dir()?, settings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "autodev-test-{tag}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        dir
+    }
+
+    #[test]
+    fn load_returns_defaults_when_missing() {
+        let dir = temp_dir("defaults");
+        let s = load_settings_from(&dir).unwrap();
+        assert_eq!(s, AppSettings::default());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_then_load_roundtrips() {
+        let dir = temp_dir("roundtrip");
+        let custom = AppSettings {
+            theme: "dark".to_string(),
+            default_effort: "extra-high".to_string(),
+        };
+        save_settings_to(&dir, &custom).unwrap();
+        let loaded = load_settings_from(&dir).unwrap();
+        assert_eq!(loaded, custom);
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
