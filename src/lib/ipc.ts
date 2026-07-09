@@ -70,3 +70,48 @@ export function resolveMention(
 ): Promise<ResolvedMention | null> {
   return invoke<ResolvedMention | null>("resolve_mention", { workspaceId, token });
 }
+
+// --- Agents (Phase 2) ---
+
+export type AgentBackend = "claude" | "codex" | "mock";
+
+export interface AgentOptions {
+  backend: AgentBackend;
+  cwd: string;
+  planMode?: boolean;
+  bypassPermissions?: boolean;
+  model?: string | null;
+  initialPrompt?: string | null;
+  mockCommand?: string[] | null;
+}
+
+export interface AgentInfo {
+  id: string;
+  backend: AgentBackend;
+  cwd: string;
+  running: boolean;
+}
+
+export function agentSpawn(options: AgentOptions, cols?: number, rows?: number): Promise<string> {
+  return invoke<string>("agent_spawn", { options, cols, rows });
+}
+
+export function agentWrite(id: string, data: string): Promise<void> {
+  return invoke<void>("agent_write", { id, data });
+}
+
+export function agentResize(id: string, cols: number, rows: number): Promise<void> {
+  return invoke<void>("agent_resize", { id, cols, rows });
+}
+
+export function agentKill(id: string): Promise<void> {
+  return invoke<void>("agent_kill", { id });
+}
+
+export function agentList(): Promise<AgentInfo[]> {
+  return invoke<AgentInfo[]>("agent_list");
+}
+
+export function agentKillAll(): Promise<number> {
+  return invoke<number>("agent_kill_all");
+}

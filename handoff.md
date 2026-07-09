@@ -5,18 +5,22 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 1 — workspaces & projects. Complete.
-- **Phases done:** 0 (foundation), 1 (workspaces & projects).
-- **Next up:** Phase 2 — single agent session via portable-pty + xterm.js (see `PLAN.md`).
+- **Last task:** Phase 2 — single agent session (PTY + xterm.js). Complete.
+- **Phases done:** 0 (foundation), 1 (workspaces & projects), 2 (single agent session).
+- **Next up:** Phase 3 — multi-agent orchestration (agent grid, live status, Codex
+  adapter, kill-all on quit). See `PLAN.md`.
 
 ## What runs
 
-- `./dev.sh dev` — launch the app (hot reload). Boots to the AutoDev window: left sidebar
-  to create workspaces and add project directories (native folder picker), main panel
-  shows the selected workspace's projects. State persists to `~/.autodev/workspaces.json`.
-- `./dev.sh test` — Rust `cargo test` (7 tests) + Vitest (8 tests). Green.
-- `./dev.sh lint` — eslint + tsc + clippy + rustfmt check. Green.
+- `./dev.sh dev` — launch the app. Sidebar creates workspaces + adds project dirs. Each
+  project has a “▶ Claude” button that spawns a real Claude Code agent in that directory
+  in a PTY, streamed into an xterm terminal you can type into. Kill button ends it.
+- `./dev.sh test` — Rust `cargo test` (11 tests, incl. PTY mock-agent) + Vitest (11).
+- `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
+
+Agent backends are pluggable (`claude`, `codex`, `mock`). Tests drive the `mock` backend
+so the spawn→stream→write→exit path is verified without real CLI auth.
 
 ## The one command to verify
 

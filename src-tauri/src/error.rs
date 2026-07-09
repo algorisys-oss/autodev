@@ -20,6 +20,9 @@ pub enum AppError {
 
     #[error("conflict: {0}")]
     Conflict(String),
+
+    #[error("pty error: {0}")]
+    Pty(String),
 }
 
 impl Serialize for AppError {

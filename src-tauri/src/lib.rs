@@ -1,3 +1,4 @@
+mod agent;
 mod commands;
 mod error;
 mod state;
@@ -8,6 +9,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(agent::AgentManager::default())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::get_settings,
@@ -18,6 +20,12 @@ pub fn run() {
             commands::add_project,
             commands::remove_project,
             commands::resolve_mention,
+            commands::agent_spawn,
+            commands::agent_write,
+            commands::agent_resize,
+            commands::agent_kill,
+            commands::agent_list,
+            commands::agent_kill_all,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

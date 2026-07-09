@@ -178,6 +178,64 @@ button.icon {
   font-size: 0.85em;
 }
 
+.project-line {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.project-line .project-name {
+  font-weight: 600;
+}
+
+.project-line .project-path {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.launch {
+  flex: 0 0 auto;
+}
+
+.agent-session {
+  margin-top: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.agent-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.agent-title {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.terminal-pane {
+  height: 420px;
+  padding: 4px;
+  background: #1a1a1a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .agent-session {
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+  .agent-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;

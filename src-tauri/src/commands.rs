@@ -1,5 +1,8 @@
+use base64::Engine;
 use serde::Serialize;
+use tauri::{AppHandle, Emitter, State};
 
+use crate::agent::{AgentInfo, AgentManager, AgentOptions};
 use crate::error::AppResult;
 use crate::state::{self, AppSettings};
 use crate::workspace::{self, ResolvedMention, Workspace, WorkspaceStore};
@@ -86,4 +89,94 @@ pub fn resolve_mention(workspace_id: String, token: String) -> AppResult<Option<
         .find(|w| w.id == workspace_id)
         .ok_or_else(|| crate::error::AppError::NotFound(format!("workspace {workspace_id}")))?;
     Ok(workspace::resolve_mention(ws, &token))
+}
+
+// --- Agents (Phase 2) ---
+
+#[derive(Clone, Serialize)]
+struct OutputEvent {
+    id: String,
+    /// base64 of the raw PTY bytes, so terminal escape sequences survive intact.
+    data: String,
+}
+
+#[derive(Clone, Serialize)]
+struct ExitEvent {
+    id: String,
+    code: Option<i32>,
+}
+
+#[tauri::command]
+pub fn agent_spawn(
+    app: AppHandle,
+    manager: State<'_, AgentManager>,
+    options: AgentOptions,
+    cols: Option<u16>,
+    rows: Option<u16>,
+) -> AppResult<String> {
+    let id = manager.next_id();
+    let cols = cols.unwrap_or(80);
+    let rows = rows.unwrap_or(24);
+
+    let out_app = app.clone();
+    let out_id = id.clone();
+    let on_output = move |bytes: Vec<u8>| {
+        let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let _ = out_app.emit(
+            "agent://output",
+            OutputEvent {
+                id: out_id.clone(),
+                data,
+            },
+        );
+    };
+
+    let exit_app = app.clone();
+    let exit_id = id.clone();
+    let on_exit = move |code: Option<i32>| {
+        let _ = exit_app.emit(
+            "agent://exit",
+            ExitEvent {
+                id: exit_id.clone(),
+                code,
+            },
+        );
+    };
+
+    let session =
+        crate::agent::spawn_session(id.clone(), &options, cols, rows, on_output, on_exit)?;
+    manager.insert(session);
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn agent_write(manager: State<'_, AgentManager>, id: String, data: String) -> AppResult<()> {
+    manager.get(&id)?.write(data.as_bytes())
+}
+
+#[tauri::command]
+pub fn agent_resize(
+    manager: State<'_, AgentManager>,
+    id: String,
+    cols: u16,
+    rows: u16,
+) -> AppResult<()> {
+    manager.get(&id)?.resize(cols, rows)
+}
+
+#[tauri::command]
+pub fn agent_kill(manager: State<'_, AgentManager>, id: String) -> AppResult<()> {
+    let session = manager.get(&id)?;
+    session.kill()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn agent_list(manager: State<'_, AgentManager>) -> Vec<AgentInfo> {
+    manager.list()
+}
+
+#[tauri::command]
+pub fn agent_kill_all(manager: State<'_, AgentManager>) -> usize {
+    manager.kill_all()
 }

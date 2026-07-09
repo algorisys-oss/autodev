@@ -4,6 +4,20 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 2 — Single agent session
+- Rust `agent` module: launch a coding-agent CLI in a real PTY (`portable-pty`), stream
+  output, accept input, resize, kill. `AgentManager` tracks sessions with a `kill_all`.
+- Backends behind one builder: `claude` (`--permission-mode plan`,
+  `--dangerously-skip-permissions`, `--model`), `codex`, and `mock` (arbitrary command,
+  for tests/CI without real auth). Flags verified against the installed CLIs.
+- Commands: `agent_spawn`/`agent_write`/`agent_resize`/`agent_kill`/`agent_list`/
+  `agent_kill_all`. Output/exit stream to the frontend as `agent://output` (base64 to
+  preserve escape bytes) and `agent://exit` events. `AppError::Pty` added.
+- Frontend: `TerminalPane` (xterm.js + fit addon) wired to the events and commands; App
+  gained a per-project “▶ Claude” launcher and a kill control. `base64ToBytes` helper.
+- Tests: +4 Rust (real-PTY mock-agent spawn/stream/input, manager kill-all) and +3
+  frontend (base64 byte fidelity). Total 11 Rust + 11 frontend. App boot re-verified.
+
 ### Phase 1 — Workspaces & projects
 - Rust `workspace` module: `Workspace`/`Project`/`WorkspaceStore` persisted to
   `~/.autodev/workspaces.json`; create/delete workspace, add/remove project (basename

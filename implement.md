@@ -2,6 +2,34 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 2 — Single agent session — COMPLETE
+
+**Decided:** The load-bearing PTY core is a Tauri-independent function
+(`spawn_session`) that takes `on_output`/`on_exit` callbacks, so tests drive it directly
+with real PTYs and the Tauri command layer just supplies event-emitting callbacks. Added
+a `mock` backend (runs any command) to test spawn/stream/write/exit deterministically in
+CI without Claude/Codex auth — de-risking the riskiest phase on the mechanism itself
+(LOOPS XXXVI). PTY bytes cross to the frontend base64-encoded so terminal escape
+sequences survive intact.
+
+**Built:**
+- `src-tauri/src/agent.rs` — `AgentBackend`, `AgentOptions`, `build_command`,
+  `spawn_session`, `AgentSession` (write/resize/kill), `AgentManager` (+kill_all). 4 tests.
+- `commands.rs` — 6 agent commands + `agent://output`/`agent://exit` events.
+- Frontend: `src/components/terminal-pane.tsx` (xterm), `src/lib/bytes.ts` (+test),
+  agent ipc wrappers, App launcher/kill UI.
+
+**Status:** complete. `./dev.sh verify` green (11 Rust + 11 frontend). Real app boot
+confirmed: `Running target/debug/autodev`, no crash, terminal integrated.
+
+**Deliberate deferrals / known gaps (address in Phase 3):**
+- Small race: `agent://output` listeners attach just after spawn, so the first few
+  startup bytes could be missed. Fix with a per-agent output buffer/replay in the
+  Phase 3 session store.
+- Agents are not yet killed on window close / app quit — Phase 3 wires `kill_all` to the
+  exit hook (acceptance test there: no orphaned processes).
+- Status is running/exited only; idle/waiting detection comes with the Phase 3 grid.
+
 ## Phase 1 — Workspaces & projects — COMPLETE
 
 **Decided:** All workspace/project logic and persistence live in the Rust core (unit
