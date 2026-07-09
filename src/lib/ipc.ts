@@ -11,6 +11,7 @@ export interface AppInfo {
 export interface AppSettings {
   theme: "system" | "light" | "dark";
   defaultEffort: "high" | "extra-high";
+  transcribeCommand?: string | null;
 }
 
 export function appInfo(): Promise<AppInfo> {
@@ -162,4 +163,10 @@ export function gitMergeWorktree(repo: string, branch: string): Promise<string> 
 
 export function gitRemoveWorktree(repo: string, path: string, force: boolean): Promise<void> {
   return invoke<void>("git_remove_worktree", { repo, path, force });
+}
+
+// --- Voice-to-text (Phase 6) ---
+
+export function transcribeAudio(data: Uint8Array, ext: string): Promise<string> {
+  return invoke<string>("transcribe_audio", { data: Array.from(data), ext });
 }

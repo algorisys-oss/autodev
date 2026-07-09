@@ -2,6 +2,28 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 6 — Voice-to-text — COMPLETE
+
+**Decided:** Transcription is a pluggable shell command (`transcribeCommand` in settings),
+not a bundled model — keeps the app light and lets the user pick whisper.cpp, an API
+wrapper, or anything with a CLI. `{file}` is substituted (shell-quoted) and the template
+runs via `sh -c`, so pipelines like `whisper-cli … && cat …txt` work. Mic capture uses the
+webview's MediaRecorder; bytes go to the core, which writes a temp file and runs the
+command.
+
+**Built:**
+- `src-tauri/src/transcribe.rs` (+4 tests) + `transcribe_audio` command; `AppSettings.
+  transcribeCommand`.
+- `src/lib/recorder.ts` (+2 tests for `extFromMime`), mic button in the composer.
+
+**Status:** complete. `./dev.sh verify` green (20 Rust + 27 frontend).
+
+**Deliberate deferrals:**
+- No settings UI to set `transcribeCommand` yet — edit `~/.autodev/settings.json`. A
+  settings panel can come later.
+- MediaRecorder/getUserMedia aren't unit-tested (no jsdom support); only the pure
+  `extFromMime` is. The mic path is exercised manually in the app.
+
 ## Phase 5 — Git worktree isolation + merge-back — COMPLETE
 
 **Decided:** Shell out to `git` (no libgit2 dep, LOOPS VIII). Merge refuses a dirty target

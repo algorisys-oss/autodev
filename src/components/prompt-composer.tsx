@@ -8,6 +8,8 @@ import {
   type Workspace,
   type WorktreeInfo,
 } from "../lib/ipc";
+import { transcribeAudio } from "../lib/ipc";
+import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { resolveMentions } from "../lib/mentions";
 import type { createAgentStore } from "../lib/agent-store";
@@ -29,6 +31,8 @@ export function PromptComposer(props: {
   const [runIn, setRunIn] = createSignal<string>("");
   const [history, setHistory] = createSignal<string[]>([]);
   const [error, setError] = createSignal<string | null>(null);
+  const [recorder, setRecorder] = createSignal<Recorder | null>(null);
+  const [transcribing, setTranscribing] = createSignal(false);
 
   onMount(async () => {
     try {
@@ -59,6 +63,31 @@ export function PromptComposer(props: {
   const mentions = createMemo(() =>
     resolveMentions(text(), props.workspace?.projects ?? []),
   );
+
+  async function toggleRecord() {
+    setError(null);
+    const rec = recorder();
+    if (rec) {
+      setRecorder(null);
+      setTranscribing(true);
+      try {
+        const blob = await rec.stop();
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const transcript = await transcribeAudio(bytes, extFromMime(blob.type));
+        if (transcript) setText((t) => (t ? `${t} ${transcript}` : transcript));
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setTranscribing(false);
+      }
+    } else {
+      try {
+        setRecorder(await startRecording());
+      } catch (e) {
+        setError(`microphone unavailable: ${e}`);
+      }
+    }
+  }
 
   async function launch() {
     setError(null);
@@ -110,13 +139,24 @@ export function PromptComposer(props: {
 
   return (
     <section class="composer">
-      <textarea
-        class="composer-text"
-        value={text()}
-        onInput={(e) => setText(e.currentTarget.value)}
-        placeholder="Describe the task. @mention a project to add it as context…"
-        rows={3}
-      />
+      <div class="composer-input">
+        <textarea
+          class="composer-text"
+          value={text()}
+          onInput={(e) => setText(e.currentTarget.value)}
+          placeholder="Describe the task. @mention a project to add it as context…"
+          rows={3}
+        />
+        <button
+          class="mic"
+          classList={{ recording: !!recorder() }}
+          title={recorder() ? "Stop and transcribe" : "Record voice"}
+          onClick={toggleRecord}
+          disabled={transcribing()}
+        >
+          {transcribing() ? "…" : recorder() ? "◼" : "🎤"}
+        </button>
+      </div>
 
       <Show when={mentions().resolved.length || mentions().unresolved.length}>
         <div class="mention-row">

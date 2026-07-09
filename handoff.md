@@ -5,10 +5,14 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 5 — git worktree isolation + merge-back. Complete.
-- **Phases done:** 0–5. The core product (workspaces → orchestration → composer →
-  worktrees) is usable end to end.
-- **Next up:** Phase 6 — voice-to-text (pluggable transcription). See `PLAN.md`.
+- **Last task:** Phase 6 — voice-to-text. Complete.
+- **Phases done:** 0–6.
+- **Next up:** Phase 7 — screenshot + annotate. See `PLAN.md`.
+
+Voice needs a transcription backend: set `transcribeCommand` in `~/.autodev/settings.json`
+to a shell template with a `{file}` placeholder, e.g.
+`whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`. Without it, the mic button
+returns a clear "not configured" error. No model ships with the app.
 
 ## What runs
 

@@ -16,6 +16,11 @@ pub struct AppSettings {
     pub theme: String,
     /// Default reasoning effort for new agents: "high" | "extra-high".
     pub default_effort: String,
+    /// Shell command template used to transcribe a recording. `{file}` is replaced with
+    /// the audio path. Empty/absent means voice input is not configured. Example:
+    /// `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`.
+    #[serde(default)]
+    pub transcribe_command: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -23,6 +28,7 @@ impl Default for AppSettings {
         Self {
             theme: "system".to_string(),
             default_effort: "high".to_string(),
+            transcribe_command: None,
         }
     }
 }
@@ -132,6 +138,7 @@ mod tests {
         let custom = AppSettings {
             theme: "dark".to_string(),
             default_effort: "extra-high".to_string(),
+            transcribe_command: Some("whisper {file}".to_string()),
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

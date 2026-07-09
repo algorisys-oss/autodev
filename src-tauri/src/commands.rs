@@ -280,3 +280,31 @@ pub fn git_merge_worktree(repo: String, branch: String) -> AppResult<String> {
 pub fn git_remove_worktree(repo: String, path: String, force: bool) -> AppResult<()> {
     git::remove_worktree(Path::new(&repo), Path::new(&path), force)
 }
+
+// --- Voice-to-text (Phase 6) ---
+
+/// Write recorded audio bytes to a temp file, run the configured transcription command,
+/// and return the transcript. Errors clearly if no `transcribeCommand` is set.
+#[tauri::command]
+pub fn transcribe_audio(data: Vec<u8>, ext: String) -> AppResult<String> {
+    let template = state::load_settings()?.transcribe_command.ok_or_else(|| {
+        crate::error::AppError::Transcribe(
+            "no transcribeCommand configured in settings (~/.autodev/settings.json)".into(),
+        )
+    })?;
+    let dir = state::data_dir()?.join("tmp");
+    std::fs::create_dir_all(&dir)?;
+    let safe_ext: String = ext.chars().filter(|c| c.is_alphanumeric()).collect();
+    let file = dir.join(format!(
+        "recording.{}",
+        if safe_ext.is_empty() {
+            "webm".into()
+        } else {
+            safe_ext
+        }
+    ));
+    std::fs::write(&file, &data)?;
+    let result = crate::transcribe::run_transcription(&template, &file);
+    let _ = std::fs::remove_file(&file);
+    result
+}

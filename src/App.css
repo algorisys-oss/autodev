@@ -209,8 +209,14 @@ button.launch {
   gap: 0.6rem;
 }
 
+.composer-input {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+
 .composer-text {
-  width: 100%;
+  flex: 1 1 auto;
   resize: vertical;
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.2);
@@ -218,6 +224,16 @@ button.launch {
   font: inherit;
   background: #fff;
   color: inherit;
+}
+
+button.mic {
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+
+button.mic.recording {
+  color: #b00020;
+  border-color: #b00020;
 }
 
 .mention-row {

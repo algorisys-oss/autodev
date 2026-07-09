@@ -3,6 +3,7 @@ mod commands;
 mod error;
 mod git;
 mod state;
+mod transcribe;
 mod workspace;
 
 use tauri::{Manager, WindowEvent};
@@ -46,6 +47,7 @@ pub fn run() {
             commands::git_diff,
             commands::git_merge_worktree,
             commands::git_remove_worktree,
+            commands::transcribe_audio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

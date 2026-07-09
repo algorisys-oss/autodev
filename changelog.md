@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 6 — Voice-to-text
+- Pluggable transcription: `AppSettings.transcribeCommand` is a shell template with a
+  `{file}` placeholder, run via `sh -c` (any pipeline works, e.g. whisper.cpp). Rust
+  `transcribe` module renders + runs it; `transcribe_audio` command writes the recording
+  to a temp file, transcribes, cleans up, and errors clearly if unconfigured.
+- Frontend: `recorder` (MediaRecorder wrapper) + a mic button in the composer that records,
+  transcribes, and appends the text to the prompt.
+- Tests: +4 Rust (command render/quoting, stdout capture, file pass-through, failure) and
+  +2 frontend (mime→ext). Total 20 Rust + 27 frontend.
+
 ### Phase 5 — Git worktree isolation + merge-back
 - Rust `git` module (shells out to `git`): `is_repo`, `current_branch`, `status`
   (branch + dirty), `create_worktree`, `diff`, `merge` (no-ff, refuses a dirty target),

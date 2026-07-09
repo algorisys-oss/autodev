@@ -26,6 +26,9 @@ pub enum AppError {
 
     #[error("git error: {0}")]
     Git(String),
+
+    #[error("transcription error: {0}")]
+    Transcribe(String),
 }
 
 impl Serialize for AppError {
