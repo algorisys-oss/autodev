@@ -4,6 +4,19 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 1 — Workspaces & projects
+- Rust `workspace` module: `Workspace`/`Project`/`WorkspaceStore` persisted to
+  `~/.autodev/workspaces.json`; create/delete workspace, add/remove project (basename
+  naming, absolute-path canonicalization, duplicate + missing-dir rejection).
+- `@`-mention resolver: fuzzy project match (case/space/hyphen-insensitive) plus a
+  capped, sorted file listing that skips `node_modules`, `.git`, `target`, etc.
+- Commands: `list_workspaces`, `create_workspace`, `delete_workspace`, `add_project`,
+  `remove_project`, `resolve_mention`. Added `NotFound`/`Conflict` error variants.
+- Frontend: reactive `workspace-store`, `WorkspaceSidebar` (create workspace, native
+  folder picker via `tauri-plugin-dialog`, per-project remove), two-pane App shell.
+- Tests: +5 Rust (workspace CRUD, unique ids, mention resolution) and +5 frontend
+  (store orchestration with a fake ipc). Total 7 Rust + 8 frontend.
+
 ### Phase 0 — Foundation
 - Scaffolded the desktop app: Tauri v2 (Rust core) + SolidJS + TypeScript + Vite.
 - Renamed the crate/app to `autodev` (`com.algorisys.autodev`), licensed AGPL-3.0-only.

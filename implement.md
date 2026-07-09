@@ -2,6 +2,29 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 1 — Workspaces & projects — COMPLETE
+
+**Decided:** All workspace/project logic and persistence live in the Rust core (unit
+tested with temp dirs); the frontend is a thin reactive store + sidebar. Directory
+picking uses `tauri-plugin-dialog` (added Rust plugin + `dialog:allow-open` capability +
+npm `@tauri-apps/plugin-dialog`). Project name = directory basename; paths canonicalized
+to absolute. `@`-mention matching is fuzzy (normalize away case/space/hyphen).
+
+**Built:**
+- `src-tauri/src/workspace.rs` — model, disk store, CRUD, mention resolver, 5 tests.
+- `commands.rs` — 6 workspace commands wrapping the store against the real data dir.
+- `error.rs` — added `NotFound`, `Conflict`.
+- `src/lib/workspace-store.ts` (+ test), `src/components/workspace-sidebar.tsx`,
+  rewritten `src/App.tsx`/`App.css` into a two-pane layout.
+
+**Status:** complete. `./dev.sh verify` green (7 Rust + 8 frontend tests).
+
+**Deliberate deferrals:**
+- Mention file-listing does not yet parse `.gitignore` (uses a fixed ignore list). Fine
+  until it proves too coarse.
+- `resolve_mention` is wired as a command but not yet surfaced in the UI; that lands with
+  the Phase 4 prompt composer.
+
 ## Phase 0 — Foundation — COMPLETE
 
 **Decided:** Desktop app on Tauri (Rust core) + SolidJS + TypeScript (user picked Rust

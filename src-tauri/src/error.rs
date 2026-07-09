@@ -14,6 +14,12 @@ pub enum AppError {
 
     #[error("could not resolve the home directory")]
     NoHomeDir,
+
+    #[error("not found: {0}")]
+    NotFound(String),
+
+    #[error("conflict: {0}")]
+    Conflict(String),
 }
 
 impl Serialize for AppError {
