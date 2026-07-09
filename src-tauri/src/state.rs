@@ -21,6 +21,10 @@ pub struct AppSettings {
     /// `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`.
     #[serde(default)]
     pub transcribe_command: Option<String>,
+    /// Shell command template used to capture a screenshot to `{file}` (a PNG path).
+    /// Example: `grim {file}` (Wayland), `scrot {file}` (X11), `screencapture {file}` (macOS).
+    #[serde(default)]
+    pub screenshot_command: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -29,6 +33,7 @@ impl Default for AppSettings {
             theme: "system".to_string(),
             default_effort: "high".to_string(),
             transcribe_command: None,
+            screenshot_command: None,
         }
     }
 }
@@ -139,6 +144,7 @@ mod tests {
             theme: "dark".to_string(),
             default_effort: "extra-high".to_string(),
             transcribe_command: Some("whisper {file}".to_string()),
+            screenshot_command: Some("grim {file}".to_string()),
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

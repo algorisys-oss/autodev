@@ -2,6 +2,29 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 7 — Screenshot + annotate — COMPLETE
+
+**Decided:** Screen capture is a pluggable shell command (`screenshotCommand`), same
+pattern as voice — no heavy screen-capture crate, works with grim/scrot/screencapture/etc.
+Annotation is a canvas over the captured PNG; drawing is batched into a single rAF
+(LOOPS XXXIX). Attachment reuses the agent launch: Codex takes `-i <file>`, Claude has no
+image flag so the path is appended to the prompt for the agent to open.
+
+**Built:**
+- `src-tauri/src/capture.rs` (+3 tests) — `run_capture`, `save_png`; `capture_screen` +
+  `save_shot` commands; `screenshotCommand` setting; `AgentOptions.images` wired into
+  `command_line` (+1 Rust test for codex `-i` / claude prompt-append).
+- `src/lib/annotate.ts` (+1 test), `src/components/annotator.tsx`, composer 📷 button +
+  attachment chips.
+
+**Status:** complete. `./dev.sh verify` green (24 Rust + 28 frontend).
+
+**Deliberate deferrals:**
+- Full-screen capture only (no region picker in-app); crop by using a region-capture
+  `screenshotCommand` or cropping in the annotator later.
+- Canvas drawing (annotator) is verified manually — jsdom has no real canvas; only the
+  pure `arrowHead` geometry is unit-tested.
+
 ## Phase 6 — Voice-to-text — COMPLETE
 
 **Decided:** Transcription is a pluggable shell command (`transcribeCommand` in settings),

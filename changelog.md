@@ -4,6 +4,18 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 7 — Screenshot + annotate
+- Pluggable capture: `AppSettings.screenshotCommand` (`{file}` → PNG path, run via `sh -c`,
+  e.g. grim/scrot/screencapture). Rust `capture` module runs it and returns base64;
+  `save_shot` persists an annotated PNG under `~/.autodev/shots/`.
+- Frontend `Annotator`: canvas over the screenshot with arrow/box/pen tools, colors, and
+  undo; pointer drawing batched via requestAnimationFrame (LOOPS XXXIX). Composer 📷 button
+  captures → annotates → attaches; attachments ride the next launch.
+- `AgentOptions.images`: Codex gets `-i <file>` per image; Claude (no image flag) gets the
+  path appended to the prompt.
+- Tests: +3 Rust (capture read-back, missing-file error, save decode) and +1 frontend
+  (arrowhead geometry). Total 24 Rust + 28 frontend.
+
 ### Phase 6 — Voice-to-text
 - Pluggable transcription: `AppSettings.transcribeCommand` is a shell template with a
   `{file}` placeholder, run via `sh -c` (any pipeline works, e.g. whisper.cpp). Rust

@@ -40,6 +40,10 @@ pub struct AgentOptions {
     /// `--add-dir` to Claude Code.
     #[serde(default)]
     pub add_dirs: Vec<String>,
+    /// Image files (annotated screenshots) to attach. Codex takes them as `-i`; Claude
+    /// has no image CLI flag, so their paths are appended to the prompt instead.
+    #[serde(default)]
+    pub images: Vec<String>,
     /// For `Mock`: the command to run, e.g. `["bash", "script.sh"]`.
     #[serde(default)]
     pub mock_command: Option<Vec<String>>,
@@ -70,8 +74,13 @@ pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
                 args.push("--add-dir".into());
                 args.push(dir.clone());
             }
-            if let Some(p) = &opts.initial_prompt {
-                args.push(p.clone());
+            // Claude has no image CLI flag, so reference screenshot paths in the prompt.
+            let mut prompt = opts.initial_prompt.clone().unwrap_or_default();
+            for img in &opts.images {
+                prompt.push_str(&format!("\n\n[Screenshot attached: {img}]"));
+            }
+            if !prompt.is_empty() {
+                args.push(prompt);
             }
             "claude".to_string()
         }
@@ -82,6 +91,10 @@ pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
             if let Some(m) = &opts.model {
                 args.push("-m".into());
                 args.push(m.clone());
+            }
+            for img in &opts.images {
+                args.push("-i".into());
+                args.push(img.clone());
             }
             if let Some(p) = &opts.initial_prompt {
                 args.push(p.clone());
@@ -309,6 +322,7 @@ mod tests {
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
+            images: vec![],
             mock_command: Some(cmd.into_iter().map(String::from).collect()),
         }
     }
@@ -323,6 +337,7 @@ mod tests {
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
+            images: vec![],
             mock_command: None,
         };
         let (program, args) = command_line(&opts).unwrap();
@@ -345,6 +360,33 @@ mod tests {
     }
 
     #[test]
+    fn codex_maps_images_and_claude_appends_them_to_prompt() {
+        let codex = AgentOptions {
+            backend: AgentBackend::Codex,
+            cwd: "/tmp".into(),
+            plan_mode: false,
+            bypass_permissions: false,
+            model: None,
+            initial_prompt: Some("look".into()),
+            add_dirs: vec![],
+            images: vec!["/shots/a.png".into()],
+            mock_command: None,
+        };
+        let (_, args) = command_line(&codex).unwrap();
+        assert_eq!(args, vec!["-i", "/shots/a.png", "look"]);
+
+        let claude = AgentOptions {
+            backend: AgentBackend::Claude,
+            images: vec!["/shots/a.png".into()],
+            ..codex
+        };
+        let (_, args) = command_line(&claude).unwrap();
+        assert_eq!(args.len(), 1);
+        assert!(args[0].contains("look"));
+        assert!(args[0].contains("[Screenshot attached: /shots/a.png]"));
+    }
+
+    #[test]
     fn codex_command_line_maps_bypass_and_model() {
         let opts = AgentOptions {
             backend: AgentBackend::Codex,
@@ -354,6 +396,7 @@ mod tests {
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],
+            images: vec![],
             mock_command: None,
         };
         let (program, args) = command_line(&opts).unwrap();

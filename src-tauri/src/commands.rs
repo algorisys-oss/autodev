@@ -308,3 +308,29 @@ pub fn transcribe_audio(data: Vec<u8>, ext: String) -> AppResult<String> {
     let _ = std::fs::remove_file(&file);
     result
 }
+
+// --- Screenshot + annotate (Phase 7) ---
+
+/// Capture the screen via the configured `screenshotCommand` and return a base64 PNG.
+#[tauri::command]
+pub fn capture_screen() -> AppResult<String> {
+    let template = state::load_settings()?.screenshot_command.ok_or_else(|| {
+        crate::error::AppError::Capture(
+            "no screenshotCommand configured in settings (~/.autodev/settings.json)".into(),
+        )
+    })?;
+    let dir = state::data_dir()?.join("tmp");
+    std::fs::create_dir_all(&dir)?;
+    let file = dir.join("capture.png");
+    let bytes = crate::capture::run_capture(&template, &file)?;
+    let _ = std::fs::remove_file(&file);
+    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
+
+/// Save an annotated PNG (base64) under `~/.autodev/shots/` and return its path.
+#[tauri::command]
+pub fn save_shot(data: String) -> AppResult<String> {
+    let dir = state::data_dir()?.join("shots");
+    let path = crate::capture::save_png(&dir, &data)?;
+    Ok(path.to_string_lossy().to_string())
+}

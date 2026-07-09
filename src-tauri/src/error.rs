@@ -29,6 +29,9 @@ pub enum AppError {
 
     #[error("transcription error: {0}")]
     Transcribe(String),
+
+    #[error("screenshot error: {0}")]
+    Capture(String),
 }
 
 impl Serialize for AppError {

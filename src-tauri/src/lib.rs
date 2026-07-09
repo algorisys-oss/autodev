@@ -1,4 +1,5 @@
 mod agent;
+mod capture;
 mod commands;
 mod error;
 mod git;
@@ -48,6 +49,8 @@ pub fn run() {
             commands::git_merge_worktree,
             commands::git_remove_worktree,
             commands::transcribe_audio,
+            commands::capture_screen,
+            commands::save_shot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

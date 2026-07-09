@@ -5,14 +5,16 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 6 — voice-to-text. Complete.
-- **Phases done:** 0–6.
-- **Next up:** Phase 7 — screenshot + annotate. See `PLAN.md`.
+- **Last task:** Phase 7 — screenshot + annotate. Complete.
+- **Phases done:** 0–7.
+- **Next up:** Phase 8 — browser handoff. See `PLAN.md`.
 
-Voice needs a transcription backend: set `transcribeCommand` in `~/.autodev/settings.json`
-to a shell template with a `{file}` placeholder, e.g.
-`whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`. Without it, the mic button
-returns a clear "not configured" error. No model ships with the app.
+Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
+(each a template with a `{file}` placeholder):
+- `transcribeCommand` — e.g. `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`
+- `screenshotCommand` — e.g. `grim {file}` (Wayland), `scrot {file}` (X11),
+  `screencapture {file}` (macOS)
+Without them, the mic / screenshot buttons return a clear "not configured" error.
 
 ## What runs
 
@@ -26,7 +28,10 @@ returns a clear "not configured" error. No model ships with the app.
 - Isolate: tick “Isolate (worktree)” in the composer to run each agent in its own
   `git worktree` (own branch), so parallel agents never collide. The focused agent's bar
   shows the branch with Merge / Remove actions (merge refuses a dirty target).
-- `./dev.sh test` — Rust `cargo test` (16 tests, incl. real git worktree flow) + Vitest (25).
+- Screenshot: 📷 in the composer captures the screen, opens an annotator (arrow/box/pen
+  + colors + undo), and attaches the annotated PNG to the next launch (Codex gets it via
+  `-i`; Claude gets the path referenced in the prompt).
+- `./dev.sh test` — Rust `cargo test` (24 tests) + Vitest (28).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

@@ -4,14 +4,17 @@ import {
   getPromptHistory,
   gitCreateWorktree,
   gitIsRepo,
+  transcribeAudio,
+  captureScreen,
+  saveShot,
   type AgentBackend,
   type Workspace,
   type WorktreeInfo,
 } from "../lib/ipc";
-import { transcribeAudio } from "../lib/ipc";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { resolveMentions } from "../lib/mentions";
+import { Annotator } from "./annotator";
 import type { createAgentStore } from "../lib/agent-store";
 
 /** Compose a prompt, pick a difficulty (which suggests agent count + modes), attach
@@ -33,6 +36,8 @@ export function PromptComposer(props: {
   const [error, setError] = createSignal<string | null>(null);
   const [recorder, setRecorder] = createSignal<Recorder | null>(null);
   const [transcribing, setTranscribing] = createSignal(false);
+  const [captured, setCaptured] = createSignal<string | null>(null);
+  const [images, setImages] = createSignal<string[]>([]);
 
   onMount(async () => {
     try {
@@ -89,6 +94,25 @@ export function PromptComposer(props: {
     }
   }
 
+  async function takeScreenshot() {
+    setError(null);
+    try {
+      setCaptured(await captureScreen());
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function onAnnotated(pngBase64: string) {
+    setCaptured(null);
+    try {
+      const path = await saveShot(pngBase64);
+      setImages((imgs) => [...imgs, path]);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   async function launch() {
     setError(null);
     const ws = props.workspace;
@@ -124,6 +148,7 @@ export function PromptComposer(props: {
             planMode: planMode(),
             bypassPermissions: bypass(),
             addDirs,
+            images: images(),
             initialPrompt: prompt || null,
           },
           n > 1 ? `${cwdProject.name} #${i + 1}` : cwdProject.name,
@@ -132,6 +157,7 @@ export function PromptComposer(props: {
       }
       if (raw) setHistory(await addPromptHistory(raw));
       setText("");
+      setImages([]);
     } catch (e) {
       setError(String(e));
     }
@@ -156,7 +182,34 @@ export function PromptComposer(props: {
         >
           {transcribing() ? "…" : recorder() ? "◼" : "🎤"}
         </button>
+        <button class="mic" title="Screenshot" onClick={takeScreenshot}>
+          📷
+        </button>
       </div>
+
+      <Show when={images().length}>
+        <div class="mention-row">
+          <For each={images()}>
+            {(path, i) => (
+              <span class="chip ok" title={path}>
+                📎 shot{" "}
+                <button
+                  class="chip-x"
+                  onClick={() => setImages((imgs) => imgs.filter((_, j) => j !== i()))}
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      <Show when={captured()}>
+        {(img) => (
+          <Annotator imageBase64={img()} onAttach={onAnnotated} onCancel={() => setCaptured(null)} />
+        )}
+      </Show>
 
       <Show when={mentions().resolved.length || mentions().unresolved.length}>
         <div class="mention-row">

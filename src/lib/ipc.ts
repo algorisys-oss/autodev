@@ -12,6 +12,7 @@ export interface AppSettings {
   theme: "system" | "light" | "dark";
   defaultEffort: "high" | "extra-high";
   transcribeCommand?: string | null;
+  screenshotCommand?: string | null;
 }
 
 export function appInfo(): Promise<AppInfo> {
@@ -84,6 +85,7 @@ export interface AgentOptions {
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];
+  images?: string[];
   mockCommand?: string[] | null;
 }
 
@@ -169,4 +171,16 @@ export function gitRemoveWorktree(repo: string, path: string, force: boolean): P
 
 export function transcribeAudio(data: Uint8Array, ext: string): Promise<string> {
   return invoke<string>("transcribe_audio", { data: Array.from(data), ext });
+}
+
+// --- Screenshot + annotate (Phase 7) ---
+
+/** Capture the screen; returns a base64 PNG. */
+export function captureScreen(): Promise<string> {
+  return invoke<string>("capture_screen");
+}
+
+/** Save an annotated base64 PNG; returns its file path. */
+export function saveShot(data: string): Promise<string> {
+  return invoke<string>("save_shot", { data });
 }
