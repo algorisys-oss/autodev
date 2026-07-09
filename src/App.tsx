@@ -1,21 +1,17 @@
-import { createSignal, onMount, Show, For } from "solid-js";
-import { appInfo, agentSpawn, agentKill, type AppInfo, type Project } from "./lib/ipc";
+import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
+import { appInfo, type AppInfo, type AgentBackend, type Project } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
+import { createAgentStore } from "./lib/agent-store";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
+import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
 import "./App.css";
 
-interface ActiveAgent {
-  id: string;
-  label: string;
-  running: boolean;
-}
-
 function App() {
   const [info, setInfo] = createSignal<AppInfo | null>(null);
-  const [agent, setAgent] = createSignal<ActiveAgent | null>(null);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
-  const store = createWorkspaceStore();
+  const workspaces = createWorkspaceStore();
+  const agents = createAgentStore();
 
   onMount(async () => {
     try {
@@ -23,30 +19,20 @@ function App() {
     } catch {
       /* header shows "connecting…" if the core is unreachable */
     }
-    await store.refresh();
+    await workspaces.refresh();
+    agents.start();
   });
+  onCleanup(() => agents.dispose());
 
-  const selected = () => store.selected();
+  const selected = () => workspaces.selected();
 
-  async function launch(project: Project) {
+  async function launch(project: Project, backend: AgentBackend) {
     setLaunchError(null);
     try {
-      const id = await agentSpawn({ backend: "claude", cwd: project.path });
-      setAgent({ id, label: project.name, running: true });
+      await agents.spawn({ backend, cwd: project.path }, project.name);
     } catch (e) {
       setLaunchError(String(e));
     }
-  }
-
-  async function kill() {
-    const a = agent();
-    if (!a) return;
-    try {
-      await agentKill(a.id);
-    } catch {
-      /* already gone */
-    }
-    setAgent(null);
   }
 
   return (
@@ -59,7 +45,7 @@ function App() {
       </header>
 
       <div class="app-body">
-        <WorkspaceSidebar store={store} />
+        <WorkspaceSidebar store={workspaces} />
 
         <main class="main-panel">
           <Show
@@ -80,8 +66,11 @@ function App() {
                           <div class="project-line">
                             <span class="project-name">{p.name}</span>
                             <code class="project-path">{p.path}</code>
-                            <button class="launch" onClick={() => launch(p)}>
+                            <button class="launch" onClick={() => launch(p, "claude")}>
                               ▶ Claude
+                            </button>
+                            <button class="launch" onClick={() => launch(p, "codex")}>
+                              ▶ Codex
                             </button>
                           </div>
                         </li>
@@ -89,27 +78,27 @@ function App() {
                     </For>
                   </ul>
                 </Show>
-
                 <Show when={launchError()}>{(e) => <p class="error">{e()}</p>}</Show>
-
-                <Show when={agent()}>
-                  {(a) => (
-                    <section class="agent-session">
-                      <div class="agent-bar">
-                        <span class="agent-title">
-                          {a().label} · <span class="muted">{a().id}</span>
-                        </span>
-                        <span class="spacer" />
-                        <button onClick={kill}>Kill</button>
-                      </div>
-                      <TerminalPane
-                        agentId={a().id}
-                        onExit={() => setAgent({ ...a(), running: false })}
-                      />
-                    </section>
-                  )}
-                </Show>
               </div>
+            )}
+          </Show>
+
+          <AgentGrid store={agents} />
+
+          <Show when={agents.focused()} keyed>
+            {(a) => (
+              <section class="agent-session">
+                <div class="agent-bar">
+                  <span class="agent-title">
+                    {a.label} · <span class="muted">{a.id} · {a.backend}</span>
+                  </span>
+                  <span class="spacer" />
+                  <Show when={a.status !== "exited"}>
+                    <button onClick={() => agents.kill(a.id)}>Kill</button>
+                  </Show>
+                </div>
+                <TerminalPane agentId={a.id} store={agents} />
+              </section>
             )}
           </Show>
         </main>

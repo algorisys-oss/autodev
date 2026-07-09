@@ -4,6 +4,19 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Phase 3 — Multi-agent orchestration
+- Frontend `agent-store`: one global pair of `agent://output`/`agent://exit` listeners
+  feeds every agent; per-agent output is buffered (1 MB cap) and replayed when a terminal
+  attaches, so focus-switching keeps full scrollback and the Phase 2 startup race is gone.
+  Status per agent: running / idle (1.5 s silence) / exited(code).
+- `AgentGrid` cards with live status dots; click to focus, close exited ones, “Kill all”.
+- Per-project “▶ Claude” and “▶ Codex” launchers; run many agents across projects at once.
+- Rust: kill every agent on window close (`on_window_event`) so no PTY child is orphaned;
+  per-agent raw output logged to `~/.autodev/logs/<id>.log`.
+- `TerminalPane` now attaches to the store (replay + live) instead of listening directly.
+- Tests: +6 frontend (agent store: spawn/focus, buffer replay, idle, exit, close,
+  kill-all). Total 11 Rust + 17 frontend. App boot re-verified.
+
 ### Phase 2 — Single agent session
 - Rust `agent` module: launch a coding-agent CLI in a real PTY (`portable-pty`), stream
   output, accept input, resize, kill. `AgentManager` tracks sessions with a `kill_all`.

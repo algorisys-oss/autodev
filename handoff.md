@@ -5,22 +5,26 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 2 — single agent session (PTY + xterm.js). Complete.
-- **Phases done:** 0 (foundation), 1 (workspaces & projects), 2 (single agent session).
-- **Next up:** Phase 3 — multi-agent orchestration (agent grid, live status, Codex
-  adapter, kill-all on quit). See `PLAN.md`.
+- **Last task:** Phase 3 — multi-agent orchestration. Complete.
+- **Phases done:** 0–3 (foundation, workspaces, single agent, multi-agent orchestration).
+- **Next up:** Phase 4 — prompt composer (@-mention, difficulty→agents heuristic, mode
+  toggles: plan/bypass/ultrathink/effort). See `PLAN.md`.
 
 ## What runs
 
-- `./dev.sh dev` — launch the app. Sidebar creates workspaces + adds project dirs. Each
-  project has a “▶ Claude” button that spawns a real Claude Code agent in that directory
-  in a PTY, streamed into an xterm terminal you can type into. Kill button ends it.
-- `./dev.sh test` — Rust `cargo test` (11 tests, incl. PTY mock-agent) + Vitest (11).
+- `./dev.sh dev` — launch the app. Sidebar manages workspaces + project dirs. Each project
+  has “▶ Claude” and “▶ Codex” launchers; spawn many at once across projects. An agent
+  grid shows every session with a live status dot (running/idle/exited); click a card to
+  focus its terminal. “Kill all” stops everything; closing the window kills all agents so
+  none are orphaned. Per-agent output is also logged to `~/.autodev/logs/<id>.log`.
+- `./dev.sh test` — Rust `cargo test` (11 tests, incl. PTY mock-agent) + Vitest (17).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 
 Agent backends are pluggable (`claude`, `codex`, `mock`). Tests drive the `mock` backend
-so the spawn→stream→write→exit path is verified without real CLI auth.
+so the spawn→stream→write→exit path is verified without real CLI auth. The frontend agent
+store buffers each agent's output, so switching focus replays full scrollback (this also
+fixed the Phase 2 startup-output race).
 
 ## The one command to verify
 

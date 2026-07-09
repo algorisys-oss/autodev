@@ -2,6 +2,31 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Phase 3 — Multi-agent orchestration — COMPLETE
+
+**Decided:** A single global listener pair in the frontend `agent-store` feeds all agents
+and buffers their output, rather than each terminal subscribing to Tauri events itself.
+That fixes the Phase 2 race (a terminal mounting after spawn replays the buffer) and lets
+focus-switching keep scrollback with only the focused terminal mounted (keyed `Show`).
+Only running/idle/exited status for now; "waiting for input" is not reliably detectable
+from a raw PTY, so it is folded into idle.
+
+**Built:**
+- `src/lib/agent-store.ts` (+6 tests) — buffer/replay, status/idle ticker, spawn/kill/
+  killAll/close/focus/attach/detach, injectable ipc + subscribe + clock for tests.
+- `src/components/agent-grid.tsx`, reworked `terminal-pane.tsx`, reworked `App.tsx`.
+- Rust: `on_window_event` CloseRequested → `AgentManager::kill_all` (no orphans);
+  `state::logs_dir` + best-effort per-agent disk logging in `agent_spawn`.
+
+**Status:** complete. `./dev.sh verify` green (11 Rust + 17 frontend). App boot re-verified
+with the window-close handler and disk logging.
+
+**Deliberate deferrals:**
+- Orphan-on-quit is handled for a normal window close; a SIGKILL of the app can still
+  orphan children (unavoidable). PTY children also get SIGHUP when the master drops.
+- Disk logs are raw bytes (include escape sequences); a stripped/plain variant can come
+  later if the logs need to be read directly.
+
 ## Phase 2 — Single agent session — COMPLETE
 
 **Decided:** The load-bearing PTY core is a Tauri-independent function

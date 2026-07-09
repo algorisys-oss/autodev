@@ -1,23 +1,16 @@
 import { onMount, onCleanup } from "solid-js";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
 import { agentWrite, agentResize } from "../lib/ipc";
-import { base64ToBytes } from "../lib/bytes";
+import type { createAgentStore } from "../lib/agent-store";
 
-interface OutputPayload {
-  id: string;
-  data: string;
-}
-interface ExitPayload {
-  id: string;
-  code: number | null;
-}
-
-/** Renders one agent's PTY: streams core output into xterm, sends keystrokes back,
- *  and keeps the PTY size in sync with the pane. */
-export function TerminalPane(props: { agentId: string; onExit?: (code: number | null) => void }) {
+/** Renders one agent's PTY. Output comes from the store (buffer replay + live stream);
+ *  keystrokes go straight to the core; the PTY size tracks the pane. */
+export function TerminalPane(props: {
+  agentId: string;
+  store: ReturnType<typeof createAgentStore>;
+}) {
   let container!: HTMLDivElement;
 
   onMount(() => {
@@ -46,21 +39,12 @@ export function TerminalPane(props: { agentId: string; onExit?: (code: number | 
     ro.observe(container);
     syncSize();
 
-    const unlisten: Promise<UnlistenFn>[] = [
-      listen<OutputPayload>("agent://output", (e) => {
-        if (e.payload.id === props.agentId) term.write(base64ToBytes(e.payload.data));
-      }),
-      listen<ExitPayload>("agent://exit", (e) => {
-        if (e.payload.id === props.agentId) {
-          term.write("\r\n\x1b[90m[process exited]\x1b[0m\r\n");
-          props.onExit?.(e.payload.code);
-        }
-      }),
-    ];
+    // Replay any buffered output, then stream live chunks.
+    props.store.attach(props.agentId, (bytes) => term.write(bytes));
 
     onCleanup(() => {
+      props.store.detach(props.agentId);
       ro.disconnect();
-      unlisten.forEach((p) => void p.then((u) => u()));
       term.dispose();
     });
   });

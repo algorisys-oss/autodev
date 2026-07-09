@@ -4,12 +4,23 @@ mod error;
 mod state;
 mod workspace;
 
+use tauri::{Manager, WindowEvent};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(agent::AgentManager::default())
+        .on_window_event(|window, event| {
+            // Kill every live agent when the window closes, so no PTY child is orphaned.
+            if let WindowEvent::CloseRequested { .. } = event {
+                window
+                    .app_handle()
+                    .state::<agent::AgentManager>()
+                    .kill_all();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::get_settings,

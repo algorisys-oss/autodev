@@ -199,6 +199,79 @@ button.launch {
   flex: 0 0 auto;
 }
 
+.agent-grid-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+button.danger {
+  color: #b00020;
+}
+
+.agent-grid {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.agent-grid .card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.agent-grid .card.focused {
+  border-color: #396cd8;
+  box-shadow: 0 0 0 1px #396cd8;
+}
+
+.card-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.card-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-sub {
+  font-size: 0.8em;
+}
+
+.dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #9a9a9a;
+}
+
+.dot.running {
+  background: #2ea043;
+  box-shadow: 0 0 5px #2ea043;
+}
+
+.dot.idle {
+  background: #d9a406;
+}
+
+.dot.exited {
+  background: #8a8a8a;
+}
+
 .agent-session {
   margin-top: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.15);
@@ -233,6 +306,10 @@ button.launch {
   .agent-bar {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
+  }
+  .agent-grid .card {
+    background: #2a2a2a;
+    border-color: rgba(255, 255, 255, 0.15);
   }
 }
 

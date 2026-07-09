@@ -1,3 +1,6 @@
+use std::io::Write;
+use std::sync::{Arc, Mutex};
+
 use base64::Engine;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -118,9 +121,26 @@ pub fn agent_spawn(
     let cols = cols.unwrap_or(80);
     let rows = rows.unwrap_or(24);
 
+    // Append raw output to a per-agent log on disk, so scrollback survives a crash
+    // and the run is auditable (LOOPS XXX). Best-effort: logging never blocks a spawn.
+    let log: Option<Arc<Mutex<std::fs::File>>> = state::logs_dir().ok().and_then(|dir| {
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join(format!("{id}.log")))
+            .ok()
+            .map(|f| Arc::new(Mutex::new(f)))
+    });
+
     let out_app = app.clone();
     let out_id = id.clone();
     let on_output = move |bytes: Vec<u8>| {
+        if let Some(log) = &log {
+            if let Ok(mut f) = log.lock() {
+                let _ = f.write_all(&bytes);
+            }
+        }
         let data = base64::engine::general_purpose::STANDARD.encode(&bytes);
         let _ = out_app.emit(
             "agent://output",
