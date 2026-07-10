@@ -4,6 +4,13 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Loop hands-off mode — opt-in auto-run
+- `LoopPanel` gains an **Auto-run** checkbox (off by default). When on, the loop spawns each
+  next role itself after every advance — create → planner → generator → evaluator → retry/pass/
+  fail — with no clicks. Bounded by `max_iterations`; a parse failure stops the chain (the phase
+  doesn't advance, so nothing re-spawns) and shows the manual fallback. Auto-launching a chain
+  of agents is never the silent default (security note). One component test.
+
 ### Loop auto-advance — parse role output to fill contract & verdicts
 - Rust `loop_engine`: pure parsers `strip_ansi` (CSI/OSC escapes, carriage-return redraws),
   `parse_contract` (numbered/bulleted criteria after a `CONTRACT` header, else all list items),

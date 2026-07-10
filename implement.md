@@ -25,11 +25,17 @@ parse must be correctable, not fatal.
   graded). `ipc.ts` bindings added. First `.tsx` component tests (+3); `vitest.config` gains
   `resolve.conditions: ["development","browser"]` so Solid renders under jsdom.
 
-**Status:** complete. `./dev.sh verify` green (39 Rust + 31 frontend).
+**Then — hands-off auto-run:** added an opt-in **Auto-run** toggle (off by default). When on,
+`autoAdvance` chains `runRoleFor(next)` after a successful advance and `create` kicks off the
+planner, so a run is create → planner → generator → evaluator → retry/pass/fail with no clicks.
+Refactored `runRole` into `runRoleFor(loop)` (with a `roleRunning` guard against double-spawn).
+Bounded by `max_iterations`; a parse failure doesn't advance, so the chain stops and the manual
+fallback shows. Kept it opt-in because auto-launching a chain of agents shouldn't be silent
+(security note). +1 component test.
+
+**Status:** complete. `./dev.sh verify` green (39 Rust + 32 frontend).
 
 **Deliberate deferrals:**
-- Phases auto-advance, but the next role is not auto-spawned — the user still clicks "Run".
-  Full hands-off (chain the next spawn on advance) is the next step; kept a human gate for now.
 - Evaluator diff still empty: embedding the real per-iteration `git diff` needs a base commit
   recorded when generation starts. The evaluator agent inspects the repo directly meanwhile.
 - Parsing is best-effort against terminal scrollback; the manual controls are the safety net.

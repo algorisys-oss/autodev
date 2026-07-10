@@ -107,6 +107,33 @@ describe("loop panel auto-advance", () => {
     await findByText(/Contract met/);
   });
 
+  it("with auto-run on, chains straight into the next role after an advance", async () => {
+    mocked.loopList.mockResolvedValue([loop()]);
+    mocked.loopCurrentPrompt
+      .mockResolvedValueOnce({ role: "planner", prompt: "PLAN" })
+      .mockResolvedValueOnce({ role: "generator", prompt: "GEN" });
+    mocked.loopApplyPlanner.mockResolvedValue(
+      loop({ phase: "generating", contract: [{ text: "c1", met: null }] }),
+    );
+
+    const { store, emit } = agentHarness();
+    const { getByText, getByLabelText, findByText } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    await findByText(/Run planner/);
+    fireEvent.click(getByLabelText("Auto-run"));
+    fireEvent.click(getByText(/Run planner/));
+    await waitFor(() => expect(store.state.agents).toHaveLength(1));
+
+    // Planner exits → contract applied → generator spawned automatically (no click).
+    emit("agent://exit", { id: "agent-1", code: 0 });
+
+    await waitFor(() => expect(store.state.agents).toHaveLength(2));
+    expect(mocked.loopCurrentPrompt).toHaveBeenCalledTimes(2);
+    expect(mocked.loopReadyToEvaluate).not.toHaveBeenCalled();
+  });
+
   it("surfaces a parse failure and leaves the phase for manual entry", async () => {
     mocked.loopList.mockResolvedValue([loop()]);
     mocked.loopCurrentPrompt.mockResolvedValue({ role: "planner", prompt: "PLAN" });

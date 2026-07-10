@@ -31,9 +31,14 @@ export function LoopPanel(props: {
     role: Role;
   } | null>(null);
   const [applying, setApplying] = createSignal(false);
+  // Off by default: when on, the loop spawns the next role itself after each advance, so a run
+  // is hands-off end to end. Auto-launching a chain of agents is never the silent default.
+  const [autoRun, setAutoRun] = createSignal(false);
 
   const active = () => loops().find((l) => l.id === activeId()) ?? null;
   const roleRunning = (loopId: string) => roleAgent()?.loopId === loopId;
+  const inProgress = (phase: LoopState["phase"]) =>
+    phase === "planning" || phase === "generating" || phase === "evaluating";
 
   // Auto-advance: when the tracked role agent exits, parse what it printed and move the loop
   // on (planner → contract, generator → evaluating, evaluator → graded). On a parse failure
@@ -51,13 +56,17 @@ export function LoopPanel(props: {
     setApplying(true);
     setError(null);
     try {
+      let next: LoopState;
       if (ra.role === "planner") {
-        replace(await loopApplyPlanner(ra.loopId, ra.agentId));
+        next = await loopApplyPlanner(ra.loopId, ra.agentId);
       } else if (ra.role === "generator") {
-        replace(await loopReadyToEvaluate(ra.loopId));
+        next = await loopReadyToEvaluate(ra.loopId);
       } else {
-        replace(await loopApplyEvaluator(ra.loopId, ra.agentId));
+        next = await loopApplyEvaluator(ra.loopId, ra.agentId);
       }
+      replace(next);
+      // Hands-off: chain straight into the next role while the loop is still in progress.
+      if (autoRun() && inProgress(next.phase)) await runRoleFor(next);
     } catch (e) {
       setError(`Auto-advance failed — continue manually below. (${String(e)})`);
     } finally {
@@ -98,15 +107,21 @@ export function LoopPanel(props: {
       replace(l);
       setActiveId(l.id);
       setSpec("");
+      if (autoRun()) await runRoleFor(l);
     } catch (e) {
       setError(String(e));
     }
   }
 
-  /** Spawn the current phase's role as an agent in the loop's project dir. */
+  /** Spawn the active loop's current-phase role. */
   async function runRole() {
     const l = active();
-    if (!l) return;
+    if (l) await runRoleFor(l);
+  }
+
+  /** Spawn the given loop's current-phase role as an agent in its project dir. */
+  async function runRoleFor(l: LoopState) {
+    if (roleRunning(l.id)) return;
     setError(null);
     try {
       const rp = await loopCurrentPrompt(l.id, "");
@@ -170,9 +185,19 @@ export function LoopPanel(props: {
           onInput={(e) => setSpec(e.currentTarget.value)}
           placeholder="Spec for a new autonomous loop (e.g. build a URL shortener with tests)…"
         />
-        <button class="primary" onClick={create}>
-          New loop
-        </button>
+        <div class="loop-new-actions">
+          <button class="primary" onClick={create}>
+            New loop
+          </button>
+          <label class="auto-run" title="Spawn each next role automatically until the loop passes or fails">
+            <input
+              type="checkbox"
+              checked={autoRun()}
+              onChange={(e) => setAutoRun(e.currentTarget.checked)}
+            />
+            Auto-run
+          </label>
+        </div>
       </div>
 
       <Show when={loops().length}>
