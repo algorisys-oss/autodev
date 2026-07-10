@@ -5,6 +5,7 @@
 #   ./dev.sh setup     Install all dependencies (npm + cargo fetch)
 #   ./dev.sh dev        Run the app in development (hot reload)
 #   ./dev.sh build      Produce a production build + bundle
+#   ./dev.sh run        Launch the built release binary (snap-env scrubbed)
 #   ./dev.sh test       Run all tests (frontend Vitest + Rust cargo test)
 #   ./dev.sh lint       Lint + typecheck everything (eslint, tsc, clippy, fmt)
 #   ./dev.sh verify     Everything CI runs: lint + test + build
@@ -23,7 +24,7 @@ scrub_snap_env() {
     GSETTINGS_SCHEMA_DIR GIO_MODULE_DIR LOCPATH 2>/dev/null || true
 }
 
-usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-dev}"
 case "$cmd" in
@@ -40,6 +41,16 @@ build)
   scrub_snap_env
   npm run build
   npm run tauri build
+  ;;
+run)
+  # Launch the already-built release binary (with the snap-env scrub). Build it first if missing.
+  bin="src-tauri/target/release/autodev"
+  if [ ! -x "$bin" ]; then
+    echo "No release binary yet — run ./dev.sh build first." >&2
+    exit 1
+  fi
+  scrub_snap_env
+  exec "$bin"
   ;;
 test)
   npm run test

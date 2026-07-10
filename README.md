@@ -71,6 +71,7 @@ One entry point for everything:
 | `./dev.sh build` | Produce a production build and platform bundle |
 | `./dev.sh test` | Run all tests: Vitest (frontend) + `cargo test` (core) |
 | `./dev.sh lint` | Lint and typecheck: eslint, tsc, clippy, rustfmt |
+| `./dev.sh run` | Launch the built release binary (with the snap-env scrub) |
 | `./dev.sh verify` | Everything CI runs: lint + test + build |
 | `./dev.sh release X.Y.Z` | Bump the version, tag `vX.Y.Z`, and push — CI then builds the GitHub release |
 | `./dev.sh help` | Show usage |
@@ -81,8 +82,10 @@ If you launch from a snap-packaged terminal or the snap build of VSCode, a nativ
 GTK/WebKit binary can crash with `undefined symbol __libc_pthread_init` because snap
 injects its own libraries into child processes. `dev.sh` strips those before launching,
 so **always start the app with `./dev.sh dev`** rather than calling `npm run tauri dev`
-directly from a snap shell. The same applies to running a build you produced locally —
-launch it from a non-snap shell, or `unset LD_LIBRARY_PATH GTK_PATH GTK_EXE_PREFIX` first.
+directly from a snap shell. The same applies to a build you produced locally: run it with
+**`./dev.sh run`** (which scrubs the snap vars) rather than executing
+`src-tauri/target/release/autodev` directly — the raw binary crashes with that same
+`__libc_pthread_init` error from a snap shell.
 
 ## Building a standalone executable
 
