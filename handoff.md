@@ -71,9 +71,15 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   ground truth, so a loop can't pass on the evaluator's say-so if tests fail. The loop keeps a
   per-round met-count history, ends early with a **failure reason** when it stalls (no progress
   in 3 rounds) or runs out of **Max rounds** (default 8), and feeds a bounded progress memory
-  into the generator/evaluator prompts. Still Phase-2: feature-epic driver (many contracts to
-  completion), LLM context compaction, onboarding-gate pre-flight for unattended runs.
-- `./dev.sh test` — Rust `cargo test` (52 tests) + Vitest (42).
+  into the generator/evaluator prompts.
+- Feature-epic driver: a loop is an **epic** over a feature backlog. It starts by running a
+  **Decomposer** (spec → ordered `FEATURES:` list), then runs the Planner→Generator→Evaluator
+  sub-loop **per feature**; a passing feature advances to the next, and the epic passes when the
+  whole backlog is done. Fail-fast: a stalled/exhausted feature fails the epic, naming it. The
+  panel shows the backlog (done ✓ / current ▸) and `feature k/N`; Auto-run chains the whole thing.
+  An empty backlog still works as a single ad-hoc contract. Still Phase-2: LLM context compaction,
+  onboarding-gate pre-flight for unattended runs, continue-on-feature-failure toggle.
+- `./dev.sh test` — Rust `cargo test` (57 tests) + Vitest (43).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

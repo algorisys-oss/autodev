@@ -358,6 +358,39 @@ button.launch {
   font-weight: 600;
 }
 
+.feature-backlog {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9em;
+}
+
+.feature-backlog li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  color: #7a7a7a;
+}
+
+.feature-backlog li.current {
+  color: inherit;
+  font-weight: 600;
+}
+
+.feature-backlog li.done {
+  color: #1a7f37;
+}
+
+.feature-backlog .feature-mark {
+  flex: 0 0 1rem;
+  text-align: center;
+}
+
 .composer {
   margin-top: 1rem;
   border: 1px solid rgba(0, 0, 0, 0.12);

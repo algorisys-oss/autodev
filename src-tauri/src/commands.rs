@@ -497,20 +497,15 @@ fn apply_grade(
     Ok(s)
 }
 
-/// Record the planner's contract, move to Generating.
+/// Record the current feature's contract and move to Generating.
 #[tauri::command]
-pub fn loop_set_contract(
-    id: String,
-    criteria: Vec<String>,
-    features: Vec<String>,
-) -> AppResult<LoopState> {
+pub fn loop_set_contract(id: String, criteria: Vec<String>) -> AppResult<LoopState> {
     let base = state::loops_dir()?;
     let mut s = loop_engine::load(&base, &id)?;
     s.contract = criteria
         .into_iter()
         .map(|text| loop_engine::Criterion { text, met: None })
         .collect();
-    s.features = features;
     s.phase = loop_engine::LoopPhase::Generating;
     s.base_commit = capture_base(&s.project_dir);
     loop_engine::save(&base, &s)?;
@@ -519,6 +514,18 @@ pub fn loop_set_contract(
         &id,
         &format!("contract set: {} criteria", s.contract.len()),
     )?;
+    Ok(s)
+}
+
+/// Record the epic's feature backlog and move to planning the first feature.
+#[tauri::command]
+pub fn loop_set_features(id: String, titles: Vec<String>) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    let n = titles.len();
+    loop_engine::set_features(&mut s, titles);
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(&base, &id, &format!("backlog set: {n} features"))?;
     Ok(s)
 }
 
@@ -568,6 +575,36 @@ fn read_agent_log(agent_id: &str) -> AppResult<String> {
     let bytes = std::fs::read(&path)
         .map_err(|_| AppError::NotFound(format!("output log for agent {agent_id}")))?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Auto-advance the decomposing phase: parse the decomposer agent's output into the feature
+/// backlog and move to planning the first feature. Errors (leaving the loop in Decomposing) if
+/// no features can be parsed, so the UI can fall back to manual entry.
+#[tauri::command]
+pub fn loop_apply_decomposer(id: String, agent_id: String) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    if s.phase != loop_engine::LoopPhase::Decomposing {
+        return Err(AppError::Conflict(format!(
+            "loop {id} is not decomposing (phase is {:?})",
+            s.phase
+        )));
+    }
+    let titles = loop_engine::parse_features(&read_agent_log(&agent_id)?);
+    if titles.is_empty() {
+        return Err(AppError::Conflict(
+            "no features found in the decomposer output; enter them manually".into(),
+        ));
+    }
+    let n = titles.len();
+    loop_engine::set_features(&mut s, titles);
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(
+        &base,
+        &id,
+        &format!("decomposer auto-applied: {n} features"),
+    )?;
+    Ok(s)
 }
 
 /// Auto-advance the planning phase: parse the planner agent's output into a contract and move

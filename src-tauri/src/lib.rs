@@ -59,10 +59,12 @@ pub fn run() {
             commands::loop_create,
             commands::loop_get,
             commands::loop_list,
+            commands::loop_set_features,
             commands::loop_set_contract,
             commands::loop_ready_to_evaluate,
             commands::loop_grade,
             commands::loop_current_prompt,
+            commands::loop_apply_decomposer,
             commands::loop_apply_planner,
             commands::loop_apply_evaluator,
         ])

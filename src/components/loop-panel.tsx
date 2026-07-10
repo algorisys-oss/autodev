@@ -2,10 +2,12 @@ import { createSignal, createEffect, onMount, Show, For } from "solid-js";
 import {
   loopCreate,
   loopList,
+  loopSetFeatures,
   loopSetContract,
   loopReadyToEvaluate,
   loopGrade,
   loopCurrentPrompt,
+  loopApplyDecomposer,
   loopApplyPlanner,
   loopApplyEvaluator,
   type LoopState,
@@ -24,6 +26,7 @@ export function LoopPanel(props: {
   const [spec, setSpec] = createSignal("");
   const [verifyCommand, setVerifyCommand] = createSignal("");
   const [maxIterations, setMaxIterations] = createSignal(8);
+  const [featuresText, setFeaturesText] = createSignal("");
   const [criteriaText, setCriteriaText] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
   // The role agent currently running for a loop; when it exits we parse its output and advance.
@@ -40,7 +43,10 @@ export function LoopPanel(props: {
   const active = () => loops().find((l) => l.id === activeId()) ?? null;
   const roleRunning = (loopId: string) => roleAgent()?.loopId === loopId;
   const inProgress = (phase: LoopState["phase"]) =>
-    phase === "planning" || phase === "generating" || phase === "evaluating";
+    phase === "decomposing" ||
+    phase === "planning" ||
+    phase === "generating" ||
+    phase === "evaluating";
 
   // Auto-advance: when the tracked role agent exits, parse what it printed and move the loop
   // on (planner → contract, generator → evaluating, evaluator → graded). On a parse failure
@@ -59,7 +65,9 @@ export function LoopPanel(props: {
     setError(null);
     try {
       let next: LoopState;
-      if (ra.role === "planner") {
+      if (ra.role === "decomposer") {
+        next = await loopApplyDecomposer(ra.loopId, ra.agentId);
+      } else if (ra.role === "planner") {
         next = await loopApplyPlanner(ra.loopId, ra.agentId);
       } else if (ra.role === "generator") {
         next = await loopReadyToEvaluate(ra.loopId);
@@ -137,7 +145,8 @@ export function LoopPanel(props: {
         {
           backend: "claude",
           cwd: l.projectDir,
-          planMode: rp.role === "planner",
+          // Decomposer and planner don't write code — run them read-only.
+          planMode: rp.role === "decomposer" || rp.role === "planner",
           initialPrompt: rp.prompt,
         },
         `loop:${rp.role}`,
@@ -157,8 +166,24 @@ export function LoopPanel(props: {
       .filter(Boolean);
     if (!criteria.length) return;
     try {
-      replace(await loopSetContract(l.id, criteria, []));
+      replace(await loopSetContract(l.id, criteria));
       setCriteriaText("");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function setFeatures() {
+    const l = active();
+    if (!l) return;
+    const titles = featuresText()
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!titles.length) return;
+    try {
+      replace(await loopSetFeatures(l.id, titles));
+      setFeaturesText("");
     } catch (e) {
       setError(String(e));
     }
@@ -252,6 +277,12 @@ export function LoopPanel(props: {
           <div class="loop-detail">
             <div class="loop-meta">
               <span class={`phase ${l.phase}`}>{l.phase}</span>
+              <Show when={l.features.length}>
+                <span class="muted">
+                  feature {Math.min((l.currentFeature ?? 0) + 1, l.features.length)}/
+                  {l.features.length}
+                </span>
+              </Show>
               <span class="muted">round {l.iteration + 1}/{l.maxIterations}</span>
               <Show when={l.verifyCommand}>
                 <span class="muted" title="Ground-truth test command — must pass to complete">
@@ -267,10 +298,54 @@ export function LoopPanel(props: {
               </Show>
               <Show when={l.phase !== "passed" && l.phase !== "failed"}>
                 <button onClick={runRole} disabled={roleRunning(l.id) || applying()}>
-                  ▶ Run {l.phase === "planning" ? "planner" : l.phase === "generating" ? "generator" : "evaluator"}
+                  ▶ Run{" "}
+                  {l.phase === "decomposing"
+                    ? "decomposer"
+                    : l.phase === "planning"
+                      ? "planner"
+                      : l.phase === "generating"
+                        ? "generator"
+                        : "evaluator"}
                 </button>
               </Show>
             </div>
+
+            <Show when={l.features.length}>
+              <ol class="feature-backlog">
+                <For each={l.features}>
+                  {(f, i) => (
+                    <li
+                      classList={{
+                        done: f.done,
+                        current: !f.done && i() === (l.currentFeature ?? 0),
+                      }}
+                    >
+                      <span class="feature-mark">
+                        {f.done ? "✓" : i() === (l.currentFeature ?? 0) ? "▸" : "•"}
+                      </span>
+                      <span>{f.title}</span>
+                    </li>
+                  )}
+                </For>
+              </ol>
+            </Show>
+
+            <Show when={l.phase === "decomposing"}>
+              <div class="loop-step">
+                <p class="muted">
+                  Run the decomposer — it breaks the spec into an ordered feature backlog, applied
+                  automatically when it finishes. If parsing fails, paste features here (one per
+                  line):
+                </p>
+                <textarea
+                  rows={5}
+                  value={featuresText()}
+                  onInput={(e) => setFeaturesText(e.currentTarget.value)}
+                  placeholder="user auth&#10;create and list posts&#10;full-text search&#10;…"
+                />
+                <button onClick={setFeatures}>Set backlog & start planning</button>
+              </div>
+            </Show>
 
             <Show when={l.phase === "planning"}>
               <div class="loop-step">
@@ -323,7 +398,10 @@ export function LoopPanel(props: {
               </button>
             </Show>
             <Show when={l.phase === "passed"}>
-              <p class="loop-pass">✓ Contract met{l.verifyCommand ? " and tests pass." : "."}</p>
+              <p class="loop-pass">
+                ✓ {l.features.length ? `All ${l.features.length} features done` : "Contract met"}
+                {l.verifyCommand ? " and tests pass." : "."}
+              </p>
             </Show>
             <Show when={l.phase === "failed"}>
               <p class="error">✗ {l.failureReason ?? "Did not meet the contract."}</p>

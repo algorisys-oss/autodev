@@ -2,6 +2,32 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Feature-epic driver — COMPLETE
+
+**Decided:** Make a loop an *epic* over a feature backlog rather than a single contract — the
+Phase-2 item that enables genuinely long-running multi-feature builds. Kept it additive: the
+existing Planner→Generator→Evaluator sub-loop is reused unchanged as "work one feature"; a new
+Decomposer/Decomposing phase feeds the backlog first. **Fail-fast** on a failed feature (name it,
+end the epic) chosen as the honest default; continue-on-failure is a later toggle. `features`
+became `Vec<Feature>` (breaks old ephemeral loop state — acceptable, loops are throwaway).
+
+**Built:**
+- `loop_engine.rs` (+5 tests) — `Feature`, `Role::Decomposer`, `LoopPhase::Decomposing`,
+  `current_feature`, `set_features`, `feature_title`/`backlog_overview`; `decomposer_prompt`,
+  `parse_features` (generalized `parse_list(output, header)`); feature-aware planner/generator/
+  evaluator prompts; `advance_feature` inside `grade_and_advance` (mark done → next feature with
+  per-feature state reset, or complete epic); `prompt_for_phase` handles Decomposing.
+- `commands.rs` — `loop_apply_decomposer`, `loop_set_features`; `loop_set_contract` drops its
+  legacy `features` param; registered in `lib.rs`.
+- Frontend — ipc `Feature`/`currentFeature`/`decomposer` role + `loopApplyDecomposer`/
+  `loopSetFeatures`; loop-panel Decomposing UI (run/auto-apply/manual fallback), backlog display
+  (done/current), `feature k/N` meta, epic-aware pass message; Auto-run chains through it (+1 test).
+
+**Status:** complete. `./dev.sh verify` green (57 Rust + 43 frontend).
+
+**Deferred (Phase 2 remainder):** LLM-based context compaction, onboarding/permission pre-flight
+for unattended runs, a continue-on-feature-failure option, and disk companion files per feature.
+
 ## Loop trust & durability core — COMPLETE
 
 **Decided:** Make the autonomous loop trustworthy over long runs by closing the three highest-

@@ -9,9 +9,11 @@ vi.mock("../lib/ipc", () => ({
   loopList: vi.fn(),
   loopCreate: vi.fn(),
   loopCurrentPrompt: vi.fn(),
+  loopApplyDecomposer: vi.fn(),
   loopApplyPlanner: vi.fn(),
   loopApplyEvaluator: vi.fn(),
   loopReadyToEvaluate: vi.fn(),
+  loopSetFeatures: vi.fn(),
   loopSetContract: vi.fn(),
   loopGrade: vi.fn(),
 }));
@@ -176,6 +178,39 @@ describe("loop panel auto-advance", () => {
     await waitFor(() =>
       expect(mocked.loopCreate).toHaveBeenCalledWith("build a URL shortener", "/proj", "npm test", 12),
     );
+  });
+
+  it("applies the decomposer's backlog when its agent exits, advancing to planning", async () => {
+    mocked.loopList.mockResolvedValue([loop({ phase: "decomposing" })]);
+    mocked.loopCurrentPrompt.mockResolvedValue({ role: "decomposer", prompt: "DECOMPOSE" });
+    mocked.loopApplyPlanner.mockClear();
+    mocked.loopApplyDecomposer.mockResolvedValue(
+      loop({
+        phase: "planning",
+        currentFeature: 0,
+        features: [
+          { title: "user auth", done: false },
+          { title: "create posts", done: false },
+        ],
+      }),
+    );
+
+    const { store, emit } = agentHarness();
+    const { getByText, findByText } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    await findByText(/Run decomposer/);
+    fireEvent.click(getByText(/Run decomposer/));
+    await waitFor(() => expect(store.state.agents).toHaveLength(1));
+
+    emit("agent://exit", { id: "agent-1", code: 0 });
+
+    await waitFor(() => expect(mocked.loopApplyDecomposer).toHaveBeenCalledWith("l1", "agent-1"));
+    // The backlog renders with both features, and the loop is now planning the first.
+    await findByText(/user auth/);
+    await findByText(/create posts/);
+    expect(mocked.loopApplyPlanner).not.toHaveBeenCalled();
   });
 
   it("shows the recorded failure reason on a failed loop", async () => {

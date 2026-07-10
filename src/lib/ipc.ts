@@ -198,12 +198,23 @@ export function runBrowserHandoff(handoff: string): Promise<string> {
 
 // --- Autonomous loop engine (Phase 9) ---
 
-export type LoopPhase = "planning" | "generating" | "evaluating" | "passed" | "failed";
-export type Role = "planner" | "generator" | "evaluator";
+export type LoopPhase =
+  | "decomposing"
+  | "planning"
+  | "generating"
+  | "evaluating"
+  | "passed"
+  | "failed";
+export type Role = "decomposer" | "planner" | "generator" | "evaluator";
 
 export interface Criterion {
   text: string;
   met: boolean | null;
+}
+
+export interface Feature {
+  title: string;
+  done: boolean;
 }
 
 export interface LoopState {
@@ -214,7 +225,8 @@ export interface LoopState {
   iteration: number;
   maxIterations: number;
   contract: Criterion[];
-  features: string[];
+  features: Feature[];
+  currentFeature?: number;
   progress: string;
   baseCommit?: string | null;
   verifyCommand?: string | null;
@@ -249,12 +261,12 @@ export function loopGet(id: string): Promise<LoopState> {
   return invoke<LoopState>("loop_get", { id });
 }
 
-export function loopSetContract(
-  id: string,
-  criteria: string[],
-  features: string[],
-): Promise<LoopState> {
-  return invoke<LoopState>("loop_set_contract", { id, criteria, features });
+export function loopSetFeatures(id: string, titles: string[]): Promise<LoopState> {
+  return invoke<LoopState>("loop_set_features", { id, titles });
+}
+
+export function loopSetContract(id: string, criteria: string[]): Promise<LoopState> {
+  return invoke<LoopState>("loop_set_contract", { id, criteria });
 }
 
 export function loopReadyToEvaluate(id: string): Promise<LoopState> {
@@ -267,6 +279,11 @@ export function loopGrade(id: string, verdicts: boolean[]): Promise<LoopState> {
 
 export function loopCurrentPrompt(id: string, diff: string): Promise<RolePrompt | null> {
   return invoke<RolePrompt | null>("loop_current_prompt", { id, diff });
+}
+
+/** Parse the decomposer agent's output into the feature backlog and advance to planning. */
+export function loopApplyDecomposer(id: string, agentId: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_apply_decomposer", { id, agentId });
 }
 
 /** Parse the planner agent's output into a contract and advance to generating. */

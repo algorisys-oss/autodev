@@ -5,10 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 
-/// The three roles never share a context (LOOPS XXVIII). Each has its own system prompt.
+/// The roles never share a context (LOOPS XXVIII). Each has its own system prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Role {
+    /// Breaks the whole spec into an ordered feature backlog (the epic driver).
+    Decomposer,
     Planner,
     Generator,
     Evaluator,
@@ -18,16 +20,26 @@ pub enum Role {
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LoopPhase {
-    /// Planner is turning the spec into a contract.
+    /// Decomposer is breaking the spec into a feature backlog (epic start).
+    Decomposing,
+    /// Planner is turning the current feature into a contract.
     Planning,
     /// Generator is implementing against the contract.
     Generating,
     /// Evaluator is grading the diff against the contract.
     Evaluating,
-    /// Every criterion met.
+    /// Every feature in the backlog is done.
     Passed,
-    /// Out of iterations without meeting the contract.
+    /// A feature stalled or ran out of iterations.
     Failed,
+}
+
+/// One increment of the backlog the epic works through, in order.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Feature {
+    pub title: String,
+    pub done: bool,
 }
 
 /// One testable "done" assertion (LOOPS XXIX). `met` is `None` until graded.
@@ -48,7 +60,11 @@ pub struct LoopState {
     pub iteration: u32,
     pub max_iterations: u32,
     pub contract: Vec<Criterion>,
-    pub features: Vec<String>,
+    /// The ordered feature backlog the epic works through (empty until the decomposer runs).
+    pub features: Vec<Feature>,
+    /// Index of the feature currently being planned/built.
+    #[serde(default)]
+    pub current_feature: usize,
     pub progress: String,
     /// HEAD commit captured when the current generation round began; the evaluator diffs the
     /// work tree against it. `None` until the loop first enters Generating (older saved state
@@ -84,11 +100,12 @@ impl LoopState {
             id,
             spec,
             project_dir,
-            phase: LoopPhase::Planning,
+            phase: LoopPhase::Decomposing,
             iteration: 0,
             max_iterations: max_iterations.max(1),
             contract: Vec::new(),
             features: Vec::new(),
+            current_feature: 0,
             progress: String::new(),
             base_commit: None,
             verify_command,
@@ -106,6 +123,45 @@ impl LoopState {
     pub fn met_count(&self) -> u32 {
         self.contract.iter().filter(|c| c.met == Some(true)).count() as u32
     }
+
+    /// The feature the epic is working on right now, if any.
+    pub fn feature(&self) -> Option<&Feature> {
+        self.features.get(self.current_feature)
+    }
+
+    /// Title of the current feature (empty string when there is no backlog yet).
+    pub fn feature_title(&self) -> &str {
+        self.feature().map(|f| f.title.as_str()).unwrap_or("")
+    }
+
+    /// A one-line overview of the backlog with the current feature marked, for role prompts.
+    pub fn backlog_overview(&self) -> String {
+        self.features
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                let mark = if f.done {
+                    "[x]"
+                } else if i == self.current_feature {
+                    "[>]"
+                } else {
+                    "[ ]"
+                };
+                format!("{mark} {}", f.title)
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+/// Record the decomposer's feature titles as the backlog and move to planning the first one.
+pub fn set_features(state: &mut LoopState, titles: Vec<String>) {
+    state.features = titles
+        .into_iter()
+        .map(|title| Feature { title, done: false })
+        .collect();
+    state.current_feature = 0;
+    state.phase = LoopPhase::Planning;
 }
 
 /// Has the loop stalled — no upward progress over the last `window` rounds? True when the recent
@@ -138,21 +194,47 @@ pub fn append_progress(progress: &mut String, line: &str, max_lines: usize) {
 
 // --- Role prompts (pure; the heart of role separation) ---
 
-pub fn planner_prompt(spec: &str) -> String {
+pub fn decomposer_prompt(spec: &str) -> String {
+    format!(
+        "You are the DECOMPOSER. You never write code and never plan criteria.\n\n\
+         Break the request below into an ordered FEATURE LIST: the smallest sequence of \
+         independently buildable, shippable increments that together deliver the whole request. \
+         Order them so each builds on the last (foundations first). Aim for a handful to a dozen \
+         features — not micro-tasks, not one giant blob.\n\n\
+         Output a line containing only `FEATURES:` followed by a numbered list — one feature per \
+         line as `N. <feature>`, and nothing else after the list. This exact shape is parsed \
+         automatically.\n\n\
+         REQUEST:\n{spec}\n"
+    )
+}
+
+pub fn planner_prompt(spec: &str, feature: &str, backlog: &str) -> String {
+    let context = if feature.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "This is one feature of a larger build. FEATURE BACKLOG (\\[x]=done, \\[>]=current):\n\
+             {backlog}\n\n\
+             Plan ONLY the current feature — assume the done features already exist.\n\n\
+             CURRENT FEATURE: {feature}\n\n"
+        )
+    };
     format!(
         "You are the PLANNER. You never write code.\n\n\
-         Turn the request below into a concrete spec, then a CONTRACT: a checklist of \
-         testable, unambiguous \"done\" criteria (aim for 20+ for a small app; too few and \
-         the evaluator rubber-stamps). Each criterion must be objectively checkable.\n\n\
-         Output the spec first. Then output a line containing only `CONTRACT:` followed by \
-         the contract as a numbered list — one criterion per line as `N. <criterion>`, and \
-         nothing else after the list. This exact shape is parsed automatically.\n\n\
-         REQUEST:\n{spec}\n"
+         {context}\
+         Turn the feature below into a CONTRACT: a checklist of testable, unambiguous \"done\" \
+         criteria (too few and the evaluator rubber-stamps). Each criterion must be objectively \
+         checkable.\n\n\
+         Output a line containing only `CONTRACT:` followed by the contract as a numbered list — \
+         one criterion per line as `N. <criterion>`, and nothing else after the list. This exact \
+         shape is parsed automatically.\n\n\
+         OVERALL SPEC:\n{spec}\n"
     )
 }
 
 pub fn generator_prompt(
     spec: &str,
+    feature: &str,
     contract: &[Criterion],
     progress: &str,
     verify_command: Option<&str>,
@@ -163,6 +245,11 @@ pub fn generator_prompt(
         .map(|(i, c)| format!("{}. {}", i + 1, c.text))
         .collect::<Vec<_>>()
         .join("\n");
+    let feature_line = if feature.is_empty() {
+        String::new()
+    } else {
+        format!("CURRENT FEATURE (build only this; earlier features already exist): {feature}\n\n")
+    };
     let mut memory = String::new();
     if !progress.trim().is_empty() {
         memory.push_str(&format!(
@@ -180,13 +267,15 @@ pub fn generator_prompt(
     format!(
         "You are the GENERATOR. You write complete, working code. You are FORBIDDEN from \
          grading your own work.\n\n\
-         Implement the spec so that every contract criterion is satisfied. No mocks, stubs, \
+         {feature_line}\
+         Implement so that every contract criterion is satisfied. No mocks, stubs, \
          TODOs, or placeholders. Commit your work when done.\n\n\
-         SPEC:\n{spec}\n\nCONTRACT:\n{list}\n{memory}"
+         OVERALL SPEC:\n{spec}\n\nCONTRACT:\n{list}\n{memory}"
     )
 }
 
 pub fn evaluator_prompt(
+    feature: &str,
     contract: &[Criterion],
     diff: &str,
     verify_command: Option<&str>,
@@ -204,9 +293,15 @@ pub fn evaluator_prompt(
         ),
         None => String::new(),
     };
+    let feature_line = if feature.is_empty() {
+        String::new()
+    } else {
+        format!("You are grading only this feature: {feature}\n\n")
+    };
     format!(
         "You are the EVALUATOR. Assume the code is BROKEN and your job is to prove it. You see \
          only the diff, not the author's reasoning. Run the tests, exercise the app.\n\n\
+         {feature_line}\
          {verify_line}\
          For EACH criterion, output exactly one line `N. PASS` or `N. FAIL: <evidence>`, using \
          the criterion's number below, then a short evidence paragraph. Do not give the \
@@ -312,16 +407,17 @@ fn list_item_text(line: &str) -> Option<String> {
     }
 }
 
-/// Extract the contract criteria from the planner's output: the list items following a
-/// `CONTRACT` header, or — absent a header — every list item in the output.
-pub fn parse_contract(output: &str) -> Vec<String> {
+/// Extract a numbered/bulleted list from a role agent's output: the items following a `header`
+/// line (e.g. `CONTRACT` / `FEATURES`), or — absent that header — every list item in the output.
+pub fn parse_list(output: &str, header: &str) -> Vec<String> {
     let clean = strip_ansi(output);
     let lines: Vec<&str> = clean.lines().collect();
+    let header_up = header.to_uppercase();
     let start = lines
         .iter()
         .position(|l| {
             let u = l.trim().to_uppercase();
-            u.contains("CONTRACT") && list_item_text(l).is_none()
+            u.contains(&header_up) && list_item_text(l).is_none()
         })
         .map(|i| i + 1)
         .unwrap_or(0);
@@ -329,6 +425,16 @@ pub fn parse_contract(output: &str) -> Vec<String> {
         .iter()
         .filter_map(|l| list_item_text(l))
         .collect()
+}
+
+/// The contract criteria from the planner's output (items after a `CONTRACT` header).
+pub fn parse_contract(output: &str) -> Vec<String> {
+    parse_list(output, "CONTRACT")
+}
+
+/// The feature backlog from the decomposer's output (items after a `FEATURES` header).
+pub fn parse_features(output: &str) -> Vec<String> {
+    parse_list(output, "FEATURES")
 }
 
 /// Return `true` iff `line` reports a verdict for criterion number `n`, and give it. Accepts
@@ -384,11 +490,20 @@ pub fn parse_verdicts(output: &str, contract: &[Criterion]) -> Vec<bool> {
 /// The prompt to run for the loop's current phase, if a role is due.
 pub fn prompt_for_phase(state: &LoopState, diff: &str) -> Option<(Role, String)> {
     match state.phase {
-        LoopPhase::Planning => Some((Role::Planner, planner_prompt(&state.spec))),
+        LoopPhase::Decomposing => Some((Role::Decomposer, decomposer_prompt(&state.spec))),
+        LoopPhase::Planning => Some((
+            Role::Planner,
+            planner_prompt(
+                &state.spec,
+                state.feature_title(),
+                &state.backlog_overview(),
+            ),
+        )),
         LoopPhase::Generating => Some((
             Role::Generator,
             generator_prompt(
                 &state.spec,
+                state.feature_title(),
                 &state.contract,
                 &state.progress,
                 state.verify_command.as_deref(),
@@ -396,7 +511,12 @@ pub fn prompt_for_phase(state: &LoopState, diff: &str) -> Option<(Role, String)>
         )),
         LoopPhase::Evaluating => Some((
             Role::Evaluator,
-            evaluator_prompt(&state.contract, diff, state.verify_command.as_deref()),
+            evaluator_prompt(
+                state.feature_title(),
+                &state.contract,
+                diff,
+                state.verify_command.as_deref(),
+            ),
         )),
         LoopPhase::Passed | LoopPhase::Failed => None,
     }
@@ -418,31 +538,67 @@ pub fn grade_and_advance(state: &mut LoopState, verdicts: &[bool], verify: Optio
     let met = state.met_count();
     let total = state.contract.len() as u32;
 
+    // Feature passes: its contract is met and the tests did not fail.
     if state.all_met() && verify != Some(false) {
-        state.phase = LoopPhase::Passed;
-        state.failure_reason = None;
+        advance_feature(state);
         return;
     }
 
+    // Fail-fast: a stalled or exhausted feature ends the whole epic, naming the feature.
     let tests_note = if verify == Some(false) {
         "; tests failing"
     } else {
         ""
     };
+    let feature_note = match state.feature() {
+        Some(f) => format!(" on feature \"{}\"", f.title),
+        None => String::new(),
+    };
     if is_stuck(&state.history, STUCK_WINDOW) {
         state.phase = LoopPhase::Failed;
         state.failure_reason = Some(format!(
-            "no progress in {STUCK_WINDOW} rounds ({met}/{total} criteria met{tests_note})"
+            "no progress in {STUCK_WINDOW} rounds{feature_note} ({met}/{total} criteria met{tests_note})"
         ));
     } else if state.iteration + 1 >= state.max_iterations {
         state.phase = LoopPhase::Failed;
         state.failure_reason = Some(format!(
-            "out of iterations ({met}/{total} criteria met{tests_note})"
+            "out of iterations{feature_note} ({met}/{total} criteria met{tests_note})"
         ));
     } else {
         state.iteration += 1;
         state.phase = LoopPhase::Generating;
         state.failure_reason = None;
+    }
+}
+
+/// A feature's contract is satisfied: mark it done and either move on to plan the next feature
+/// (resetting the per-feature round state) or, if the backlog is exhausted, complete the epic.
+/// With no backlog at all (a single ad-hoc contract), a met contract simply passes.
+fn advance_feature(state: &mut LoopState) {
+    state.failure_reason = None;
+    if let Some(f) = state.features.get_mut(state.current_feature) {
+        f.done = true;
+    }
+    let next = state.current_feature + 1;
+    if next < state.features.len() {
+        append_progress(
+            &mut state.progress,
+            &format!(
+                "feature \"{}\" done ({}/{})",
+                state.features[state.current_feature].title,
+                next,
+                state.features.len()
+            ),
+            15,
+        );
+        state.current_feature = next;
+        state.contract = Vec::new();
+        state.iteration = 0;
+        state.history = Vec::new();
+        state.base_commit = None;
+        state.phase = LoopPhase::Planning;
+    } else {
+        state.phase = LoopPhase::Passed;
     }
 }
 
@@ -532,15 +688,26 @@ mod tests {
 
     #[test]
     fn role_prompts_carry_their_role_and_inputs() {
-        assert!(planner_prompt("build X").contains("You are the PLANNER"));
-        assert!(planner_prompt("build X").contains("build X"));
+        assert!(decomposer_prompt("build X").contains("You are the DECOMPOSER"));
+        assert!(decomposer_prompt("build X").contains("FEATURES:"));
+        assert!(planner_prompt("build X", "", "").contains("You are the PLANNER"));
+        assert!(planner_prompt("build X", "", "").contains("build X"));
         let contract = vec![crit("has a login")];
-        let gen = generator_prompt("spec", &contract, "", None);
+        let gen = generator_prompt("spec", "", &contract, "", None);
         assert!(gen.contains("FORBIDDEN from grading"));
         assert!(gen.contains("has a login"));
-        let ev = evaluator_prompt(&contract, "the diff", None);
+        let ev = evaluator_prompt("", &contract, "the diff", None);
         assert!(ev.contains("code is BROKEN"));
         assert!(ev.contains("the diff"));
+    }
+
+    #[test]
+    fn feature_context_threads_into_the_prompts() {
+        assert!(planner_prompt("spec", "user login", "[>] user login").contains("user login"));
+        assert!(planner_prompt("spec", "user login", "").contains("CURRENT FEATURE: user login"));
+        let contract = vec![crit("c")];
+        assert!(generator_prompt("spec", "user login", &contract, "", None).contains("user login"));
+        assert!(evaluator_prompt("user login", &contract, "d", None).contains("user login"));
     }
 
     #[test]
@@ -548,6 +715,7 @@ mod tests {
         let contract = vec![crit("adds two numbers")];
         let gen = generator_prompt(
             "spec",
+            "",
             &contract,
             "iteration 1: 0/1 met; failing: adds two numbers",
             Some("npm test"),
@@ -556,15 +724,18 @@ mod tests {
         assert!(gen.contains("failing: adds two numbers"));
         assert!(gen.contains("npm test"));
         // No memory when there's nothing to carry.
-        assert!(!generator_prompt("spec", &contract, "", None).contains("PROGRESS SO FAR"));
+        assert!(!generator_prompt("spec", "", &contract, "", None).contains("PROGRESS SO FAR"));
         assert!(
-            evaluator_prompt(&contract, "d", Some("./dev.sh verify")).contains("./dev.sh verify")
+            evaluator_prompt("", &contract, "d", Some("./dev.sh verify"))
+                .contains("./dev.sh verify")
         );
     }
 
     #[test]
     fn prompt_for_phase_follows_the_state() {
         let mut s = mk("l1");
+        assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Decomposer);
+        s.phase = LoopPhase::Planning;
         assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Planner);
         s.phase = LoopPhase::Generating;
         assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Generator);
@@ -572,6 +743,63 @@ mod tests {
         assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Evaluator);
         s.phase = LoopPhase::Passed;
         assert!(prompt_for_phase(&s, "").is_none());
+    }
+
+    #[test]
+    fn set_features_starts_the_backlog_at_planning() {
+        let mut s = mk("l");
+        set_features(&mut s, vec!["auth".into(), "posts".into(), "search".into()]);
+        assert_eq!(s.phase, LoopPhase::Planning);
+        assert_eq!(s.current_feature, 0);
+        assert_eq!(s.feature_title(), "auth");
+        assert!(s.backlog_overview().contains("[>] auth"));
+        assert!(s.backlog_overview().contains("[ ] posts"));
+    }
+
+    #[test]
+    fn parse_features_reads_the_backlog() {
+        let out =
+            "Here is the plan.\nFEATURES:\n1. user auth\n2. create posts\n3) full-text search\n";
+        assert_eq!(
+            parse_features(out),
+            vec!["user auth", "create posts", "full-text search"]
+        );
+    }
+
+    #[test]
+    fn a_passing_feature_advances_to_the_next_then_completes_the_epic() {
+        let mut s = mk("l");
+        set_features(&mut s, vec!["auth".into(), "posts".into()]);
+        // Build feature 0.
+        s.contract = vec![crit("login works")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[true], Some(true));
+        // Not done — moved on to plan feature 1, with per-feature state reset.
+        assert_eq!(s.phase, LoopPhase::Planning);
+        assert_eq!(s.current_feature, 1);
+        assert!(s.features[0].done);
+        assert!(s.contract.is_empty());
+        assert_eq!(s.iteration, 0);
+        assert!(s.progress.contains("feature \"auth\" done (1/2)"));
+        // Build feature 1 → epic complete.
+        s.contract = vec![crit("posts render")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[true], Some(true));
+        assert_eq!(s.phase, LoopPhase::Passed);
+        assert!(s.features.iter().all(|f| f.done));
+    }
+
+    #[test]
+    fn a_failed_feature_fails_the_epic_naming_the_feature() {
+        let mut s = mk("l");
+        set_features(&mut s, vec!["auth".into(), "posts".into()]);
+        s.max_iterations = 1; // fail feature 0 immediately
+        s.contract = vec![crit("login works")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[false], None);
+        assert_eq!(s.phase, LoopPhase::Failed);
+        assert!(s.failure_reason.as_deref().unwrap().contains("auth"));
+        assert!(!s.features[1].done); // never reached feature 1
     }
 
     #[test]
@@ -748,7 +976,10 @@ Criterion 3: PASS\n";
             text: "has tests".into(),
             met: Some(true),
         }];
-        s.features = vec!["feature a".into()];
+        s.features = vec![Feature {
+            title: "feature a".into(),
+            done: false,
+        }];
         s.progress = "did the thing".into();
         save(&base, &s).unwrap();
         append_log(&base, "loop1", "started").unwrap();

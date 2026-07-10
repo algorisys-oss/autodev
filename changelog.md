@@ -4,6 +4,25 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Feature-epic driver (autonomous multi-feature builds)
+Turns a loop from "one bounded contract" into an epic that builds a whole backlog to completion.
+- New **Decomposer** role + **Decomposing** phase: a loop now starts by breaking the spec into an
+  ordered `FEATURES:` backlog (`decomposer_prompt`, `parse_features`). Then, per feature, the
+  existing Planner → Generator → Evaluator sub-loop runs; the planner/generator/evaluator prompts
+  carry the current feature title and a backlog overview.
+- `LoopState.features` is now `Vec<Feature { title, done }>` + `current_feature`. On a feature
+  passing (contract met **and** verify not failing), `grade_and_advance` marks it done and either
+  advances to plan the next feature (resetting per-feature round state) or completes the epic when
+  the backlog is exhausted. **Fail-fast:** a stalled/exhausted feature fails the whole epic, naming
+  it. An empty backlog still behaves as a single ad-hoc contract (backward compatible).
+- Commands: `loop_apply_decomposer` (parse backlog from the decomposer log → planning),
+  `loop_set_features` (manual fallback); `loop_set_contract` drops its legacy `features` param.
+- Frontend: Decomposing phase drives a decomposer agent (auto-applied on exit; manual textarea
+  fallback); the detail view shows the feature backlog (done ✓ / current ▸) and `feature k/N`.
+  Hands-off Auto-run chains decompose → per-feature plan/generate/evaluate → next feature.
+- +5 Rust tests, +1 frontend. Deferred (Phase 2 remainder): LLM context compaction,
+  onboarding/permission pre-flight, continue-on-feature-failure option.
+
 ### Loop trust & durability core (autonomous long-running builds)
 Closes three gaps that made the autonomous loop untrustworthy over long runs.
 - **Ground-truth verify gate.** New `verify.rs` `run_verify(command, project_dir)` runs a
