@@ -17,6 +17,8 @@ use crate::error::{AppError, AppResult};
 pub enum AgentBackend {
     Claude,
     Codex,
+    /// Google Antigravity's terminal agent, invoked as `agy`.
+    Antigravity,
     Mock,
 }
 
@@ -54,7 +56,10 @@ pub struct AgentOptions {
 ///
 /// Flags verified against the installed CLIs: `claude --permission-mode plan`,
 /// `claude --dangerously-skip-permissions`, `claude --add-dir`;
-/// `codex --dangerously-bypass-approvals-and-sandbox`.
+/// `codex --dangerously-bypass-approvals-and-sandbox`. Antigravity (`agy`) flags follow
+/// Google's published CLI guide (`-i`/`--prompt-interactive`, `-m`, `--add-dir`,
+/// `--dangerously-skip-permissions`) — reconfirm against the installed `agy` version if they
+/// drift; it is the only backend whose flags are not verified against a local install here.
 pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
     let mut args: Vec<String> = Vec::new();
     let program = match &opts.backend {
@@ -100,6 +105,32 @@ pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
                 args.push(p.clone());
             }
             "codex".to_string()
+        }
+        AgentBackend::Antigravity => {
+            // `agy` mirrors Claude Code's flags. Interactive sessions (what AutoDev drives in a
+            // PTY) take the initial prompt via `-i`/`--prompt-interactive`. There is no
+            // documented plan/read-only flag, so `plan_mode` is not mapped for this backend.
+            if opts.bypass_permissions {
+                args.push("--dangerously-skip-permissions".into());
+            }
+            if let Some(m) = &opts.model {
+                args.push("-m".into());
+                args.push(m.clone());
+            }
+            for dir in &opts.add_dirs {
+                args.push("--add-dir".into());
+                args.push(dir.clone());
+            }
+            // No documented image flag; reference screenshot paths in the prompt, like Claude.
+            let mut prompt = opts.initial_prompt.clone().unwrap_or_default();
+            for img in &opts.images {
+                prompt.push_str(&format!("\n\n[Screenshot attached: {img}]"));
+            }
+            if !prompt.is_empty() {
+                args.push("-i".into());
+                args.push(prompt);
+            }
+            "agy".to_string()
         }
         AgentBackend::Mock => {
             let parts = opts
@@ -357,6 +388,55 @@ mod tests {
                 "hello",
             ]
         );
+    }
+
+    #[test]
+    fn antigravity_maps_agy_flags_with_interactive_prompt() {
+        let opts = AgentOptions {
+            backend: AgentBackend::Antigravity,
+            cwd: "/tmp".into(),
+            plan_mode: true, // no agy plan flag → must be ignored, not emitted
+            bypass_permissions: true,
+            model: Some("gemini-3.1-pro".into()),
+            initial_prompt: Some("build it".into()),
+            add_dirs: vec!["/a".into()],
+            images: vec!["/shots/a.png".into()],
+            mock_command: None,
+        };
+        let (program, args) = command_line(&opts).unwrap();
+        assert_eq!(program, "agy");
+        assert_eq!(
+            args,
+            vec![
+                "--dangerously-skip-permissions",
+                "-m",
+                "gemini-3.1-pro",
+                "--add-dir",
+                "/a",
+                "-i",
+                "build it\n\n[Screenshot attached: /shots/a.png]",
+            ]
+        );
+        // No plan flag leaked in.
+        assert!(!args.iter().any(|a| a.contains("plan")));
+    }
+
+    #[test]
+    fn antigravity_bare_session_is_just_agy() {
+        let opts = AgentOptions {
+            backend: AgentBackend::Antigravity,
+            cwd: "/tmp".into(),
+            plan_mode: false,
+            bypass_permissions: false,
+            model: None,
+            initial_prompt: None,
+            add_dirs: vec![],
+            images: vec![],
+            mock_command: None,
+        };
+        let (program, args) = command_line(&opts).unwrap();
+        assert_eq!(program, "agy");
+        assert!(args.is_empty());
     }
 
     #[test]

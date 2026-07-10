@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Google Antigravity backend
+- Added `Antigravity` as a third agent backend (alongside Claude and Codex), invoked as `agy`.
+  Its `AgentAdapter` arm maps AutoDev's options to `agy` flags per Google's published CLI guide:
+  interactive sessions pass the initial prompt via `-i`/`--prompt-interactive`, `-m <model>` for
+  model, `--add-dir` for `@`-mention context, `--dangerously-skip-permissions` for bypass, and
+  screenshot paths appended to the prompt (no image flag). No documented plan/read-only flag, so
+  plan mode is intentionally not mapped for this backend. +2 unit tests. Selectable in the
+  composer's Backend dropdown; needs `agy` on `PATH`. (Adding a backend = add an adapter arm +
+  one dropdown option — nothing else changed, per the architecture's adapter seam.)
+
 ### Release automation — GitHub Releases + download docs
 - Added `.github/workflows/release.yml`: on a `v*` tag (or manual dispatch), builds the app on a
   Linux/macOS(universal)/Windows matrix with `tauri-action` and uploads each platform's installers

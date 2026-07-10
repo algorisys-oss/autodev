@@ -67,7 +67,7 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (40 tests) + Vitest (38).
+- `./dev.sh test` — Rust `cargo test` (42 tests) + Vitest (38).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/
@@ -76,7 +76,10 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 
-Agent backends are pluggable (`claude`, `codex`, `mock`). Tests drive the `mock` backend
+Agent backends are pluggable (`claude`, `codex`, `antigravity`, `mock`). Antigravity runs
+Google's `agy` CLI (`-i` initial prompt, `-m` model, `--add-dir`, `--dangerously-skip-permissions`);
+its flags follow Google's published guide and aren't verified against a local install here, and
+`agy` has no plan-mode/image flag so those UI toggles are no-ops for it. Tests drive the `mock` backend
 so the spawn→stream→write→exit path is verified without real CLI auth. The frontend agent
 store buffers each agent's output, so switching focus replays full scrollback (this also
 fixed the Phase 2 startup-output race).

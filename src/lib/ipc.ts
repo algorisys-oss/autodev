@@ -76,7 +76,7 @@ export function resolveMention(
 
 // --- Agents (Phase 2) ---
 
-export type AgentBackend = "claude" | "codex" | "mock";
+export type AgentBackend = "claude" | "codex" | "antigravity" | "mock";
 
 export interface AgentOptions {
   backend: AgentBackend;

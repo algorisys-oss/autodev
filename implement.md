@@ -2,6 +2,28 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Google Antigravity backend — COMPLETE
+
+**Decided:** Support Google Antigravity's terminal agent (`agy`). The architecture makes this a
+one-adapter change (AgentAdapter seam: "add a backend = add an adapter, change nothing else"),
+so the work was: confirm the *real* `agy` flags (not guess them), add an enum arm + match arm,
+one dropdown option, and tests. Verified `agy`'s flags against Google's published CLI guide
+(interactive `-i`/`--prompt-interactive`, `-m`, `--add-dir`, `--dangerously-skip-permissions`)
+rather than inventing them — this is the only backend whose flags aren't verified against a
+local install, and that caveat is called out in the `command_line` doc comment.
+
+**Built:** `AgentBackend::Antigravity` + its `command_line` arm in `agent.rs` (+2 tests: full
+flag mapping with interactive prompt/images, and the bare `agy` session); `AgentBackend` TS type
++ composer dropdown option; README agent mentions.
+
+**Status:** complete. `./dev.sh verify` green (42 Rust + 38 frontend).
+
+**Deliberate deferrals / notes:**
+- No documented `agy` plan/read-only flag, so the composer's plan-mode toggle is a no-op for this
+  backend (Claude/Codex still honor it). Map it if `agy` gains one.
+- No documented `agy` image flag; screenshots are referenced in the prompt text (same as Claude).
+- Flags follow Google's published guide; reconfirm against the installed `agy` if they drift.
+
 ## Gap-closing — waiting detection + signing docs — COMPLETE
 
 **Decided:** Of the three documented gaps, one was genuinely code-fillable; be honest about the

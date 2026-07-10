@@ -238,6 +238,7 @@ export function PromptComposer(props: {
           <select value={backend()} onChange={(e) => setBackend(e.currentTarget.value as AgentBackend)}>
             <option value="claude">Claude</option>
             <option value="codex">Codex</option>
+            <option value="antigravity">Antigravity</option>
           </select>
         </label>
 

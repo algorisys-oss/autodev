@@ -1,7 +1,7 @@
 # AutoDev
 
-A desktop app for running and managing many terminal coding agents (Claude Code, Codex)
-in parallel across multiple project workspaces. It wraps the agents you already use with
+A desktop app for running and managing many terminal coding agents (Claude Code, Codex,
+Google Antigravity) in parallel across multiple project workspaces. It wraps the agents you already use with
 a workspace model, live status, git-worktree isolation, voice and screenshot input, and
 an optional autonomous build loop.
 
@@ -24,7 +24,7 @@ Grab the file for your platform from the latest release's **Assets**:
 | **macOS** | `AutoDev_<version>_universal.dmg` | Open the `.dmg` and drag AutoDev to Applications. |
 | **Windows** | `AutoDev_<version>_x64-setup.exe` | Run the installer. |
 
-To drive agents you still need their CLIs on your `PATH` (`claude` and/or `codex`), and on
+To drive agents you still need their CLIs on your `PATH` (`claude`, `codex`, and/or `agy`), and on
 Linux the WebKit/GTK system libraries listed under [Prerequisites](#prerequisites). Releases
 are currently **unsigned**, so macOS Gatekeeper / Windows SmartScreen may warn on first launch
 (right-click → Open on macOS; "More info → Run anyway" on Windows) — see
@@ -41,8 +41,8 @@ are currently **unsigned**, so macOS Gatekeeper / Windows SmartScreen may warn o
   ```
   On macOS install Xcode command line tools; on Windows install the WebView2 runtime and
   the MSVC build tools. See https://tauri.app/start/prerequisites/ for the current list.
-- To actually drive agents you need their CLIs on your `PATH`: `claude` (Claude Code)
-  and/or `codex`.
+- To actually drive agents you need their CLIs on your `PATH`: `claude` (Claude Code),
+  `codex`, and/or `agy` (Google Antigravity).
 
 ## Quick start
 
@@ -108,7 +108,7 @@ Notes:
 - **Version** comes from `src-tauri/tauri.conf.json` (`version`); bump it there before a
   release so bundle filenames and the in-app version match.
 - The app still shells out to the agent CLIs at runtime — whoever runs the bundle needs
-  `claude` and/or `codex` on their `PATH`.
+  `claude`, `codex`, and/or `agy` on their `PATH`.
 
 ### Code signing & notarization
 
@@ -163,7 +163,7 @@ described above; without them the release ships unsigned.
 1. Open a **workspace** pointed at a folder that holds your projects, and add the project
    directories you work in (API, app, UI, …).
 2. Compose a prompt, `@`-mention the projects it needs for context, pick a difficulty, and
-   launch one or more agents (Claude Code or Codex).
+   launch one or more agents (Claude Code, Codex, or Antigravity).
 3. Watch each agent's status dot and terminal — `running`, `idle`, `waiting` (blocked on a
    prompt), `exited`, or `error` — isolate risky ones in a git worktree, and feed them voice
    or annotated-screenshot context.
