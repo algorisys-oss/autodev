@@ -86,6 +86,11 @@ input {
   color: inherit;
 }
 
+::placeholder {
+  color: #767676;
+  opacity: 1;
+}
+
 button {
   border-radius: 6px;
   border: 1px solid transparent;
@@ -728,7 +733,9 @@ button.danger {
   }
   .composer-text,
   .composer select,
-  .composer input[type="number"] {
+  .composer input[type="number"],
+  .loop-new textarea,
+  .loop-step textarea {
     background: #2a2a2a;
     color: #fff;
     border-color: rgba(255, 255, 255, 0.15);
@@ -756,6 +763,9 @@ button.danger {
     color: #fff;
     background-color: #2a2a2a;
     border-color: rgba(255, 255, 255, 0.15);
+  }
+  ::placeholder {
+    color: #9a9a9a;
   }
   .workspace-name {
     background: none;
