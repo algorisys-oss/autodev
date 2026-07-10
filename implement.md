@@ -2,6 +2,38 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Hardening — Loop auto-advance — COMPLETE
+
+**Decided:** Close the biggest Phase 9 deferral — the loop transcribing the planner's and
+evaluator's output by hand. Parse it instead. Parsing lives in the Rust core (pure,
+unit-tested); the frontend only passes IDs. Chose to parse the agent's **on-disk output log**
+(`~/.autodev/logs/<agent>.log`, already written on every spawn) keyed by agent id, so the
+frontend never handles the raw output text — it keeps the hard boundary intact and sidesteps
+the plan-mode constraint (a planner in plan mode can't write a structured file, but it still
+prints to the terminal, which is logged). Kept the manual textarea/checkboxes as an editable
+fallback rather than removing them: parsing terminal scrollback is best-effort, so a wrong
+parse must be correctable, not fatal.
+
+**Built:**
+- `loop_engine.rs` (+7 tests): `strip_ansi` (CSI/OSC + carriage-return redraws), `parse_contract`
+  (list items after a `CONTRACT` header, else all list items), `parse_verdicts` (per-criterion
+  `N. PASS/FAIL`, unreported ⇒ FAIL). Tightened planner/evaluator prompts to emit that shape.
+- `commands.rs`: `loop_apply_planner` / `loop_apply_evaluator` — read the role agent's log,
+  parse, advance; error (phase unchanged) on missing log / no criteria so the UI falls back.
+- `loop-panel.tsx`: tracks the running role agent; a `createEffect` fires on its exit and calls
+  the matching apply command (planner → contract+generating, generator → evaluating, evaluator →
+  graded). `ipc.ts` bindings added. First `.tsx` component tests (+3); `vitest.config` gains
+  `resolve.conditions: ["development","browser"]` so Solid renders under jsdom.
+
+**Status:** complete. `./dev.sh verify` green (39 Rust + 31 frontend).
+
+**Deliberate deferrals:**
+- Phases auto-advance, but the next role is not auto-spawned — the user still clicks "Run".
+  Full hands-off (chain the next spawn on advance) is the next step; kept a human gate for now.
+- Evaluator diff still empty: embedding the real per-iteration `git diff` needs a base commit
+  recorded when generation starts. The evaluator agent inspects the repo directly meanwhile.
+- Parsing is best-effort against terminal scrollback; the manual controls are the safety net.
+
 ## Phase 9 — Autonomous loop engine — COMPLETE
 
 **Decided:** Realize the LOOPS Tier 6 architecture concretely: three roles with separate

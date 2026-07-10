@@ -62,6 +62,8 @@ pub fn run() {
             commands::loop_ready_to_evaluate,
             commands::loop_grade,
             commands::loop_current_prompt,
+            commands::loop_apply_planner,
+            commands::loop_apply_evaluator,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

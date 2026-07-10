@@ -5,13 +5,22 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Phase 9 — autonomous loop engine. Complete.
+- **Last task:** Hardening — loop auto-advance. Complete. Also fixed dark-mode text-input
+  contrast (loop textareas + a global `::placeholder` rule).
 - **Phases done:** 0–9. **All planned phases are built.** The full ecosystem from `PLAN.md`
   is implemented: workspaces, multi-agent orchestration, composer, worktrees, voice,
   screenshot, browser handoff, and the Planner/Generator/Evaluator loop.
-- **Next up:** hardening — fully autonomous loop auto-advance (parse agent output to fill
-  the contract and verdicts), a settings UI for the pluggable commands, and richer status
-  detection. See each phase's deferrals in `implement.md`.
+- **Loop auto-advance:** the loop now parses each role agent's terminal output to advance
+  itself. On planner exit the contract is filled and the loop moves to generating; on
+  generator exit it moves to evaluating; on evaluator exit the `N. PASS/FAIL` verdicts are
+  parsed and graded (pass/retry/fail). Parsing lives in Rust (`loop_engine::strip_ansi`,
+  `parse_contract`, `parse_verdicts`) and runs in `loop_apply_planner`/`loop_apply_evaluator`
+  over the agent's `~/.autodev/logs/<id>.log`. The manual textarea/checkboxes remain as an
+  editable fallback and appear whenever a parse fails. You still click "Run" between phases —
+  the loop advances phases automatically but does not yet auto-spawn the next role.
+- **Next up:** auto-spawn the next role after each advance (fully hands-off loop); embed the
+  real per-iteration git diff in the evaluator prompt (needs a recorded base commit); a
+  settings UI for the pluggable commands; richer status detection. See `implement.md`.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
@@ -44,7 +53,7 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (32 tests) + Vitest (28).
+- `./dev.sh test` — Rust `cargo test` (39 tests) + Vitest (31).
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

@@ -6,7 +6,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::agent::{AgentInfo, AgentManager, AgentOptions};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::state::{self, AppSettings};
 use crate::workspace::{self, ResolvedMention, Workspace, WorkspaceStore};
 
@@ -473,4 +473,69 @@ pub struct RolePrompt {
 pub fn loop_current_prompt(id: String, diff: String) -> AppResult<Option<RolePrompt>> {
     let s = loop_engine::load(&state::loops_dir()?, &id)?;
     Ok(loop_engine::prompt_for_phase(&s, &diff).map(|(role, prompt)| RolePrompt { role, prompt }))
+}
+
+/// Read a finished agent's captured output log (lossy UTF-8; the log holds raw PTY bytes).
+fn read_agent_log(agent_id: &str) -> AppResult<String> {
+    let path = state::logs_dir()?.join(format!("{agent_id}.log"));
+    let bytes = std::fs::read(&path)
+        .map_err(|_| AppError::NotFound(format!("output log for agent {agent_id}")))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// Auto-advance the planning phase: parse the planner agent's output into a contract and move
+/// to Generating. Errors (leaving the loop in Planning) if no criteria can be parsed, so the
+/// UI can fall back to manual entry.
+#[tauri::command]
+pub fn loop_apply_planner(id: String, agent_id: String) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    if s.phase != loop_engine::LoopPhase::Planning {
+        return Err(AppError::Conflict(format!(
+            "loop {id} is not planning (phase is {:?})",
+            s.phase
+        )));
+    }
+    let criteria = loop_engine::parse_contract(&read_agent_log(&agent_id)?);
+    if criteria.is_empty() {
+        return Err(AppError::Conflict(
+            "no contract criteria found in the planner output; enter them manually".into(),
+        ));
+    }
+    let n = criteria.len();
+    s.contract = criteria
+        .into_iter()
+        .map(|text| loop_engine::Criterion { text, met: None })
+        .collect();
+    s.phase = loop_engine::LoopPhase::Generating;
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(&base, &id, &format!("planner auto-applied: {n} criteria"))?;
+    Ok(s)
+}
+
+/// Auto-advance the evaluating phase: parse the evaluator agent's PASS/FAIL verdicts and grade
+/// (pass / retry / fail). Errors (leaving the loop in Evaluating) if the log is missing, so the
+/// UI can fall back to manual checkboxes.
+#[tauri::command]
+pub fn loop_apply_evaluator(id: String, agent_id: String) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    if s.phase != loop_engine::LoopPhase::Evaluating {
+        return Err(AppError::Conflict(format!(
+            "loop {id} is not evaluating (phase is {:?})",
+            s.phase
+        )));
+    }
+    let verdicts = loop_engine::parse_verdicts(&read_agent_log(&agent_id)?, &s.contract);
+    loop_engine::grade_and_advance(&mut s, &verdicts);
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(
+        &base,
+        &id,
+        &format!(
+            "evaluator auto-graded: phase={:?} iteration={}",
+            s.phase, s.iteration
+        ),
+    )?;
+    Ok(s)
 }

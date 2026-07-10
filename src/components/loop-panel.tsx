@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show, For } from "solid-js";
+import { createSignal, createEffect, onMount, Show, For } from "solid-js";
 import {
   loopCreate,
   loopList,
@@ -6,7 +6,10 @@ import {
   loopReadyToEvaluate,
   loopGrade,
   loopCurrentPrompt,
+  loopApplyPlanner,
+  loopApplyEvaluator,
   type LoopState,
+  type Role,
 } from "../lib/ipc";
 import type { createAgentStore } from "../lib/agent-store";
 
@@ -21,8 +24,46 @@ export function LoopPanel(props: {
   const [spec, setSpec] = createSignal("");
   const [criteriaText, setCriteriaText] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
+  // The role agent currently running for a loop; when it exits we parse its output and advance.
+  const [roleAgent, setRoleAgent] = createSignal<{
+    loopId: string;
+    agentId: string;
+    role: Role;
+  } | null>(null);
+  const [applying, setApplying] = createSignal(false);
 
   const active = () => loops().find((l) => l.id === activeId()) ?? null;
+  const roleRunning = (loopId: string) => roleAgent()?.loopId === loopId;
+
+  // Auto-advance: when the tracked role agent exits, parse what it printed and move the loop
+  // on (planner → contract, generator → evaluating, evaluator → graded). On a parse failure
+  // the phase is left where it was so the manual controls below act as the fallback.
+  createEffect(() => {
+    const ra = roleAgent();
+    if (!ra) return;
+    const agent = props.agents.state.agents.find((a) => a.id === ra.agentId);
+    if (!agent || agent.status !== "exited") return;
+    setRoleAgent(null);
+    void autoAdvance(ra);
+  });
+
+  async function autoAdvance(ra: { loopId: string; agentId: string; role: Role }) {
+    setApplying(true);
+    setError(null);
+    try {
+      if (ra.role === "planner") {
+        replace(await loopApplyPlanner(ra.loopId, ra.agentId));
+      } else if (ra.role === "generator") {
+        replace(await loopReadyToEvaluate(ra.loopId));
+      } else {
+        replace(await loopApplyEvaluator(ra.loopId, ra.agentId));
+      }
+    } catch (e) {
+      setError(`Auto-advance failed — continue manually below. (${String(e)})`);
+    } finally {
+      setApplying(false);
+    }
+  }
 
   onMount(refresh);
   async function refresh() {
@@ -70,7 +111,7 @@ export function LoopPanel(props: {
     try {
       const rp = await loopCurrentPrompt(l.id, "");
       if (!rp) return;
-      await props.agents.spawn(
+      const agentId = await props.agents.spawn(
         {
           backend: "claude",
           cwd: l.projectDir,
@@ -79,6 +120,7 @@ export function LoopPanel(props: {
         },
         `loop:${rp.role}`,
       );
+      setRoleAgent({ loopId: l.id, agentId, role: rp.role });
     } catch (e) {
       setError(String(e));
     }
@@ -158,15 +200,24 @@ export function LoopPanel(props: {
               <span class={`phase ${l.phase}`}>{l.phase}</span>
               <span class="muted">iteration {l.iteration}/{l.maxIterations}</span>
               <span class="spacer" />
+              <Show when={roleRunning(l.id)}>
+                <span class="muted">running {roleAgent()?.role}…</span>
+              </Show>
+              <Show when={applying()}>
+                <span class="muted">reading output…</span>
+              </Show>
               <Show when={l.phase !== "passed" && l.phase !== "failed"}>
-                <button onClick={runRole}>▶ Run {l.phase === "planning" ? "planner" : l.phase === "generating" ? "generator" : "evaluator"}</button>
+                <button onClick={runRole} disabled={roleRunning(l.id) || applying()}>
+                  ▶ Run {l.phase === "planning" ? "planner" : l.phase === "generating" ? "generator" : "evaluator"}
+                </button>
               </Show>
             </div>
 
             <Show when={l.phase === "planning"}>
               <div class="loop-step">
                 <p class="muted">
-                  Run the planner, then paste its contract criteria here (one per line):
+                  Run the planner — its contract is applied automatically when it finishes. If
+                  parsing fails, paste the criteria here instead (one per line):
                 </p>
                 <textarea
                   rows={5}
@@ -204,6 +255,10 @@ export function LoopPanel(props: {
               <button onClick={readyToEvaluate}>Generation done → evaluate</button>
             </Show>
             <Show when={l.phase === "evaluating"}>
+              <p class="muted">
+                Run the evaluator — verdicts are graded automatically when it finishes. Adjust
+                the checkboxes above and grade manually if the parse was off.
+              </p>
               <button class="primary" onClick={grade}>
                 Grade & advance
               </button>

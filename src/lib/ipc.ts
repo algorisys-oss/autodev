@@ -254,3 +254,13 @@ export function loopGrade(id: string, verdicts: boolean[]): Promise<LoopState> {
 export function loopCurrentPrompt(id: string, diff: string): Promise<RolePrompt | null> {
   return invoke<RolePrompt | null>("loop_current_prompt", { id, diff });
 }
+
+/** Parse the planner agent's output into a contract and advance to generating. */
+export function loopApplyPlanner(id: string, agentId: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_apply_planner", { id, agentId });
+}
+
+/** Parse the evaluator agent's PASS/FAIL verdicts and grade (pass / retry / fail). */
+export function loopApplyEvaluator(id: string, agentId: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_apply_evaluator", { id, agentId });
+}

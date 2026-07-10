@@ -4,6 +4,32 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Loop auto-advance — parse role output to fill contract & verdicts
+- Rust `loop_engine`: pure parsers `strip_ansi` (CSI/OSC escapes, carriage-return redraws),
+  `parse_contract` (numbered/bulleted criteria after a `CONTRACT` header, else all list items),
+  and `parse_verdicts` (per-criterion `N. PASS/FAIL`; an unreported criterion defaults to FAIL,
+  matching the adversarial evaluator). Planner and evaluator prompts tightened to emit that
+  exact parseable shape. Seven new unit tests.
+- Commands `loop_apply_planner` / `loop_apply_evaluator` read the finished role agent's output
+  log (`~/.autodev/logs/<agent>.log`), parse it, and advance the phase (planner → contract +
+  generating; evaluator → grade → pass/retry/fail). They error (leaving the phase put) when the
+  log is missing or no criteria parse, so the manual controls stay as a fallback.
+- Frontend `LoopPanel`: tracks the running role agent; when it exits an effect auto-applies —
+  planner fills the contract, generator advances to evaluating, evaluator grades. Manual
+  textarea/checkboxes remain as an editable fallback shown on a parse failure. Three component
+  tests (first `.tsx` component tests; `vitest.config` now resolves Solid's browser build).
+- Deferred: embedding the real per-iteration git diff in the evaluator prompt (needs a recorded
+  base commit); the evaluator agent inspects the repo directly for now.
+
+### Fix — text input contrast in dark mode
+- The loop-spec and criteria textareas (`.loop-new textarea`, `.loop-step textarea`) had no
+  dark-mode override, so in dark mode they rendered a white background with near-white
+  inherited text. Added them to the dark textarea group (`#2a2a2a` bg / white text), matching
+  the composer.
+- No `::placeholder` styling existed anywhere, so placeholders fell back to the faint browser
+  default. Added a global `::placeholder` rule (`#767676` light, `#9a9a9a` dark; both ≈4.6:1,
+  WCAG AA) so every placeholder in the app is legible.
+
 ### Phase 9 — Autonomous loop engine
 - Rust `loop_engine`: `Role` (planner/generator/evaluator) with a distinct system prompt
   each (role separation, LOOPS XXVIII); `LoopState` (phase, iteration, contract, features,
