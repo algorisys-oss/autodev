@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Demo — real screen recording of a 3-agent build
+- Added `demo/autodev-multi-agent-demo.mp4`: a real screen recording of the desktop app running a
+  3-agent task — set 3 agents + Isolate (worktree), launch, and three real `claude` agents each
+  build a to-do app (`index.html`/`style.css`/`app.js`) in parallel in their own worktrees, with
+  live terminals and status dots. Captured headlessly on an Xvfb virtual display (no real-desktop
+  interference), driven with xdotool, recorded with ffmpeg.
+- Added `docs/recording-a-demo.md` documenting the whole headless-recording process (Xvfb +
+  GDK_BACKEND=x11 + software-rendering env, `tauri build --no-bundle` vs `cargo build`, xdotool
+  driving, and Claude Code's per-worktree onboarding prompts). Demo/top-level READMEs link both.
+
 ### Demo — recorded multi-agent walkthrough
 - Added `demo/`: `multi-agent-demo.sh` reproduces AutoDev's fan-out + worktree-isolation flow
   (3 agents build a calc library in parallel, each on its own `git worktree`/branch, then merge
