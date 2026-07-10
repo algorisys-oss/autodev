@@ -45,12 +45,13 @@ export function stripAnsi(input: string): string {
     out += input[i];
     i++;
   }
-  // Apply carriage-return overwrites per line.
+  // Apply carriage-return overwrites per line — the last NON-EMPTY `\r`-segment, so a trailing
+  // `\r` from CRLF (`foo\r\n`) keeps `foo` instead of blanking the line.
   return out
     .split("\n")
     .map((line) => {
-      const parts = line.split("\r");
-      return parts[parts.length - 1];
+      const parts = line.split("\r").filter((s) => s !== "");
+      return parts.length ? parts[parts.length - 1] : "";
     })
     .join("\n");
 }

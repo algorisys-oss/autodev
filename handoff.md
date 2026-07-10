@@ -82,7 +82,13 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Claude Code's "trust this folder?" prompt (the gate that stalls fresh worktrees) — the store
   detects the exact prompt and sends Enter once. Narrow by design: only the trust dialog, never
   the bypass warning. Long runs stay coherent: when the progress memory grows past a threshold a read-only **Summarizer** compacts it (auto in the chain, or the 🗜 Compact memory button). All Phase-2 autonomy items are done.
-- `./dev.sh test` — Rust `cargo test` (62 tests) + Vitest (48).
+- **Validated live:** a real epic ran end-to-end with live `claude` agents and reached PASSED —
+  3 features decomposed → planned → built → verified (`python3 test_strutils.py` green), retry path
+  exercised, agents committed working code. Two bugs that only a live run exposes were fixed: loop
+  roles now run one-shot (`claude -p` via `AgentOptions.print_mode`) so they exit and auto-advance
+  fires; `strip_ansi` no longer blanks CRLF lines. Evidence: `demo/epic-passed.png`. The old "not
+  driven live end-to-end" caveat is resolved.
+- `./dev.sh test` — Rust `cargo test` (64 tests) + Vitest (48).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

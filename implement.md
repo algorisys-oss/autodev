@@ -2,6 +2,28 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Live epic validation + two fixes it surfaced — COMPLETE
+
+**Context:** Every autonomy piece was unit-tested but never driven live end-to-end. Ran a real
+epic (tiny Python string-utils lib) in the app on a virtual display with live `claude` agents.
+It surfaced two bugs that only a real run exposes; both fixed with regression tests, then the epic
+re-ran to **PASSED** (3 features decomposed → planned → built → verified; retry path exercised;
+`python3 test_strutils.py` green; agents committed real code). Resolves the "not driven live" caveat.
+
+**Fixes:**
+1. **Loop roles must exit for auto-advance to fire.** Interactive `claude` never exits, so the
+   chain stalled at `decomposing`. Added `AgentOptions.print_mode` → `command_line` emits
+   `claude -p` (one-shot; runs, prints, exits; plan mode dropped since read-only roles are enforced
+   by their prompts). loop-panel spawns all loop roles with `printMode: true`; generator/evaluator
+   also `bypassPermissions` (they write files / run tests), decomposer/planner read-only. +1 test.
+2. **`strip_ansi` CRLF regression.** `-p` output is `FEATURES:\r\n1. …`; the CR-overwrite took the
+   text after the trailing `\r` (empty) → every line blanked → parsers found nothing. Fixed to use
+   the last non-empty `\r`-segment (Rust `loop_engine::strip_ansi` + TS `agent-store.stripAnsi`).
+   +2 tests (strip_ansi CRLF, parse_features CRLF). Missed before because unit tests used `\n`.
+
+**Status:** complete. `./dev.sh verify` green (64 Rust + 48 frontend). Live epic PASSED; evidence
+in `demo/epic-passed.png`.
+
 ## LLM context compaction — COMPLETE (Phase 2 done)
 
 **Decided:** Fix long-run context loss (the naive last-15-lines progress tail drops cross-feature

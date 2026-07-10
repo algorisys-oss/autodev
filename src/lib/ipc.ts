@@ -83,6 +83,9 @@ export interface AgentOptions {
   cwd: string;
   planMode?: boolean;
   bypassPermissions?: boolean;
+  /** One-shot mode (`claude -p`): run once, print, and exit. The loop needs this — auto-advance
+   *  fires on agent exit, and interactive agents never exit. */
+  printMode?: boolean;
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];

@@ -33,6 +33,11 @@ pub struct AgentOptions {
     pub plan_mode: bool,
     #[serde(default)]
     pub bypass_permissions: bool,
+    /// Run the agent non-interactively (`claude -p`): it executes the prompt once, prints its
+    /// result, and EXITS. The autonomous loop relies on this — its auto-advance fires on agent
+    /// exit, and an interactive agent never exits.
+    #[serde(default)]
+    pub print_mode: bool,
     #[serde(default)]
     pub model: Option<String>,
     /// Prompt to start the session with, passed as the CLI's positional prompt.
@@ -64,7 +69,11 @@ pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
     let mut args: Vec<String> = Vec::new();
     let program = match &opts.backend {
         AgentBackend::Claude => {
-            if opts.plan_mode {
+            if opts.print_mode {
+                // One-shot: run the prompt and exit (the loop advances on exit). Plan mode is
+                // irrelevant here — read-only roles are enforced by their prompts.
+                args.push("-p".into());
+            } else if opts.plan_mode {
                 args.push("--permission-mode".into());
                 args.push("plan".into());
             }
@@ -350,6 +359,7 @@ mod tests {
             cwd: std::env::temp_dir().to_string_lossy().to_string(),
             plan_mode: false,
             bypass_permissions: false,
+            print_mode: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -359,12 +369,33 @@ mod tests {
     }
 
     #[test]
+    fn claude_print_mode_is_one_shot_and_skips_plan_mode() {
+        let opts = AgentOptions {
+            backend: AgentBackend::Claude,
+            cwd: "/tmp".into(),
+            plan_mode: true, // ignored in print mode
+            bypass_permissions: false,
+            print_mode: true,
+            model: None,
+            initial_prompt: Some("do it".into()),
+            add_dirs: vec![],
+            images: vec![],
+            mock_command: None,
+        };
+        let (program, args) = command_line(&opts).unwrap();
+        assert_eq!(program, "claude");
+        assert_eq!(args, vec!["-p", "do it"]);
+        assert!(!args.iter().any(|a| a == "--permission-mode"));
+    }
+
+    #[test]
     fn claude_command_line_maps_flags_and_add_dirs() {
         let opts = AgentOptions {
             backend: AgentBackend::Claude,
             cwd: "/tmp".into(),
             plan_mode: true,
             bypass_permissions: true,
+            print_mode: false,
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
@@ -397,6 +428,7 @@ mod tests {
             cwd: "/tmp".into(),
             plan_mode: true, // no agy plan flag → must be ignored, not emitted
             bypass_permissions: true,
+            print_mode: false,
             model: Some("gemini-3.1-pro".into()),
             initial_prompt: Some("build it".into()),
             add_dirs: vec!["/a".into()],
@@ -428,6 +460,7 @@ mod tests {
             cwd: "/tmp".into(),
             plan_mode: false,
             bypass_permissions: false,
+            print_mode: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -446,6 +479,7 @@ mod tests {
             cwd: "/tmp".into(),
             plan_mode: false,
             bypass_permissions: false,
+            print_mode: false,
             model: None,
             initial_prompt: Some("look".into()),
             add_dirs: vec![],
@@ -473,6 +507,7 @@ mod tests {
             cwd: "/tmp".into(),
             plan_mode: false,
             bypass_permissions: true,
+            print_mode: false,
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],

@@ -423,10 +423,12 @@ pub fn strip_ansi(input: &str) -> String {
         out.push(c);
         i += 1;
     }
-    // Apply carriage-return overwrites per line, then drop remaining control bytes.
+    // Apply carriage-return overwrites per line, then drop remaining control bytes. The visible
+    // text is the last NON-EMPTY `\r`-segment: this keeps `foo` from CRLF (`foo\r` before the
+    // `\n`) instead of blanking it, while still honouring a mid-line redraw (`old\rnew` -> `new`).
     out.split('\n')
         .map(|line| {
-            let visible = line.rsplit('\r').next().unwrap_or(line);
+            let visible = line.rsplit('\r').find(|s| !s.is_empty()).unwrap_or("");
             visible
                 .chars()
                 .filter(|c| *c == '\t' || !c.is_control())
@@ -1097,6 +1099,22 @@ mod tests {
         assert_eq!(strip_ansi("loading...\rdone\n"), "done\n");
         // Lone control bytes are dropped; newline and tab survive.
         assert_eq!(strip_ansi("a\x08b\tc\n"), "ab\tc\n");
+        // CRLF: the trailing `\r` must NOT blank the line (agents print `\r\n`). Regression from
+        // a live epic run where `FEATURES:\r\n1. …` parsed as empty.
+        assert_eq!(
+            strip_ansi("FEATURES:\r\n1. a\r\n2. b\r\n"),
+            "FEATURES:\n1. a\n2. b\n"
+        );
+    }
+
+    #[test]
+    fn parse_features_handles_crlf_output() {
+        // Exactly what `claude -p` emits over a PTY.
+        let out = "FEATURES:\r\n1. Implement slugify\r\n2. Implement shout\r\n3. Add tests\r\n";
+        assert_eq!(
+            parse_features(out),
+            vec!["Implement slugify", "Implement shout", "Add tests"]
+        );
     }
 
     #[test]

@@ -165,6 +165,8 @@ describe("agent store", () => {
     expect(stripAnsi("\x1b[31mred\x1b[0m text")).toBe("red text");
     expect(stripAnsi("\x1b]0;title\x07hi")).toBe("hi");
     expect(stripAnsi("loading...\rdone")).toBe("done");
+    // CRLF: a trailing \r must not blank the line.
+    expect(stripAnsi("FEATURES:\r\n1. a\r\n")).toBe("FEATURES:\n1. a\n");
   });
 
   it("onboardingReply accepts only the trust-folder prompt", () => {

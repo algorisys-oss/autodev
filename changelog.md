@@ -4,6 +4,22 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Ran a real autonomous epic — two live bugs fixed, end-to-end validated
+Drove a full epic in the real app with live `claude` agents (Python string-utils lib). It
+completed **PASSED** — 3 features decomposed → each planned → built → verified — with the retry
+path exercised (a feature hit 9/10, retried, reached 10/10 gated by `python3 test_strutils.py`).
+The agents produced correct, tested, committed code. This closes the long-standing "not driven
+live end-to-end" caveat. Two real bugs surfaced only by running it, both fixed + regression-tested:
+- **Loop role agents never exited.** They spawned interactive, but auto-advance fires on agent
+  *exit* — so the chain stalled at `decomposing` forever. Fix: `AgentOptions.print_mode` runs
+  loop roles as `claude -p` (one-shot: run, print, exit). Generator/evaluator bypass permission
+  prompts so they can write/test; decomposer/planner stay read-only via their prompts.
+- **`strip_ansi` blanked CRLF lines.** Agents print `FEATURES:\r\n1. …`; the carriage-return
+  overwrite logic took the text *after* the trailing `\r` (empty), so every line became "" and
+  `parse_features`/`parse_contract`/`parse_verdicts` found nothing. Fix: use the last **non-empty**
+  `\r`-segment (Rust + the TS mirror). Never caught before because the unit tests used `\n`.
+- Evidence: `demo/epic-passed.png` (the PASSED epic — 14 agents all `exited (0)`).
+
 ### LLM context compaction (long-run memory) — last Phase-2 item
 Over a long epic the naive bounded progress tail loses cross-feature context. A **Summarizer**
 role now compresses it.

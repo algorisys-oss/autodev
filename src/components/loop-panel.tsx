@@ -167,7 +167,7 @@ export function LoopPanel(props: {
     try {
       const rp = await loopCompactPrompt(l.id);
       const agentId = await props.agents.spawn(
-        { backend: "claude", cwd: l.projectDir, planMode: true, initialPrompt: rp.prompt },
+        { backend: "claude", cwd: l.projectDir, printMode: true, initialPrompt: rp.prompt },
         "loop:summarizer",
       );
       if (autoOnboard()) props.agents.setAutoOnboard(agentId, true);
@@ -188,8 +188,11 @@ export function LoopPanel(props: {
         {
           backend: "claude",
           cwd: l.projectDir,
-          // Decomposer and planner don't write code — run them read-only.
-          planMode: rp.role === "decomposer" || rp.role === "planner",
+          // One-shot mode so the agent EXITS when done — the loop advances on exit. The
+          // generator and evaluator need to write files / run tests, so they bypass permission
+          // prompts; the decomposer and planner are read-only (enforced by their prompts).
+          printMode: true,
+          bypassPermissions: rp.role === "generator" || rp.role === "evaluator",
           initialPrompt: rp.prompt,
         },
         `loop:${rp.role}`,
