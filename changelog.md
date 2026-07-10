@@ -4,6 +4,15 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Open folder as workspace + one-command releases
+- **"Open folder as workspace…"** button in the sidebar: pick any existing folder via the native
+  picker and it creates a workspace named after the folder's basename with that folder added as
+  its first project — in one step. New `createFromFolder` store method (+2 tests). The existing
+  create-workspace-then-`+dir` flow is unchanged.
+- **`./dev.sh release X.Y.Z`**: bumps the version in `package.json` + `tauri.conf.json`, commits,
+  tags `vX.Y.Z`, and pushes — the tag drives `release.yml` to build and attach installers to a
+  draft GitHub release. README's "Publishing a release" now uses this one command.
+
 ### Google Antigravity backend
 - Added `Antigravity` as a third agent backend (alongside Claude and Codex), invoked as `agy`.
   Its `AgentAdapter` arm maps AutoDev's options to `agy` flags per Google's published CLI guide:

@@ -8,6 +8,7 @@
 #   ./dev.sh test       Run all tests (frontend Vitest + Rust cargo test)
 #   ./dev.sh lint       Lint + typecheck everything (eslint, tsc, clippy, fmt)
 #   ./dev.sh verify     Everything CI runs: lint + test + build
+#   ./dev.sh release X.Y.Z   Bump version, tag vX.Y.Z, push (CI builds the GitHub release)
 #   ./dev.sh help       Show this help
 set -euo pipefail
 
@@ -22,7 +23,7 @@ scrub_snap_env() {
     GSETTINGS_SCHEMA_DIR GIO_MODULE_DIR LOCPATH 2>/dev/null || true
 }
 
-usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-dev}"
 case "$cmd" in
@@ -54,6 +55,28 @@ verify)
   npm run build
   (cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test)
   echo "verify: all checks passed"
+  ;;
+release)
+  # Cut a versioned release: bump the version in both manifests, commit, tag, and push.
+  # Pushing the tag triggers .github/workflows/release.yml, which builds every platform
+  # and uploads the installers to a draft GitHub release.
+  ver="${2:-}"
+  if ! printf '%s' "$ver" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "usage: ./dev.sh release X.Y.Z   (semver, no leading v)" >&2
+    exit 1
+  fi
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "working tree is dirty; commit or stash first" >&2
+    exit 1
+  fi
+  # Update only the version line in each manifest, preserving formatting.
+  sed -i -E "0,/\"version\": *\"[^\"]+\"/s//\"version\": \"$ver\"/" package.json
+  sed -i -E "0,/\"version\": *\"[^\"]+\"/s//\"version\": \"$ver\"/" src-tauri/tauri.conf.json
+  git add package.json src-tauri/tauri.conf.json
+  git commit -m "Release v$ver"
+  git tag "v$ver"
+  git push origin HEAD "v$ver"
+  echo "Pushed v$ver. Watch the Release workflow, then publish the draft release on GitHub."
   ;;
 help | -h | --help)
   usage

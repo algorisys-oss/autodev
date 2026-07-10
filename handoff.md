@@ -67,7 +67,7 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (42 tests) + Vitest (38).
+- `./dev.sh test` — Rust `cargo test` (42 tests) + Vitest (40).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/
@@ -75,6 +75,13 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Download table and a "Publishing a release" walkthrough.
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
+
+Workspaces: create one (name) then add existing folders via **+dir** (native folder picker),
+or use **Open folder as workspace…** to do both in one pick (workspace named after the folder).
+State is in `~/.autodev/workspaces.json` (metadata only — project files are never copied).
+
+Releases: `./dev.sh release X.Y.Z` bumps both manifests, tags `vX.Y.Z`, and pushes; the tag
+drives `.github/workflows/release.yml` to build and upload installers to a draft GitHub release.
 
 Agent backends are pluggable (`claude`, `codex`, `antigravity`, `mock`). Antigravity runs
 Google's `agy` CLI (`-i` initial prompt, `-m` model, `--add-dir`, `--dangerously-skip-permissions`);

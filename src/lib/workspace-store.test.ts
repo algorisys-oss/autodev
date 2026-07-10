@@ -69,6 +69,26 @@ describe("workspace store", () => {
     });
   });
 
+  it("createFromFolder makes a workspace named after the folder and adds it as a project", async () => {
+    await createRoot(async (dispose) => {
+      const store = createWorkspaceStore(fakeApi());
+      await store.createFromFolder("/home/me/lab/my-app");
+      expect(store.selected()?.name).toBe("my-app");
+      expect(store.selected()?.projects.map((p) => p.path)).toEqual(["/home/me/lab/my-app"]);
+      expect(store.state.selectedId).toBe("my-app");
+      dispose();
+    });
+  });
+
+  it("createFromFolder handles a trailing slash and Windows separators", async () => {
+    await createRoot(async (dispose) => {
+      const store = createWorkspaceStore(fakeApi());
+      await store.createFromFolder("/home/me/lab/api/");
+      expect(store.selected()?.name).toBe("api");
+      dispose();
+    });
+  });
+
   it("remove deletes and reselects", async () => {
     await createRoot(async (dispose) => {
       const store = createWorkspaceStore(fakeApi([ws("a"), ws("b")]));

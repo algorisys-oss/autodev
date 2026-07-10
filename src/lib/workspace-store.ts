@@ -55,6 +55,20 @@ export function createWorkspaceStore(api: typeof ipc = ipc) {
     }
   }
 
+  /** One-step "open folder as workspace": create a workspace named after the folder's
+   *  basename, then add that folder as its first project. */
+  async function createFromFolder(path: string) {
+    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+    try {
+      const ws = await api.createWorkspace(name);
+      upsert(await api.addProject(ws.id, path));
+      setState("selectedId", ws.id);
+      setState("error", null);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   async function remove(id: string) {
     try {
       await api.deleteWorkspace(id);
@@ -98,6 +112,7 @@ export function createWorkspaceStore(api: typeof ipc = ipc) {
     selected,
     refresh,
     create,
+    createFromFolder,
     remove,
     addProject,
     removeProject,

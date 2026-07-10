@@ -16,6 +16,13 @@ export function WorkspaceSidebar(props: {
     }
   }
 
+  async function openFolderAsWorkspace() {
+    const picked = await open({ directory: true, multiple: false, title: "Open folder as workspace" });
+    if (typeof picked === "string") {
+      await store.createFromFolder(picked);
+    }
+  }
+
   async function submitNew(e: Event) {
     e.preventDefault();
     await store.create(newName());
@@ -33,6 +40,10 @@ export function WorkspaceSidebar(props: {
         />
         <button type="submit">Add</button>
       </form>
+
+      <button class="open-folder" onClick={openFolderAsWorkspace}>
+        Open folder as workspace…
+      </button>
 
       <Show when={store.state.error}>
         {(e) => <p class="error">{e()}</p>}

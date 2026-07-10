@@ -68,6 +68,7 @@ One entry point for everything:
 | `./dev.sh test` | Run all tests: Vitest (frontend) + `cargo test` (core) |
 | `./dev.sh lint` | Lint and typecheck: eslint, tsc, clippy, rustfmt |
 | `./dev.sh verify` | Everything CI runs: lint + test + build |
+| `./dev.sh release X.Y.Z` | Bump the version, tag `vX.Y.Z`, and push — CI then builds the GitHub release |
 | `./dev.sh help` | Show usage |
 
 ### Snap / VSCode note (Linux)
@@ -137,26 +138,24 @@ command produces signed artifacts once the credentials are present.
 
 ### Publishing a release (for maintainers)
 
-Releases are built and uploaded to GitHub automatically by
-[`.github/workflows/release.yml`](.github/workflows/release.yml) (using `tauri-action`) when you
-push a version tag. It runs a Linux/macOS/Windows matrix and attaches each platform's installers
-to a **draft** GitHub release for you to review and publish.
+Versioned binaries are distributed through **GitHub Releases**, the standard open-source way:
+tag a version and CI builds the installers for every OS and attaches them to a release users can
+download. This is automated by [`.github/workflows/release.yml`](.github/workflows/release.yml)
+(using `tauri-action`), which runs a Linux/macOS/Windows matrix on any `v*` tag.
+
+Cut a release with the helper — it bumps the version in both manifests, commits, tags, and pushes:
 
 ```bash
-# 1. Bump the version in BOTH places so filenames and the in-app version match:
-#      src-tauri/tauri.conf.json  ->  "version"
-#      package.json               ->  "version"
-# 2. Commit, then tag and push the tag:
-git commit -am "Release v0.2.0"
-git tag v0.2.0
-git push origin main --tags
+./dev.sh release 0.2.0        # bumps to 0.2.0, tags v0.2.0, pushes the tag
 ```
 
-The workflow then builds every platform and creates the draft release named `AutoDev v0.2.0`.
-Open **Releases → the draft**, check the attached assets (`.AppImage`/`.deb`/`.rpm`, `.dmg`,
-`.exe`), and click **Publish**. To dry-run without a tag, trigger the workflow manually from the
-**Actions** tab (`workflow_dispatch`). Signed macOS builds require the `APPLE_*` repo secrets
-described above; without them the release ships unsigned.
+The pushed tag triggers the workflow, which builds every platform and creates a **draft** GitHub
+release named `AutoDev v0.2.0` with the installers attached (`.AppImage`/`.deb`/`.rpm`, `.dmg`,
+`.exe`). Open **Releases → the draft**, review the assets and notes, and click **Publish** — now
+they show up on the [releases page](https://github.com/algorisys-oss/autodev/releases) and in the
+[Download](#download) table for anyone to grab. To dry-run without cutting a tag, trigger the
+workflow from the **Actions** tab (`workflow_dispatch`). Signed macOS builds require the `APPLE_*`
+repo secrets above; without them the release ships unsigned.
 
 ## Usage
 

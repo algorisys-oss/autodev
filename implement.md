@@ -2,6 +2,26 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Open-folder-as-workspace + release helper — COMPLETE
+
+**Decided:** Two small UX/ops conveniences. (1) A one-step "open an existing folder as a
+workspace" — the store already composed `createWorkspace` + `addProject`, so this is a thin
+`createFromFolder` that derives the workspace name from the folder basename and reuses the native
+folder picker already wired for `+dir`. (2) Make cutting a versioned GitHub release one command
+rather than manual version edits + tag, so distribution matches standard OSS practice.
+
+**Built:**
+- `workspace-store.createFromFolder(path)` (+2 tests: basename naming, trailing-slash/Windows
+  separators); an **Open folder as workspace…** button in the sidebar using the dialog plugin.
+- `./dev.sh release X.Y.Z` — validates semver + clean tree, bumps the version line in
+  `package.json` and `src-tauri/tauri.conf.json` (targeted sed, formatting preserved — verified
+  the JSON stays valid), commits, tags `vX.Y.Z`, pushes. Pairs with the existing
+  `release.yml`. README/CLAUDE.md updated.
+- Documented the **"ship it" = verify + commit + push** convention in CLAUDE.md (and saved it to
+  agent memory); it is distinct from `./dev.sh release`.
+
+**Status:** complete. `./dev.sh verify` green (42 Rust + 40 frontend).
+
 ## Google Antigravity backend — COMPLETE
 
 **Decided:** Support Google Antigravity's terminal agent (`agy`). The architecture makes this a

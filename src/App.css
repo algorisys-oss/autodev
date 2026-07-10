@@ -77,6 +77,12 @@ body {
   min-width: 0;
 }
 
+.open-folder {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  font-size: 0.9em;
+}
+
 input {
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.2);

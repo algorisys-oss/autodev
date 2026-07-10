@@ -86,8 +86,15 @@ launch the app on this machine:
 - `./dev.sh test` — Vitest (frontend) + `cargo test` (core).
 - `./dev.sh lint` — eslint + tsc + clippy + rustfmt check.
 - `./dev.sh verify` — everything CI runs; run this before every commit.
+- `./dev.sh release X.Y.Z` — bump the version, tag `vX.Y.Z`, and push; CI builds the
+  GitHub release. This is how versioned binaries are distributed (see README).
 
 Keep this section accurate as it changes (LOOPS XXVI).
+
+**"Ship it" means sync the code.** When the user says "ship it" (or "ship"), run
+`./dev.sh verify`, then commit the work and push to `origin` (fast-forward-merge the branch
+into `main` first if on a feature branch). It is not a request to cut a version release —
+that is only `./dev.sh release X.Y.Z`.
 
 ## Naming
 
