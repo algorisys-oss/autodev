@@ -4,15 +4,17 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
-### Demo — real screen recording of a 3-agent build
-- Added `demo/autodev-multi-agent-demo.mp4`: a real screen recording of the desktop app running a
-  3-agent task — set 3 agents + Isolate (worktree), launch, and three real `claude` agents each
-  build a to-do app (`index.html`/`style.css`/`app.js`) in parallel in their own worktrees, with
-  live terminals and status dots. Captured headlessly on an Xvfb virtual display (no real-desktop
-  interference), driven with xdotool, recorded with ffmpeg.
-- Added `docs/recording-a-demo.md` documenting the whole headless-recording process (Xvfb +
-  GDK_BACKEND=x11 + software-rendering env, `tauri build --no-bundle` vs `cargo build`, xdotool
-  driving, and Claude Code's per-worktree onboarding prompts). Demo/top-level READMEs link both.
+### Demo — real screen recording of a 3-agent build, then the app running
+- Added `demo/autodev-multi-agent-demo.mp4`: a real, end-to-end screen recording of the desktop
+  app — set 3 agents + Isolate (worktree), launch, and three real `claude` agents each build a
+  to-do app (`index.html`/`style.css`/`app.js`) in parallel in their own worktrees (live terminals
+  + status dots) — **then the built app is opened and used** (add/delete items) to prove it works.
+  Captured headlessly on an Xvfb virtual display (no real-desktop interference), driven with
+  xdotool, recorded with ffmpeg; the build and run segments are stitched with ffmpeg concat.
+- Added `docs/recording-a-demo.md` documenting the whole process — Xvfb + GDK_BACKEND=x11 +
+  software-rendering env, `tauri build --no-bundle` vs `cargo build`, xdotool driving, Claude
+  Code's per-worktree onboarding prompts, and the GTK+WebKit viewer used to render the built app
+  (Chrome/Firefox black out on a GLX-less Xvfb). Demo/top-level READMEs link both.
 
 ### Demo — recorded multi-agent walkthrough
 - Added `demo/`: `multi-agent-demo.sh` reproduces AutoDev's fan-out + worktree-isolation flow

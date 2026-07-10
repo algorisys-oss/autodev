@@ -6,10 +6,11 @@ them in parallel, then merge the results back.
 ## Screen recording of the real app
 
 [`autodev-multi-agent-demo.mp4`](autodev-multi-agent-demo.mp4) — a real screen recording of the
-desktop app: type a task, set **3 agents** + **Isolate (worktree)**, launch, and watch three real
-`claude` agents each build a to-do app (`index.html` / `style.css` / `app.js`) in parallel, each
-in its own worktree, with live terminals and status dots. It was captured headlessly on a virtual
-display — see [`docs/recording-a-demo.md`](../docs/recording-a-demo.md) for exactly how.
+desktop app, end to end: type a task, set **3 agents** + **Isolate (worktree)**, launch, and watch
+three real `claude` agents each build a to-do app (`index.html` / `style.css` / `app.js`) in
+parallel, each in its own worktree, with live terminals and status dots — **then the built app is
+opened and used** (add a few items, delete one) to prove it actually works. Captured headlessly on
+a virtual display — see [`docs/recording-a-demo.md`](../docs/recording-a-demo.md) for exactly how.
 
 ## Runnable script (no GUI, no auth)
 

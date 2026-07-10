@@ -98,7 +98,38 @@ a keypress in each agent's terminal (focus the agent card, click into its termin
   unattended build, leave Bypass **off** and rely on your global Claude `defaultMode` /
   `skipAutoPermissionPrompt` in `~/.claude/settings.json` so edits auto-apply.
 
-### 7. Stop, encode, clean up
+### 7. Show the built app actually running
+
+The payoff shot: open what the agents built and use it. Point a browser at one worktree's
+`index.html`. **Gotcha:** on a GLX-less Xvfb, Chrome and Firefox render a **black window**
+(Chrome) or won't start (Firefox) — their GPU/compositor can't fall back cleanly. WebKitGTK,
+though, renders fine with the same software-rendering env the app uses. A ~12-line GTK+WebKit
+Python viewer is the reliable way to display the built page:
+
+```python
+# webkit_view.py
+import gi, sys
+gi.require_version('Gtk', '3.0'); gi.require_version('WebKit2', '4.1')
+from gi.repository import Gtk, WebKit2
+win = Gtk.Window(); win.set_default_size(1280, 800); win.set_title("to-do app")
+web = WebKit2.WebView(); win.add(web); web.load_uri(sys.argv[1])
+win.connect('destroy', Gtk.main_quit); win.show_all(); Gtk.main()
+```
+
+```bash
+wt=$(ls -dt ~/.autodev/worktrees/*-0 | head -1)
+env -u LD_LIBRARY_PATH -u GTK_PATH -u GTK_EXE_PREFIX ... \
+  DISPLAY=:99 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
+  WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+  python3 webkit_view.py "file://$wt/index.html" &
+# then drive the app with xdotool (click the input, type, Enter, click a delete ×)
+```
+
+With no window manager, the app and the viewer won't stack predictably — move the app window out
+of the capture region (`xdotool windowmove <app> 0 900`) and raise the viewer to `0,0`. Record the
+run, then concat it after the build footage with ffmpeg's `concat` filter.
+
+### 8. Stop, encode, clean up
 
 ```bash
 pkill -f x11grab                                   # stop recording
@@ -119,3 +150,7 @@ pkill -x autodev; pkill -x Xvfb                    # tear down
   Use `ps -C autodev` to check whether the app is actually running.
 - Real agents hit real onboarding prompts in fresh worktrees; budget for the trust-dialog keypress
   per agent, and prefer non-bypass mode for a hands-off build.
+- Chrome renders a **black window** and Firefox won't launch on a GLX-less Xvfb. Use the tiny
+  GTK+WebKit Python viewer above to display the built app — it uses the same WebKitGTK the app does.
+- `pkill -f x11grab` to stop recording returns a non-zero exit here but does stop ffmpeg; check the
+  output `.mp4` rather than trusting the exit code.

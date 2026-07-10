@@ -13,9 +13,9 @@ and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
 > annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop. See
 > [`handoff.md`](handoff.md) for exactly what works today and the known gaps.
 
-> **Demo:** [`demo/`](demo/) has a real screen recording of the app running a 3-agent build
-> (`autodev-multi-agent-demo.mp4`) plus a runnable no-GUI script. See
-> [`docs/recording-a-demo.md`](docs/recording-a-demo.md) for how the recording was captured.
+> **Demo:** [`demo/`](demo/) has a real screen recording of the app — 3 agents building an app in
+> parallel, then the built app opened and used (`autodev-multi-agent-demo.mp4`) — plus a runnable
+> no-GUI script. See [`docs/recording-a-demo.md`](docs/recording-a-demo.md) for how it was captured.
 
 ## Download
 
