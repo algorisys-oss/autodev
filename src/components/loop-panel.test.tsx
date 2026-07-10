@@ -154,4 +154,42 @@ describe("loop panel auto-advance", () => {
     // Still planning: the manual "Set contract" fallback is present.
     expect(getByText(/Set contract/)).toBeTruthy();
   });
+
+  it("passes the verify command and max rounds when creating a loop", async () => {
+    mocked.loopList.mockResolvedValue([]);
+    mocked.loopCreate.mockResolvedValue(loop({ verifyCommand: "npm test", maxIterations: 12 }));
+
+    const { store } = agentHarness();
+    const { getByText, getByPlaceholderText, container } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    fireEvent.input(getByPlaceholderText(/Spec for a new autonomous loop/), {
+      target: { value: "build a URL shortener" },
+    });
+    fireEvent.input(getByPlaceholderText(/dev\.sh verify/), { target: { value: "npm test" } });
+    fireEvent.input(container.querySelector('input[type="number"]')!, {
+      target: { value: "12" },
+    });
+    fireEvent.click(getByText("New loop"));
+
+    await waitFor(() =>
+      expect(mocked.loopCreate).toHaveBeenCalledWith("build a URL shortener", "/proj", "npm test", 12),
+    );
+  });
+
+  it("shows the recorded failure reason on a failed loop", async () => {
+    mocked.loopList.mockResolvedValue([
+      loop({
+        phase: "failed",
+        failureReason: "no progress in 3 rounds (1/4 criteria met; tests failing)",
+        contract: [{ text: "c1", met: false }],
+      }),
+    ]);
+
+    const { store } = agentHarness();
+    const { findByText } = render(() => <LoopPanel agents={store} defaultProjectDir="/proj" />);
+
+    await findByText(/no progress in 3 rounds/);
+  });
 });

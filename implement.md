@@ -2,6 +2,38 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Loop trust & durability core — COMPLETE
+
+**Decided:** Make the autonomous loop trustworthy over long runs by closing the three highest-
+value gaps from the earlier honest assessment, keeping all decision logic pure/TDD in
+`loop_engine.rs` and reusing the `transcribe.rs` pluggable-shell-command pattern for the verify
+command. Scope deliberately excludes the feature-epic driver and LLM context compaction (Phase 2).
+
+**Built:**
+- `verify.rs` (new, +4 tests) — `run_verify` via `sh -c` in the project dir, exit 0 = pass, bounded
+  output tail; a command that can't launch counts as a failure, not a pass.
+- `loop_engine.rs` (+8 tests) — `LoopState` gains `verify_command`/`history`/`failure_reason`
+  (serde-default); `met_count`, `is_stuck` (flat window OR no new best), `append_progress`
+  (bounded). `grade_and_advance(state, verdicts, verify)` gates `Passed` on `all_met && verify !=
+  Some(false)`, escalates a stall/out-of-cap to `Failed` with a reason. Prompts thread progress
+  memory + the verify command. `new()` removed (only tests used it → clippy dead_code under
+  `--all-targets`); tests use `with_options`/a `mk` helper. Default cap 5 → 8.
+- `commands.rs` — `loop_create` takes `verify_command`/`max_iterations`; a shared `apply_grade`
+  runs verify, records a progress line, and grades, used by both `loop_grade` and
+  `loop_apply_evaluator` so manual and auto paths behave identically.
+- Frontend — `ipc.ts` types + `loopCreate` params; loop-new **Verify command** + **Max rounds**
+  inputs; failure-reason + verify-command shown in the detail view (+2 tests).
+
+**Status:** complete. `./dev.sh verify` green (52 Rust + 42 frontend).
+
+**Verification:** the verify gate is proven by unit tests end-to-end at the logic layer
+(`run_verify` exit-code handling × `grade_and_advance` gating: all-PASS verdicts + `verify=false`
+⇒ never `Passed`). A full live loop driving real agents was not run (same boundary as prior work —
+needs authenticated CLIs + the GUI).
+
+**Deferred (Phase 2):** feature-epic driver, LLM-based progress summarization, onboarding/permission
+pre-flight so unattended agents don't stall at Claude's trust prompt.
+
 ## Open-folder-as-workspace + release helper — COMPLETE
 
 **Decided:** Two small UX/ops conveniences. (1) A one-step "open an existing folder as a

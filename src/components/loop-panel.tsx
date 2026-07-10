@@ -22,6 +22,8 @@ export function LoopPanel(props: {
   const [loops, setLoops] = createSignal<LoopState[]>([]);
   const [activeId, setActiveId] = createSignal<string | null>(null);
   const [spec, setSpec] = createSignal("");
+  const [verifyCommand, setVerifyCommand] = createSignal("");
+  const [maxIterations, setMaxIterations] = createSignal(8);
   const [criteriaText, setCriteriaText] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
   // The role agent currently running for a loop; when it exits we parse its output and advance.
@@ -103,7 +105,12 @@ export function LoopPanel(props: {
       return;
     }
     try {
-      const l = await loopCreate(spec().trim(), props.defaultProjectDir);
+      const l = await loopCreate(
+        spec().trim(),
+        props.defaultProjectDir,
+        verifyCommand().trim() || null,
+        maxIterations(),
+      );
       replace(l);
       setActiveId(l.id);
       setSpec("");
@@ -179,12 +186,34 @@ export function LoopPanel(props: {
   return (
     <div class="loop-panel">
       <div class="loop-new">
-        <textarea
-          rows={2}
-          value={spec()}
-          onInput={(e) => setSpec(e.currentTarget.value)}
-          placeholder="Spec for a new autonomous loop (e.g. build a URL shortener with tests)…"
-        />
+        <div class="loop-new-spec">
+          <textarea
+            rows={2}
+            value={spec()}
+            onInput={(e) => setSpec(e.currentTarget.value)}
+            placeholder="Spec for a new autonomous loop (e.g. build a URL shortener with tests)…"
+          />
+          <div class="loop-new-config">
+            <label class="loop-cfg" title="Ground truth: a command whose exit 0 = tests pass. Blocks a pass even if the evaluator rates every criterion PASS.">
+              Verify command
+              <input
+                type="text"
+                value={verifyCommand()}
+                onInput={(e) => setVerifyCommand(e.currentTarget.value)}
+                placeholder="./dev.sh verify  ·  npm test"
+              />
+            </label>
+            <label class="loop-cfg" title="Max generate→evaluate rounds before the loop gives up (it also stops early if it stalls).">
+              Max rounds
+              <input
+                type="number"
+                min={1}
+                value={maxIterations()}
+                onInput={(e) => setMaxIterations(Math.max(1, Number(e.currentTarget.value) || 1))}
+              />
+            </label>
+          </div>
+        </div>
         <div class="loop-new-actions">
           <button class="primary" onClick={create}>
             New loop
@@ -223,7 +252,12 @@ export function LoopPanel(props: {
           <div class="loop-detail">
             <div class="loop-meta">
               <span class={`phase ${l.phase}`}>{l.phase}</span>
-              <span class="muted">iteration {l.iteration}/{l.maxIterations}</span>
+              <span class="muted">round {l.iteration + 1}/{l.maxIterations}</span>
+              <Show when={l.verifyCommand}>
+                <span class="muted" title="Ground-truth test command — must pass to complete">
+                  · verify: <code>{l.verifyCommand}</code>
+                </span>
+              </Show>
               <span class="spacer" />
               <Show when={roleRunning(l.id)}>
                 <span class="muted">running {roleAgent()?.role}…</span>
@@ -289,10 +323,10 @@ export function LoopPanel(props: {
               </button>
             </Show>
             <Show when={l.phase === "passed"}>
-              <p class="loop-pass">✓ Contract met.</p>
+              <p class="loop-pass">✓ Contract met{l.verifyCommand ? " and tests pass." : "."}</p>
             </Show>
             <Show when={l.phase === "failed"}>
-              <p class="error">✗ Out of iterations without meeting the contract.</p>
+              <p class="error">✗ {l.failureReason ?? "Did not meet the contract."}</p>
             </Show>
           </div>
         )}

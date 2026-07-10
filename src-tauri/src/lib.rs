@@ -7,6 +7,7 @@ mod handoff;
 mod loop_engine;
 mod state;
 mod transcribe;
+mod verify;
 mod workspace;
 
 use tauri::{Manager, WindowEvent};

@@ -381,9 +381,16 @@ fn loop_slug(spec: &str) -> String {
 }
 
 #[tauri::command]
-pub fn loop_create(spec: String, project_dir: String) -> AppResult<LoopState> {
+pub fn loop_create(
+    spec: String,
+    project_dir: String,
+    verify_command: Option<String>,
+    max_iterations: Option<u32>,
+) -> AppResult<LoopState> {
     let id = loop_slug(&spec);
-    let state = LoopState::new(id.clone(), spec, project_dir);
+    let verify = verify_command.filter(|c| !c.trim().is_empty());
+    let cap = max_iterations.unwrap_or(loop_engine::DEFAULT_MAX_ITERATIONS);
+    let state = LoopState::with_options(id.clone(), spec, project_dir, verify, cap);
     let base = state::loops_dir()?;
     loop_engine::save(&base, &state)?;
     loop_engine::append_log(&base, &id, "created; phase=planning")?;
@@ -430,6 +437,66 @@ fn round_diff(s: &LoopState) -> String {
     }
 }
 
+/// Grade one round: run the ground-truth verify command (if configured), apply the verdicts + test
+/// result, record a bounded progress-memory line, re-base a retry's diff, and persist. Shared by
+/// the manual (`loop_grade`) and auto (`loop_apply_evaluator`) paths so they behave identically.
+fn apply_grade(
+    base: &Path,
+    mut s: LoopState,
+    verdicts: &[bool],
+    how: &str,
+) -> AppResult<LoopState> {
+    let round = s.iteration + 1;
+    let verify = s
+        .verify_command
+        .as_deref()
+        .map(|cmd| crate::verify::run_verify(cmd, Path::new(&s.project_dir)));
+    let verify_pass = verify.as_ref().map(|o| o.passed);
+
+    loop_engine::grade_and_advance(&mut s, verdicts, verify_pass);
+
+    let vnote = match verify_pass {
+        Some(true) => "verify=pass",
+        Some(false) => "verify=fail",
+        None => "verify=n/a",
+    };
+    let failing: Vec<&str> = s
+        .contract
+        .iter()
+        .filter(|c| c.met != Some(true))
+        .map(|c| c.text.as_str())
+        .collect();
+    let mut line = format!(
+        "round {round}: {}/{} met; {vnote}",
+        s.met_count(),
+        s.contract.len()
+    );
+    if !failing.is_empty() {
+        line.push_str(&format!("; failing: {}", failing.join(", ")));
+    }
+    loop_engine::append_progress(&mut s.progress, &line, 15);
+
+    // A retry starts a fresh generation round; re-base the diff on the current HEAD.
+    if s.phase == loop_engine::LoopPhase::Generating {
+        s.base_commit = capture_base(&s.project_dir);
+    }
+    loop_engine::save(base, &s)?;
+    loop_engine::append_log(
+        base,
+        &s.id,
+        &format!(
+            "{how}: phase={:?} iteration={} {vnote}{}",
+            s.phase,
+            s.iteration,
+            s.failure_reason
+                .as_deref()
+                .map(|r| format!(" — {r}"))
+                .unwrap_or_default()
+        ),
+    )?;
+    Ok(s)
+}
+
 /// Record the planner's contract, move to Generating.
 #[tauri::command]
 pub fn loop_set_contract(
@@ -470,19 +537,8 @@ pub fn loop_ready_to_evaluate(id: String) -> AppResult<LoopState> {
 #[tauri::command]
 pub fn loop_grade(id: String, verdicts: Vec<bool>) -> AppResult<LoopState> {
     let base = state::loops_dir()?;
-    let mut s = loop_engine::load(&base, &id)?;
-    loop_engine::grade_and_advance(&mut s, &verdicts);
-    // A retry starts a fresh generation round; re-base the diff on the current HEAD.
-    if s.phase == loop_engine::LoopPhase::Generating {
-        s.base_commit = capture_base(&s.project_dir);
-    }
-    loop_engine::save(&base, &s)?;
-    loop_engine::append_log(
-        &base,
-        &id,
-        &format!("graded: phase={:?} iteration={}", s.phase, s.iteration),
-    )?;
-    Ok(s)
+    let s = loop_engine::load(&base, &id)?;
+    apply_grade(&base, s, &verdicts, "graded")
 }
 
 #[derive(Serialize)]
@@ -551,7 +607,7 @@ pub fn loop_apply_planner(id: String, agent_id: String) -> AppResult<LoopState> 
 #[tauri::command]
 pub fn loop_apply_evaluator(id: String, agent_id: String) -> AppResult<LoopState> {
     let base = state::loops_dir()?;
-    let mut s = loop_engine::load(&base, &id)?;
+    let s = loop_engine::load(&base, &id)?;
     if s.phase != loop_engine::LoopPhase::Evaluating {
         return Err(AppError::Conflict(format!(
             "loop {id} is not evaluating (phase is {:?})",
@@ -559,18 +615,5 @@ pub fn loop_apply_evaluator(id: String, agent_id: String) -> AppResult<LoopState
         )));
     }
     let verdicts = loop_engine::parse_verdicts(&read_agent_log(&agent_id)?, &s.contract);
-    loop_engine::grade_and_advance(&mut s, &verdicts);
-    if s.phase == loop_engine::LoopPhase::Generating {
-        s.base_commit = capture_base(&s.project_dir);
-    }
-    loop_engine::save(&base, &s)?;
-    loop_engine::append_log(
-        &base,
-        &id,
-        &format!(
-            "evaluator auto-graded: phase={:?} iteration={}",
-            s.phase, s.iteration
-        ),
-    )?;
-    Ok(s)
+    apply_grade(&base, s, &verdicts, "evaluator auto-graded")
 }

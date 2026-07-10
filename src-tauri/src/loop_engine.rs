@@ -55,27 +55,84 @@ pub struct LoopState {
     /// loads with `None` via serde default).
     #[serde(default)]
     pub base_commit: Option<String>,
+    /// Ground-truth test command (run via `sh -c` in the project dir). Exit 0 = the build's own
+    /// tests pass; a failure blocks `Passed` even when the evaluator says every criterion is met.
+    #[serde(default)]
+    pub verify_command: Option<String>,
+    /// Met-criterion count after each graded round — the signal for stuck detection.
+    #[serde(default)]
+    pub history: Vec<u32>,
+    /// Why the loop reached `Failed` (out of iterations / stuck / tests failing). `None` otherwise.
+    #[serde(default)]
+    pub failure_reason: Option<String>,
 }
 
+/// Number of consecutive rounds with no new progress that marks a loop as stuck.
+pub const STUCK_WINDOW: usize = 3;
+/// Default iteration budget (raised from the original 5 now that stuck-detection ends dead loops).
+pub const DEFAULT_MAX_ITERATIONS: u32 = 8;
+
 impl LoopState {
-    pub fn new(id: String, spec: String, project_dir: String) -> Self {
+    pub fn with_options(
+        id: String,
+        spec: String,
+        project_dir: String,
+        verify_command: Option<String>,
+        max_iterations: u32,
+    ) -> Self {
         Self {
             id,
             spec,
             project_dir,
             phase: LoopPhase::Planning,
             iteration: 0,
-            max_iterations: 5,
+            max_iterations: max_iterations.max(1),
             contract: Vec::new(),
             features: Vec::new(),
             progress: String::new(),
             base_commit: None,
+            verify_command,
+            history: Vec::new(),
+            failure_reason: None,
         }
     }
 
     /// Are all criteria graded and met?
     pub fn all_met(&self) -> bool {
         !self.contract.is_empty() && self.contract.iter().all(|c| c.met == Some(true))
+    }
+
+    /// How many criteria are currently graded as met.
+    pub fn met_count(&self) -> u32 {
+        self.contract.iter().filter(|c| c.met == Some(true)).count() as u32
+    }
+}
+
+/// Has the loop stalled — no upward progress over the last `window` rounds? True when the recent
+/// window is flat (same met-count throughout) or its best does not exceed the best already seen
+/// before it. Fewer than `window` graded rounds is never stuck (not enough evidence).
+pub fn is_stuck(history: &[u32], window: usize) -> bool {
+    let n = history.len();
+    if window == 0 || n < window {
+        return false;
+    }
+    let recent = &history[n - window..];
+    let recent_flat = recent.iter().all(|&v| v == recent[0]);
+    let recent_best = recent.iter().copied().max().unwrap_or(0);
+    let prior_best = history[..n - window].iter().copied().max().unwrap_or(0);
+    recent_flat || recent_best <= prior_best
+}
+
+/// Append a one-line round summary to `progress`, keeping only the last `max_lines` so the loop's
+/// memory stays bounded (the generator/evaluator get a recent tail, not the whole history).
+pub fn append_progress(progress: &mut String, line: &str, max_lines: usize) {
+    if !progress.is_empty() {
+        progress.push('\n');
+    }
+    progress.push_str(line);
+    let lines: Vec<&str> = progress.lines().collect();
+    if lines.len() > max_lines {
+        *progress = lines[lines.len() - max_lines..].join("\n");
     }
 }
 
@@ -94,32 +151,63 @@ pub fn planner_prompt(spec: &str) -> String {
     )
 }
 
-pub fn generator_prompt(spec: &str, contract: &[Criterion]) -> String {
+pub fn generator_prompt(
+    spec: &str,
+    contract: &[Criterion],
+    progress: &str,
+    verify_command: Option<&str>,
+) -> String {
     let list = contract
         .iter()
         .enumerate()
         .map(|(i, c)| format!("{}. {}", i + 1, c.text))
         .collect::<Vec<_>>()
         .join("\n");
+    let mut memory = String::new();
+    if !progress.trim().is_empty() {
+        memory.push_str(&format!(
+            "\nPROGRESS SO FAR (recent rounds — do NOT repeat what already failed; if attempts \
+             have stalled, change your approach):\n{}\n",
+            progress.trim()
+        ));
+    }
+    if let Some(cmd) = verify_command {
+        memory.push_str(&format!(
+            "\nGROUND TRUTH: your work is accepted only when `{cmd}` exits 0. Run it and make it \
+             pass before you finish.\n"
+        ));
+    }
     format!(
         "You are the GENERATOR. You write complete, working code. You are FORBIDDEN from \
          grading your own work.\n\n\
          Implement the spec so that every contract criterion is satisfied. No mocks, stubs, \
          TODOs, or placeholders. Commit your work when done.\n\n\
-         SPEC:\n{spec}\n\nCONTRACT:\n{list}\n"
+         SPEC:\n{spec}\n\nCONTRACT:\n{list}\n{memory}"
     )
 }
 
-pub fn evaluator_prompt(contract: &[Criterion], diff: &str) -> String {
+pub fn evaluator_prompt(
+    contract: &[Criterion],
+    diff: &str,
+    verify_command: Option<&str>,
+) -> String {
     let list = contract
         .iter()
         .enumerate()
         .map(|(i, c)| format!("{}. {}", i + 1, c.text))
         .collect::<Vec<_>>()
         .join("\n");
+    let verify_line = match verify_command {
+        Some(cmd) => format!(
+            "Run the project's test command `{cmd}` and treat its result as ground truth: a \
+             criterion the tests contradict, or that you cannot verify, is a FAIL.\n\n"
+        ),
+        None => String::new(),
+    };
     format!(
         "You are the EVALUATOR. Assume the code is BROKEN and your job is to prove it. You see \
          only the diff, not the author's reasoning. Run the tests, exercise the app.\n\n\
+         {verify_line}\
          For EACH criterion, output exactly one line `N. PASS` or `N. FAIL: <evidence>`, using \
          the criterion's number below, then a short evidence paragraph. Do not give the \
          benefit of the doubt; a criterion you cannot verify is a FAIL. The `N. PASS/FAIL` \
@@ -299,28 +387,62 @@ pub fn prompt_for_phase(state: &LoopState, diff: &str) -> Option<(Role, String)>
         LoopPhase::Planning => Some((Role::Planner, planner_prompt(&state.spec))),
         LoopPhase::Generating => Some((
             Role::Generator,
-            generator_prompt(&state.spec, &state.contract),
+            generator_prompt(
+                &state.spec,
+                &state.contract,
+                &state.progress,
+                state.verify_command.as_deref(),
+            ),
         )),
-        LoopPhase::Evaluating => Some((Role::Evaluator, evaluator_prompt(&state.contract, diff))),
+        LoopPhase::Evaluating => Some((
+            Role::Evaluator,
+            evaluator_prompt(&state.contract, diff, state.verify_command.as_deref()),
+        )),
         LoopPhase::Passed | LoopPhase::Failed => None,
     }
 }
 
-/// Apply the evaluator's per-criterion verdicts and advance the phase.
+/// Apply the evaluator's per-criterion verdicts plus the ground-truth test result, and advance.
 ///
-/// All met → Passed. Otherwise, if iterations remain, reset the failed marks and go back to
-/// Generating (LOOPS XXXI: let the loop retry). Out of iterations → Failed.
-pub fn grade_and_advance(state: &mut LoopState, verdicts: &[bool]) {
+/// `verify` is the exit-status verdict of the loop's verify command: `Some(true)` = tests pass,
+/// `Some(false)` = tests fail, `None` = no verify command configured. The loop reaches `Passed`
+/// only when every criterion is met AND the tests did not fail — so failing tests block a pass
+/// even if the evaluator rated every criterion PASS. Otherwise the loop retries, unless it has
+/// stalled (no progress in `STUCK_WINDOW` rounds) or run out of iterations, either of which ends
+/// it as `Failed` with a recorded reason (LOOPS XXXI).
+pub fn grade_and_advance(state: &mut LoopState, verdicts: &[bool], verify: Option<bool>) {
     for (c, met) in state.contract.iter_mut().zip(verdicts.iter()) {
         c.met = Some(*met);
     }
-    if state.all_met() {
+    state.history.push(state.met_count());
+    let met = state.met_count();
+    let total = state.contract.len() as u32;
+
+    if state.all_met() && verify != Some(false) {
         state.phase = LoopPhase::Passed;
+        state.failure_reason = None;
+        return;
+    }
+
+    let tests_note = if verify == Some(false) {
+        "; tests failing"
+    } else {
+        ""
+    };
+    if is_stuck(&state.history, STUCK_WINDOW) {
+        state.phase = LoopPhase::Failed;
+        state.failure_reason = Some(format!(
+            "no progress in {STUCK_WINDOW} rounds ({met}/{total} criteria met{tests_note})"
+        ));
     } else if state.iteration + 1 >= state.max_iterations {
         state.phase = LoopPhase::Failed;
+        state.failure_reason = Some(format!(
+            "out of iterations ({met}/{total} criteria met{tests_note})"
+        ));
     } else {
         state.iteration += 1;
         state.phase = LoopPhase::Generating;
+        state.failure_reason = None;
     }
 }
 
@@ -398,20 +520,51 @@ mod tests {
         }
     }
 
+    fn mk(id: &str) -> LoopState {
+        LoopState::with_options(
+            id.into(),
+            "spec".into(),
+            "/p".into(),
+            None,
+            DEFAULT_MAX_ITERATIONS,
+        )
+    }
+
     #[test]
     fn role_prompts_carry_their_role_and_inputs() {
         assert!(planner_prompt("build X").contains("You are the PLANNER"));
         assert!(planner_prompt("build X").contains("build X"));
         let contract = vec![crit("has a login")];
-        assert!(generator_prompt("spec", &contract).contains("FORBIDDEN from grading"));
-        assert!(generator_prompt("spec", &contract).contains("has a login"));
-        assert!(evaluator_prompt(&contract, "the diff").contains("code is BROKEN"));
-        assert!(evaluator_prompt(&contract, "the diff").contains("the diff"));
+        let gen = generator_prompt("spec", &contract, "", None);
+        assert!(gen.contains("FORBIDDEN from grading"));
+        assert!(gen.contains("has a login"));
+        let ev = evaluator_prompt(&contract, "the diff", None);
+        assert!(ev.contains("code is BROKEN"));
+        assert!(ev.contains("the diff"));
+    }
+
+    #[test]
+    fn prompts_carry_progress_memory_and_the_verify_command() {
+        let contract = vec![crit("adds two numbers")];
+        let gen = generator_prompt(
+            "spec",
+            &contract,
+            "iteration 1: 0/1 met; failing: adds two numbers",
+            Some("npm test"),
+        );
+        assert!(gen.contains("PROGRESS SO FAR"));
+        assert!(gen.contains("failing: adds two numbers"));
+        assert!(gen.contains("npm test"));
+        // No memory when there's nothing to carry.
+        assert!(!generator_prompt("spec", &contract, "", None).contains("PROGRESS SO FAR"));
+        assert!(
+            evaluator_prompt(&contract, "d", Some("./dev.sh verify")).contains("./dev.sh verify")
+        );
     }
 
     #[test]
     fn prompt_for_phase_follows_the_state() {
-        let mut s = LoopState::new("l1".into(), "spec".into(), "/p".into());
+        let mut s = mk("l1");
         assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Planner);
         s.phase = LoopPhase::Generating;
         assert_eq!(prompt_for_phase(&s, "").unwrap().0, Role::Generator);
@@ -423,26 +576,99 @@ mod tests {
 
     #[test]
     fn all_pass_moves_to_passed() {
-        let mut s = LoopState::new("l".into(), "spec".into(), "/p".into());
+        let mut s = mk("l");
         s.contract = vec![crit("a"), crit("b")];
         s.phase = LoopPhase::Evaluating;
-        grade_and_advance(&mut s, &[true, true]);
+        grade_and_advance(&mut s, &[true, true], None);
         assert_eq!(s.phase, LoopPhase::Passed);
         assert!(s.all_met());
     }
 
     #[test]
-    fn a_failure_retries_until_max_then_fails() {
-        let mut s = LoopState::new("l".into(), "spec".into(), "/p".into());
-        s.contract = vec![crit("a"), crit("b")];
+    fn a_failure_retries_until_max_then_fails_with_a_reason() {
+        let mut s = mk("l");
+        s.contract = vec![crit("a"), crit("b"), crit("c")];
         s.max_iterations = 2;
         s.phase = LoopPhase::Evaluating;
-        grade_and_advance(&mut s, &[true, false]);
+        // Progress each round (1 met, then 2 met) so it is not flagged as stuck.
+        grade_and_advance(&mut s, &[true, false, false], None);
         assert_eq!(s.phase, LoopPhase::Generating); // iteration 0 -> retry
         assert_eq!(s.iteration, 1);
         s.phase = LoopPhase::Evaluating;
-        grade_and_advance(&mut s, &[true, false]);
+        grade_and_advance(&mut s, &[true, true, false], None);
         assert_eq!(s.phase, LoopPhase::Failed); // hit max_iterations
+        assert!(s
+            .failure_reason
+            .as_deref()
+            .unwrap()
+            .contains("out of iterations"));
+        assert!(s.failure_reason.as_deref().unwrap().contains("2/3"));
+    }
+
+    #[test]
+    fn failing_tests_block_a_pass_even_when_every_verdict_is_pass() {
+        let mut s = mk("l");
+        s.contract = vec![crit("a"), crit("b")];
+        s.phase = LoopPhase::Evaluating;
+        // Evaluator says everything passes, but ground-truth tests fail: must NOT pass.
+        grade_and_advance(&mut s, &[true, true], Some(false));
+        assert_eq!(s.phase, LoopPhase::Generating);
+        // Same verdicts, tests now pass: passes.
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[true, true], Some(true));
+        assert_eq!(s.phase, LoopPhase::Passed);
+    }
+
+    #[test]
+    fn a_stalled_loop_fails_early_as_stuck() {
+        let mut s = mk("l");
+        s.contract = vec![crit("a"), crit("b"), crit("c")];
+        s.max_iterations = 20; // far from the cap; stuck-detection must end it first
+        for _ in 0..STUCK_WINDOW {
+            s.phase = LoopPhase::Evaluating;
+            grade_and_advance(&mut s, &[true, false, false], None); // stuck at 1/3
+        }
+        assert_eq!(s.phase, LoopPhase::Failed);
+        assert!(s.failure_reason.as_deref().unwrap().contains("no progress"));
+        assert!(s.iteration < 20);
+    }
+
+    #[test]
+    fn is_stuck_needs_a_plateau() {
+        assert!(!is_stuck(&[], STUCK_WINDOW));
+        assert!(!is_stuck(&[1, 2], STUCK_WINDOW)); // too few rounds
+        assert!(!is_stuck(&[1, 2, 3], STUCK_WINDOW)); // improving
+        assert!(!is_stuck(&[0, 1, 2, 3], STUCK_WINDOW)); // still improving in the window
+        assert!(is_stuck(&[3, 3, 3], STUCK_WINDOW)); // flat
+        assert!(is_stuck(&[2, 3, 2, 3, 3], STUCK_WINDOW)); // no new best in last 3
+    }
+
+    #[test]
+    fn append_progress_keeps_a_bounded_tail() {
+        let mut p = String::new();
+        for i in 1..=10 {
+            append_progress(&mut p, &format!("iteration {i}"), 3);
+        }
+        let lines: Vec<&str> = p.lines().collect();
+        assert_eq!(lines, vec!["iteration 8", "iteration 9", "iteration 10"]);
+    }
+
+    #[test]
+    fn with_options_sets_verify_and_cap() {
+        let s = LoopState::with_options(
+            "l".into(),
+            "spec".into(),
+            "/p".into(),
+            Some("npm test".into()),
+            12,
+        );
+        assert_eq!(s.verify_command.as_deref(), Some("npm test"));
+        assert_eq!(s.max_iterations, 12);
+        // Cap is floored at 1 so a loop always runs at least once.
+        assert_eq!(
+            LoopState::with_options("l".into(), "s".into(), "/p".into(), None, 0).max_iterations,
+            1
+        );
     }
 
     #[test]
@@ -517,7 +743,7 @@ Criterion 3: PASS\n";
     #[test]
     fn disk_roundtrip_and_companion_files() {
         let base = tmp("disk");
-        let mut s = LoopState::new("loop1".into(), "spec".into(), "/proj".into());
+        let mut s = LoopState::with_options("loop1".into(), "spec".into(), "/proj".into(), None, 8);
         s.contract = vec![Criterion {
             text: "has tests".into(),
             met: Some(true),

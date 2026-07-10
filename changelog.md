@@ -4,6 +4,27 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Loop trust & durability core (autonomous long-running builds)
+Closes three gaps that made the autonomous loop untrustworthy over long runs.
+- **Ground-truth verify gate.** New `verify.rs` `run_verify(command, project_dir)` runs a
+  user-configured test command via `sh -c` (exit 0 = pass). `LoopState.verify_command` +
+  reworked `grade_and_advance(state, verdicts, verify)`: a loop reaches `Passed` only when every
+  criterion is met AND the tests did not fail — so failing tests block a pass even if the
+  evaluator rated every criterion PASS. The model no longer grades its own homework unchecked.
+- **Stuck detection + escalation.** `LoopState.history` (met-count per round) + pure
+  `is_stuck(history, window=3)`; a stalled loop now fails early with a recorded
+  `failure_reason` ("no progress in 3 rounds …" / "out of iterations …; tests failing") instead
+  of silently burning the whole budget.
+- **Bounded progress memory.** `append_progress` accumulates a per-round summary
+  (`round k: M/T met; verify=pass/fail; failing: …`, last 15 lines) that is fed into the
+  generator (don't repeat what failed; run the verify command) and evaluator (treat the test
+  command as ground truth) prompts.
+- **Configurable cap.** `loop_create(spec, project_dir, verify_command?, max_iterations?)`;
+  default raised 5 → 8. Loop-new form gains **Verify command** + **Max rounds** inputs; the
+  detail view shows the verify command and the failure reason. +12 Rust tests, +2 frontend.
+- Deferred to Phase 2: feature-epic driver (many contracts to completion), LLM context
+  compaction, onboarding/permission pre-flight.
+
 ### Demo — real screen recording of a 3-agent build, then the app running
 - Added `demo/autodev-multi-agent-demo.mp4`: a real, end-to-end screen recording of the desktop
   app — set 3 agents + Isolate (worktree), launch, and three real `claude` agents each build a

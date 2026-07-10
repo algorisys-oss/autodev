@@ -217,6 +217,9 @@ export interface LoopState {
   features: string[];
   progress: string;
   baseCommit?: string | null;
+  verifyCommand?: string | null;
+  history?: number[];
+  failureReason?: string | null;
 }
 
 export interface RolePrompt {
@@ -224,8 +227,18 @@ export interface RolePrompt {
   prompt: string;
 }
 
-export function loopCreate(spec: string, projectDir: string): Promise<LoopState> {
-  return invoke<LoopState>("loop_create", { spec, projectDir });
+export function loopCreate(
+  spec: string,
+  projectDir: string,
+  verifyCommand?: string | null,
+  maxIterations?: number | null,
+): Promise<LoopState> {
+  return invoke<LoopState>("loop_create", {
+    spec,
+    projectDir,
+    verifyCommand: verifyCommand ?? null,
+    maxIterations: maxIterations ?? null,
+  });
 }
 
 export function loopList(): Promise<LoopState[]> {

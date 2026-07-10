@@ -67,7 +67,13 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (42 tests) + Vitest (40).
+  Trust & durability: set a **Verify command** (e.g. `./dev.sh verify`) — its exit code is
+  ground truth, so a loop can't pass on the evaluator's say-so if tests fail. The loop keeps a
+  per-round met-count history, ends early with a **failure reason** when it stalls (no progress
+  in 3 rounds) or runs out of **Max rounds** (default 8), and feeds a bounded progress memory
+  into the generator/evaluator prompts. Still Phase-2: feature-epic driver (many contracts to
+  completion), LLM context compaction, onboarding-gate pre-flight for unattended runs.
+- `./dev.sh test` — Rust `cargo test` (52 tests) + Vitest (42).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

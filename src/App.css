@@ -242,6 +242,34 @@ button.launch {
   color: inherit;
 }
 
+.loop-new-spec {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.loop-new-config {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.loop-cfg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8em;
+  color: #7a7a7a;
+}
+
+.loop-cfg input[type="text"] {
+  min-width: 16rem;
+}
+
+.loop-cfg input[type="number"] {
+  width: 5rem;
+}
+
 .loop-new-actions {
   display: flex;
   flex-direction: column;
