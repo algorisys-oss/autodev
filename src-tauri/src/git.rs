@@ -68,6 +68,17 @@ pub fn diff(repo: &Path, branch: &str) -> AppResult<String> {
     run_git(repo, &["diff", &format!("HEAD...{branch}")])
 }
 
+/// The current HEAD commit hash in `dir`.
+pub fn head_commit(dir: &Path) -> AppResult<String> {
+    Ok(run_git(dir, &["rev-parse", "HEAD"])?.trim().to_string())
+}
+
+/// The diff of the work tree in `dir` against `base` — every change (committed or not) made
+/// since `base`, which is what the loop's evaluator should see for a generation round.
+pub fn diff_since(dir: &Path, base: &str) -> AppResult<String> {
+    run_git(dir, &["diff", base])
+}
+
 /// Merge `branch` into the repo's current branch (no fast-forward). Refuses if the
 /// target work tree is dirty, so a merge never clobbers uncommitted local work.
 pub fn merge(repo: &Path, branch: &str) -> AppResult<String> {
@@ -175,6 +186,30 @@ mod tests {
         remove_worktree(&repo, &wt, false).unwrap();
         assert!(!wt.exists());
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn head_commit_and_diff_since_capture_a_generation_round() {
+        let repo = tmp("diffsince");
+        init_repo(&repo);
+        let base = head_commit(&repo).unwrap();
+        assert_eq!(base.len(), 40); // full sha
+
+        // No changes yet since base.
+        assert!(diff_since(&repo, &base).unwrap().trim().is_empty());
+
+        // A committed change and an uncommitted one both show up against base.
+        fs::write(repo.join("added.txt"), "committed work").unwrap();
+        run_git(&repo, &["add", "."]).unwrap();
+        commit(&repo, "round work");
+        fs::write(repo.join("readme.md"), "edited, not committed").unwrap();
+
+        let d = diff_since(&repo, &base).unwrap();
+        assert!(d.contains("added.txt"));
+        assert!(d.contains("edited, not committed"));
+        // HEAD advanced past base.
+        assert_ne!(head_commit(&repo).unwrap(), base);
+        let _ = fs::remove_dir_all(&repo);
     }
 
     #[test]

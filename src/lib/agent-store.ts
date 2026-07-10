@@ -2,7 +2,29 @@ import { createStore } from "solid-js/store";
 import * as ipc from "./ipc";
 import { base64ToBytes } from "./bytes";
 
-export type AgentStatus = "running" | "idle" | "exited";
+export type AgentStatus = "running" | "idle" | "waiting" | "exited" | "error";
+
+/** A process that has stopped for good — clean or crashed. */
+export function isTerminal(status: AgentStatus): boolean {
+  return status === "exited" || status === "error";
+}
+
+// Conservative signals that an agent is blocked on the user (Claude Code / shell confirmation
+// prompts). Anchored to the END of the output so a prompt only counts while it is the last
+// thing printed; once the agent gets an answer and prints more, it is no longer waiting. Kept
+// narrow to avoid false positives.
+const WAITING_PATTERNS = [
+  /Do you want to proceed\?\s*$/i,
+  /Do you want to continue\?\s*$/i,
+  /\bPress\s+enter\s+to\s+continue\.?\s*$/i,
+  /\(y\/n\)\s*$/i,
+  /\[y\/N\]\s*$/i,
+];
+
+/** Does the recent output tail look like the agent is waiting for the user to answer a prompt? */
+export function detectWaiting(tail: string): boolean {
+  return WAITING_PATTERNS.some((re) => re.test(tail));
+}
 
 export interface AgentView {
   id: string;
@@ -20,6 +42,7 @@ export type Subscribe = <T>(event: string, cb: (payload: T) => void) => Promise<
 
 const IDLE_AFTER_MS = 1500;
 const MAX_BUFFER_BYTES = 1_000_000; // ~1 MB scrollback kept in memory per agent
+const TAIL_CHARS = 600; // recent decoded output kept per agent for waiting-prompt detection
 
 async function tauriSubscribe<T>(event: string, cb: (payload: T) => void): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
@@ -47,6 +70,8 @@ export function createAgentStore(deps?: {
   const bufferBytes = new Map<string, number>();
   const subscribers = new Map<string, (chunk: Uint8Array) => void>();
   const lastActivity = new Map<string, number>();
+  const tails = new Map<string, string>();
+  const decoder = new TextDecoder();
 
   const indexOf = (id: string) => state.agents.findIndex((a) => a.id === id);
 
@@ -66,8 +91,14 @@ export function createAgentStore(deps?: {
       bufferBytes.set(id, size);
     }
     lastActivity.set(id, now());
+    const tail = ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS);
+    tails.set(id, tail);
     const i = indexOf(id);
-    if (i >= 0 && state.agents[i].status !== "exited") setStatus(id, "running");
+    // Output never resurrects a stopped agent; otherwise reflect whether it now looks blocked
+    // on the user (waiting) or is actively producing output (running).
+    if (i >= 0 && !isTerminal(state.agents[i].status)) {
+      setStatus(id, detectWaiting(tail) ? "waiting" : "running");
+    }
     subscribers.get(id)?.(bytes);
   }
 
@@ -79,7 +110,8 @@ export function createAgentStore(deps?: {
       const i = indexOf(p.id);
       if (i >= 0) {
         setState("agents", i, "exitCode", p.code);
-        setStatus(p.id, "exited");
+        // A non-zero code is a crash/failure; a clean or signalled (killed) exit is "exited".
+        setStatus(p.id, p.code && p.code !== 0 ? "error" : "exited");
       }
     }),
   ];
@@ -153,6 +185,7 @@ export function createAgentStore(deps?: {
     bufferBytes.delete(id);
     subscribers.delete(id);
     lastActivity.delete(id);
+    tails.delete(id);
     if (state.focusedId === id) setState("focusedId", state.agents[0]?.id ?? null);
   }
 

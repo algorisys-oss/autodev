@@ -1,17 +1,19 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
 import { appInfo, gitMergeWorktree, gitRemoveWorktree, type AppInfo } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
-import { createAgentStore } from "./lib/agent-store";
+import { createAgentStore, isTerminal } from "./lib/agent-store";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
 import { PromptComposer } from "./components/prompt-composer";
 import { LoopPanel } from "./components/loop-panel";
+import { SettingsPanel } from "./components/settings-panel";
 import "./App.css";
 
 function App() {
   const [info, setInfo] = createSignal<AppInfo | null>(null);
   const [view, setView] = createSignal<"workspace" | "loops">("workspace");
+  const [showSettings, setShowSettings] = createSignal(false);
   const workspaces = createWorkspaceStore();
   const agents = createAgentStore();
 
@@ -64,8 +66,15 @@ function App() {
           <button classList={{ active: view() === "loops" }} onClick={() => setView("loops")}>
             Loops
           </button>
+          <button class="icon settings-btn" title="Settings" onClick={() => setShowSettings(true)}>
+            ⚙
+          </button>
         </nav>
       </header>
+
+      <Show when={showSettings()}>
+        <SettingsPanel onClose={() => setShowSettings(false)} />
+      </Show>
 
       <div class="app-body">
         <WorkspaceSidebar store={workspaces} />
@@ -116,7 +125,7 @@ function App() {
                     {a.label} · <span class="muted">{a.id} · {a.backend}</span>
                   </span>
                   <span class="spacer" />
-                  <Show when={a.status !== "exited"}>
+                  <Show when={!isTerminal(a.status)}>
                     <button onClick={() => agents.kill(a.id)}>Kill</button>
                   </Show>
                 </div>

@@ -216,6 +216,7 @@ export interface LoopState {
   contract: Criterion[];
   features: string[];
   progress: string;
+  baseCommit?: string | null;
 }
 
 export interface RolePrompt {

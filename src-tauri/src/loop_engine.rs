@@ -50,6 +50,11 @@ pub struct LoopState {
     pub contract: Vec<Criterion>,
     pub features: Vec<String>,
     pub progress: String,
+    /// HEAD commit captured when the current generation round began; the evaluator diffs the
+    /// work tree against it. `None` until the loop first enters Generating (older saved state
+    /// loads with `None` via serde default).
+    #[serde(default)]
+    pub base_commit: Option<String>,
 }
 
 impl LoopState {
@@ -64,6 +69,7 @@ impl LoopState {
             contract: Vec::new(),
             features: Vec::new(),
             progress: String::new(),
+            base_commit: None,
         }
     }
 

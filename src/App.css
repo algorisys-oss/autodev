@@ -460,11 +460,34 @@ button.mic.recording {
 }
 
 .handoff-field textarea,
-.handoff-field input {
+.handoff-field input,
+.handoff-field select {
   font: inherit;
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   padding: 0.4rem;
+}
+
+.settings-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.settings-row .handoff-field {
+  flex: 1 1 auto;
+}
+
+.settings-note {
+  margin: 0.5rem 0 0;
+}
+
+.settings-note code {
+  font-size: 0.95em;
+}
+
+.settings-btn {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .handoff-row {
@@ -507,6 +530,7 @@ button.mic.recording {
   }
   .handoff-field textarea,
   .handoff-field input,
+  .handoff-field select,
   .handoff-output {
     background: #1f1f1f;
     color: #f6f6f6;
@@ -687,8 +711,18 @@ button.danger {
   background: #d9a406;
 }
 
+.dot.waiting {
+  background: #2f81f7;
+  box-shadow: 0 0 5px #2f81f7;
+}
+
 .dot.exited {
   background: #8a8a8a;
+}
+
+.dot.error {
+  background: #d1242f;
+  box-shadow: 0 0 5px #d1242f;
 }
 
 .agent-session {

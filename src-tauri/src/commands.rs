@@ -411,6 +411,25 @@ pub fn loop_list() -> AppResult<Vec<LoopState>> {
     Ok(out)
 }
 
+/// HEAD commit of the loop's project dir, if it is a git repo — the base a generation round
+/// is diffed against. `None` (no diff) when the dir is not a repo.
+fn capture_base(project_dir: &str) -> Option<String> {
+    let p = Path::new(project_dir);
+    if git::is_repo(p) {
+        git::head_commit(p).ok()
+    } else {
+        None
+    }
+}
+
+/// The work-tree diff since the round's base commit — what the evaluator should grade.
+fn round_diff(s: &LoopState) -> String {
+    match &s.base_commit {
+        Some(base) => git::diff_since(Path::new(&s.project_dir), base).unwrap_or_default(),
+        None => String::new(),
+    }
+}
+
 /// Record the planner's contract, move to Generating.
 #[tauri::command]
 pub fn loop_set_contract(
@@ -426,6 +445,7 @@ pub fn loop_set_contract(
         .collect();
     s.features = features;
     s.phase = loop_engine::LoopPhase::Generating;
+    s.base_commit = capture_base(&s.project_dir);
     loop_engine::save(&base, &s)?;
     loop_engine::append_log(
         &base,
@@ -452,6 +472,10 @@ pub fn loop_grade(id: String, verdicts: Vec<bool>) -> AppResult<LoopState> {
     let base = state::loops_dir()?;
     let mut s = loop_engine::load(&base, &id)?;
     loop_engine::grade_and_advance(&mut s, &verdicts);
+    // A retry starts a fresh generation round; re-base the diff on the current HEAD.
+    if s.phase == loop_engine::LoopPhase::Generating {
+        s.base_commit = capture_base(&s.project_dir);
+    }
     loop_engine::save(&base, &s)?;
     loop_engine::append_log(
         &base,
@@ -468,10 +492,17 @@ pub struct RolePrompt {
     pub prompt: String,
 }
 
-/// The role + prompt to run for the loop's current phase (None once passed/failed).
+/// The role + prompt to run for the loop's current phase (None once passed/failed). When the
+/// evaluator is due, the diff of this generation round (work tree vs. the round's base commit)
+/// is computed here and embedded in the prompt; a caller-supplied `diff` overrides it.
 #[tauri::command]
 pub fn loop_current_prompt(id: String, diff: String) -> AppResult<Option<RolePrompt>> {
     let s = loop_engine::load(&state::loops_dir()?, &id)?;
+    let diff = if s.phase == loop_engine::LoopPhase::Evaluating && diff.trim().is_empty() {
+        round_diff(&s)
+    } else {
+        diff
+    };
     Ok(loop_engine::prompt_for_phase(&s, &diff).map(|(role, prompt)| RolePrompt { role, prompt }))
 }
 
@@ -508,6 +539,7 @@ pub fn loop_apply_planner(id: String, agent_id: String) -> AppResult<LoopState> 
         .map(|text| loop_engine::Criterion { text, met: None })
         .collect();
     s.phase = loop_engine::LoopPhase::Generating;
+    s.base_commit = capture_base(&s.project_dir);
     loop_engine::save(&base, &s)?;
     loop_engine::append_log(&base, &id, &format!("planner auto-applied: {n} criteria"))?;
     Ok(s)
@@ -528,6 +560,9 @@ pub fn loop_apply_evaluator(id: String, agent_id: String) -> AppResult<LoopState
     }
     let verdicts = loop_engine::parse_verdicts(&read_agent_log(&agent_id)?, &s.contract);
     loop_engine::grade_and_advance(&mut s, &verdicts);
+    if s.phase == loop_engine::LoopPhase::Generating {
+        s.base_commit = capture_base(&s.project_dir);
+    }
     loop_engine::save(&base, &s)?;
     loop_engine::append_log(
         &base,

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createRoot } from "solid-js";
-import { createAgentStore, type Subscribe } from "./agent-store";
+import { createAgentStore, detectWaiting, isTerminal, type Subscribe } from "./agent-store";
 import type * as ipc from "./ipc";
 
 /** Fake ipc + a controllable event bus so tests drive agent://* events deterministically. */
@@ -86,6 +86,48 @@ describe("agent store", () => {
       expect(store.focused()?.status).toBe("exited");
       dispose();
     });
+  });
+
+  it("a non-zero exit code is an error, and does not resurrect on late output", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      h.emit("agent://exit", { id: "agent-1", code: 1 });
+      expect(store.focused()?.status).toBe("error");
+      expect(isTerminal(store.focused()!.status)).toBe(true);
+
+      h.emit("agent://output", { id: "agent-1", data: btoa("late") });
+      expect(store.focused()?.status).toBe("error");
+      dispose();
+    });
+  });
+
+  it("shows waiting when the output tail looks like a confirmation prompt", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+
+      h.emit("agent://output", { id: "agent-1", data: btoa("working on it\n") });
+      expect(store.focused()?.status).toBe("running");
+
+      h.emit("agent://output", { id: "agent-1", data: btoa("Do you want to proceed?") });
+      expect(store.focused()?.status).toBe("waiting");
+
+      // The user answers and the agent resumes producing output.
+      h.emit("agent://output", { id: "agent-1", data: btoa("\nediting files...") });
+      expect(store.focused()?.status).toBe("running");
+      dispose();
+    });
+  });
+
+  it("detectWaiting matches prompts but not ordinary output", () => {
+    expect(detectWaiting("... Do you want to proceed?")).toBe(true);
+    expect(detectWaiting("Continue? (y/n)")).toBe(true);
+    expect(detectWaiting("Press enter to continue")).toBe(true);
+    expect(detectWaiting("Running tests, 42 passed.")).toBe(false);
+    expect(detectWaiting("What is the meaning of life?")).toBe(false);
   });
 
   it("close removes an agent and reselects", async () => {

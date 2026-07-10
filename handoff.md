@@ -5,8 +5,9 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Hardening — loop auto-advance + hands-off auto-run. Complete. Also fixed
-  dark-mode text-input contrast (loop textareas + a global `::placeholder` rule).
+- **Last task:** Hardening pass — evaluator diff wiring, a settings UI, and richer agent
+  status. Complete. Earlier in the session: loop auto-advance + hands-off auto-run, and a
+  dark-mode text-input contrast fix. README now documents building a standalone executable.
 - **Phases done:** 0–9. **All planned phases are built.** The full ecosystem from `PLAN.md`
   is implemented: workspaces, multi-agent orchestration, composer, worktrees, voice,
   screenshot, browser handoff, and the Planner/Generator/Evaluator loop.
@@ -20,9 +21,16 @@ Updated as the final step of every task (LOOPS XXVI).
   fully hands-off run: the loop then spawns each next role itself (create → planner → generator
   → evaluator → retry/pass/fail), bounded by `max_iterations`; a parse failure stops the chain.
   Auto-run is off by default.
-- **Next up:** embed the real per-iteration git diff in the evaluator prompt (needs a recorded
-  base commit); a settings UI for the pluggable commands; richer status detection. See
-  `implement.md`.
+- **Evaluator diff:** the loop records the project HEAD as `base_commit` when it enters
+  Generating and feeds `git diff <base>` (the round's work-tree changes) into the evaluator
+  prompt. Non-repo project dirs → empty diff.
+- **Settings UI:** ⚙ in the header opens a modal to edit theme, default effort, and the
+  transcribe/screenshot/browser command templates (previously hand-edited in settings.json).
+- **Agent status:** dots now distinguish `running` / `idle` / `waiting` (blocked on a
+  confirmation prompt) / `exited` / `error` (non-zero exit). `waiting` is a conservative,
+  end-anchored heuristic (`detectWaiting`).
+- **Next up:** the `waiting` heuristic doesn't cover every TUI prompt shape; release-bundle
+  code signing/notarization is unconfigured (see README). See `implement.md` for the full list.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
@@ -55,7 +63,9 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (39 tests) + Vitest (32).
+- `./dev.sh test` — Rust `cargo test` (40 tests) + Vitest (37).
+- `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
+  Linux). See the README "Building a standalone executable" section.
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 

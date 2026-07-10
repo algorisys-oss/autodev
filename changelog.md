@@ -4,6 +4,28 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Evaluator diff wiring — base-commit tracking
+- `git`: `head_commit` + `diff_since` (+1 test). `LoopState` gains `base_commit` (serde-default
+  so old state loads). Entering Generating (set-contract, planner auto-apply, retry) captures the
+  project's HEAD; `loop_current_prompt` computes the round's work-tree diff against that base and
+  embeds it in the evaluator prompt. Non-repo dirs → empty diff (graceful).
+
+### Settings UI for the pluggable commands
+- New `SettingsPanel` modal (⚙ in the header): edit theme, default effort, and the transcribe /
+  screenshot / browser command templates that were previously hand-edited in
+  `~/.autodev/settings.json`. Blank command fields persist as null ("not configured"). +2 tests.
+
+### Richer agent status detection
+- `AgentStatus` adds `error` (non-zero exit code, distinct from a clean/killed `exited`) and
+  `waiting` (output tail matches a confirmation-prompt pattern; pure, exported `detectWaiting`).
+  Status dots/labels and the terminal Kill/close controls updated via an `isTerminal` helper. +4
+  tests. Prompt patterns are end-anchored and conservative to avoid false positives.
+
+### README — building a standalone executable
+- Documented `./dev.sh build`, the output binary + AppImage/deb/rpm/dmg/msi bundle paths,
+  per-OS build requirement, versioning, signing, and the runtime CLI dependency. Refreshed the
+  stale "Phase 0" Usage section.
+
 ### Loop hands-off mode — opt-in auto-run
 - `LoopPanel` gains an **Auto-run** checkbox (off by default). When on, the loop spawns each
   next role itself after every advance — create → planner → generator → evaluator → retry/pass/

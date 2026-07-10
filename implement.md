@@ -2,6 +2,36 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Hardening — remaining items (diff wiring, settings UI, status) — COMPLETE
+
+**Decided:** Clear the rest of the deferrals in one pass.
+
+- **Evaluator diff.** Give the evaluator the actual changes of a generation round. Chose to
+  record the project's HEAD as `base_commit` when the loop *enters* Generating (a deterministic
+  save point) and compute `git diff <base>` (work tree vs. base — committed *and* uncommitted)
+  when the evaluator prompt is built. A retry re-bases on the new HEAD so each round's diff is
+  just that round. Non-repo project dirs degrade to an empty diff. Parsing/logic stays in the
+  tested `git` module; `loop_current_prompt` composes it.
+- **Settings UI.** The pluggable commands were only editable by hand in the JSON. Added a
+  `SettingsPanel` modal over the existing `get_settings`/`set_settings` commands — no new core
+  surface. Blank command fields save as `null` so "configured" vs "empty command" stays
+  unambiguous.
+- **Richer status.** Split terminal state into `exited` (clean/killed) vs `error` (non-zero
+  code) — deterministic and useful. Added `waiting` from a conservative, END-anchored prompt
+  heuristic (`detectWaiting`, pure + unit-tested): a prompt only counts while it is the last
+  thing printed, so answering it flips back to `running`. Kept patterns narrow to avoid false
+  positives; the Claude TUI's multi-line approval prompt may need a dedicated pattern later.
+
+**Built:** `git::head_commit`/`diff_since` (+1 test); `LoopState.base_commit` + capture/diff in
+`commands.rs`; `settings-panel.tsx` + ⚙ button (+2 tests); `agent-store` `error`/`waiting`
+statuses, `detectWaiting`, `isTerminal` (+4 tests); README distribution section.
+
+**Status:** complete. `./dev.sh verify` green (40 Rust + 37 frontend).
+
+**Deliberate deferrals:**
+- `waiting` detection is heuristic and end-anchored; it won't catch every TUI prompt shape.
+- Code signing/notarization for release bundles is left unconfigured (documented in the README).
+
 ## Hardening — Loop auto-advance — COMPLETE
 
 **Decided:** Close the biggest Phase 9 deferral — the loop transcribing the planner's and

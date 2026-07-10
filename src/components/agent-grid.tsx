@@ -1,10 +1,12 @@
 import { For, Show } from "solid-js";
-import type { createAgentStore, AgentStatus } from "../lib/agent-store";
+import { isTerminal, type createAgentStore, type AgentStatus } from "../lib/agent-store";
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
   running: "running",
   idle: "idle",
+  waiting: "waiting",
   exited: "exited",
+  error: "error",
 };
 
 /** Grid of agent cards. Click a card to focus its terminal; × closes an exited one. */
@@ -30,10 +32,10 @@ export function AgentGrid(props: { store: ReturnType<typeof createAgentStore> })
                 <div class="card-title">{a.label}</div>
                 <div class="card-sub muted">
                   {a.backend} · {STATUS_LABEL[a.status]}
-                  <Show when={a.status === "exited"}> ({a.exitCode ?? "?"})</Show>
+                  <Show when={isTerminal(a.status)}> ({a.exitCode ?? "?"})</Show>
                 </div>
               </div>
-              <Show when={a.status === "exited"}>
+              <Show when={isTerminal(a.status)}>
                 <button
                   class="icon"
                   title="Close"
