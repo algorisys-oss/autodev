@@ -26,6 +26,7 @@ export function LoopPanel(props: {
   const [spec, setSpec] = createSignal("");
   const [verifyCommand, setVerifyCommand] = createSignal("");
   const [maxIterations, setMaxIterations] = createSignal(8);
+  const [continueOnFailure, setContinueOnFailure] = createSignal(false);
   const [featuresText, setFeaturesText] = createSignal("");
   const [criteriaText, setCriteriaText] = createSignal("");
   const [error, setError] = createSignal<string | null>(null);
@@ -121,6 +122,7 @@ export function LoopPanel(props: {
         props.defaultProjectDir,
         verifyCommand().trim() || null,
         maxIterations(),
+        continueOnFailure(),
       );
       replace(l);
       setActiveId(l.id);
@@ -241,6 +243,17 @@ export function LoopPanel(props: {
                 onInput={(e) => setMaxIterations(Math.max(1, Number(e.currentTarget.value) || 1))}
               />
             </label>
+            <label
+              class="loop-cfg loop-cfg-check"
+              title="If a feature fails, skip it and keep building the rest of the backlog instead of failing the whole epic."
+            >
+              <input
+                type="checkbox"
+                checked={continueOnFailure()}
+                onChange={(e) => setContinueOnFailure(e.currentTarget.checked)}
+              />
+              Continue on failure
+            </label>
           </div>
         </div>
         <div class="loop-new-actions">
@@ -329,11 +342,18 @@ export function LoopPanel(props: {
                     <li
                       classList={{
                         done: f.done,
-                        current: !f.done && i() === (l.currentFeature ?? 0),
+                        failed: !!f.failed,
+                        current: !f.done && !f.failed && i() === (l.currentFeature ?? 0),
                       }}
                     >
                       <span class="feature-mark">
-                        {f.done ? "✓" : i() === (l.currentFeature ?? 0) ? "▸" : "•"}
+                        {f.done
+                          ? "✓"
+                          : f.failed
+                            ? "✗"
+                            : i() === (l.currentFeature ?? 0)
+                              ? "▸"
+                              : "•"}
                       </span>
                       <span>{f.title}</span>
                     </li>

@@ -157,12 +157,12 @@ describe("loop panel auto-advance", () => {
     expect(getByText(/Set contract/)).toBeTruthy();
   });
 
-  it("passes the verify command and max rounds when creating a loop", async () => {
+  it("passes the verify command, max rounds, and continue-on-failure when creating a loop", async () => {
     mocked.loopList.mockResolvedValue([]);
     mocked.loopCreate.mockResolvedValue(loop({ verifyCommand: "npm test", maxIterations: 12 }));
 
     const { store } = agentHarness();
-    const { getByText, getByPlaceholderText, container } = render(() => (
+    const { getByText, getByLabelText, getByPlaceholderText, container } = render(() => (
       <LoopPanel agents={store} defaultProjectDir="/proj" />
     ));
 
@@ -173,11 +173,40 @@ describe("loop panel auto-advance", () => {
     fireEvent.input(container.querySelector('input[type="number"]')!, {
       target: { value: "12" },
     });
+    fireEvent.click(getByLabelText("Continue on failure"));
     fireEvent.click(getByText("New loop"));
 
     await waitFor(() =>
-      expect(mocked.loopCreate).toHaveBeenCalledWith("build a URL shortener", "/proj", "npm test", 12),
+      expect(mocked.loopCreate).toHaveBeenCalledWith(
+        "build a URL shortener",
+        "/proj",
+        "npm test",
+        12,
+        true,
+      ),
     );
+  });
+
+  it("marks a failed feature with ✗ in the backlog", async () => {
+    mocked.loopList.mockResolvedValue([
+      loop({
+        phase: "planning",
+        currentFeature: 1,
+        continueOnFailure: true,
+        features: [
+          { title: "auth", done: false, failed: true },
+          { title: "posts", done: false },
+        ],
+      }),
+    ]);
+
+    const { store } = agentHarness();
+    const { findByText, container } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    await findByText("auth");
+    expect(container.querySelector(".feature-backlog li.failed")).toBeTruthy();
   });
 
   it("applies the decomposer's backlog when its agent exits, advancing to planning", async () => {

@@ -77,12 +77,12 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   sub-loop **per feature**; a passing feature advances to the next, and the epic passes when the
   whole backlog is done. Fail-fast: a stalled/exhausted feature fails the epic, naming it. The
   panel shows the backlog (done ✓ / current ▸) and `feature k/N`; Auto-run chains the whole thing.
-  An empty backlog still works as a single ad-hoc contract.
+  An empty backlog still works as a single ad-hoc contract. Tick **Continue on failure** so a stalled feature is skipped (marked ✗) and the epic keeps building the rest.
 - Unattended runs: tick **Auto-onboard** (off by default) so a loop's role agents auto-accept
   Claude Code's "trust this folder?" prompt (the gate that stalls fresh worktrees) — the store
   detects the exact prompt and sends Enter once. Narrow by design: only the trust dialog, never
-  the bypass warning. Still Phase-2: LLM context compaction, continue-on-feature-failure toggle.
-- `./dev.sh test` — Rust `cargo test` (57 tests) + Vitest (46).
+  the bypass warning. Only remaining Phase-2 item: LLM-based context compaction for very long runs.
+- `./dev.sh test` — Rust `cargo test` (59 tests) + Vitest (47).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

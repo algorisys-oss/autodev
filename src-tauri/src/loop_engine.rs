@@ -40,6 +40,9 @@ pub enum LoopPhase {
 pub struct Feature {
     pub title: String,
     pub done: bool,
+    /// Set when the feature was given up on (only reachable with continue-on-failure).
+    #[serde(default)]
+    pub failed: bool,
 }
 
 /// One testable "done" assertion (LOOPS XXIX). `met` is `None` until graded.
@@ -81,6 +84,9 @@ pub struct LoopState {
     /// Why the loop reached `Failed` (out of iterations / stuck / tests failing). `None` otherwise.
     #[serde(default)]
     pub failure_reason: Option<String>,
+    /// When true, a failed feature is skipped and the epic moves on instead of failing outright.
+    #[serde(default)]
+    pub continue_on_failure: bool,
 }
 
 /// Number of consecutive rounds with no new progress that marks a loop as stuck.
@@ -111,6 +117,7 @@ impl LoopState {
             verify_command,
             history: Vec::new(),
             failure_reason: None,
+            continue_on_failure: false,
         }
     }
 
@@ -158,7 +165,11 @@ impl LoopState {
 pub fn set_features(state: &mut LoopState, titles: Vec<String>) {
     state.features = titles
         .into_iter()
-        .map(|title| Feature { title, done: false })
+        .map(|title| Feature {
+            title,
+            done: false,
+            failed: false,
+        })
         .collect();
     state.current_feature = 0;
     state.phase = LoopPhase::Planning;
@@ -540,52 +551,65 @@ pub fn grade_and_advance(state: &mut LoopState, verdicts: &[bool], verify: Optio
 
     // Feature passes: its contract is met and the tests did not fail.
     if state.all_met() && verify != Some(false) {
-        advance_feature(state);
+        advance_or_finalize(state, true);
         return;
     }
 
-    // Fail-fast: a stalled or exhausted feature ends the whole epic, naming the feature.
+    // Feature not passing this round. Retry unless it has stalled or run out of iterations.
     let tests_note = if verify == Some(false) {
         "; tests failing"
     } else {
         ""
     };
+    let stuck = is_stuck(&state.history, STUCK_WINDOW);
+    let exhausted = state.iteration + 1 >= state.max_iterations;
+    if !stuck && !exhausted {
+        state.iteration += 1;
+        state.phase = LoopPhase::Generating;
+        state.failure_reason = None;
+        return;
+    }
+
+    // The feature is given up on this round.
     let feature_note = match state.feature() {
         Some(f) => format!(" on feature \"{}\"", f.title),
         None => String::new(),
     };
-    if is_stuck(&state.history, STUCK_WINDOW) {
-        state.phase = LoopPhase::Failed;
-        state.failure_reason = Some(format!(
-            "no progress in {STUCK_WINDOW} rounds{feature_note} ({met}/{total} criteria met{tests_note})"
-        ));
-    } else if state.iteration + 1 >= state.max_iterations {
-        state.phase = LoopPhase::Failed;
-        state.failure_reason = Some(format!(
-            "out of iterations{feature_note} ({met}/{total} criteria met{tests_note})"
-        ));
+    let why = if stuck {
+        format!("no progress in {STUCK_WINDOW} rounds{feature_note} ({met}/{total} criteria met{tests_note})")
     } else {
-        state.iteration += 1;
-        state.phase = LoopPhase::Generating;
-        state.failure_reason = None;
+        format!("out of iterations{feature_note} ({met}/{total} criteria met{tests_note})")
+    };
+
+    // With a backlog + continue-on-failure, skip the feature and move on; otherwise fail the epic.
+    if state.continue_on_failure && state.feature().is_some() {
+        append_progress(&mut state.progress, &format!("feature failed: {why}"), 15);
+        advance_or_finalize(state, false);
+    } else {
+        state.phase = LoopPhase::Failed;
+        state.failure_reason = Some(why);
     }
 }
 
-/// A feature's contract is satisfied: mark it done and either move on to plan the next feature
-/// (resetting the per-feature round state) or, if the backlog is exhausted, complete the epic.
-/// With no backlog at all (a single ad-hoc contract), a met contract simply passes.
-fn advance_feature(state: &mut LoopState) {
+/// A feature round is over — mark the current feature done (`succeeded`) or failed, then either
+/// move on to plan the next feature (resetting the per-feature round state) or, if the backlog is
+/// exhausted, finalize the epic. With no backlog (a single ad-hoc contract), a met contract simply
+/// passes; this is only reached with `succeeded == true` in that case.
+fn advance_or_finalize(state: &mut LoopState, succeeded: bool) {
     state.failure_reason = None;
     if let Some(f) = state.features.get_mut(state.current_feature) {
-        f.done = true;
+        f.done = succeeded;
+        f.failed = !succeeded;
     }
     let next = state.current_feature + 1;
     if next < state.features.len() {
+        let f = &state.features[state.current_feature];
+        let word = if succeeded { "done" } else { "failed" };
         append_progress(
             &mut state.progress,
             &format!(
-                "feature \"{}\" done ({}/{})",
-                state.features[state.current_feature].title,
+                "feature \"{}\" {word} ({}/{})",
+                f.title,
                 next,
                 state.features.len()
             ),
@@ -598,7 +622,30 @@ fn advance_feature(state: &mut LoopState) {
         state.base_commit = None;
         state.phase = LoopPhase::Planning;
     } else {
+        finalize_epic(state);
+    }
+}
+
+/// Close out an epic once its backlog is exhausted: `Passed` if every feature is done, otherwise
+/// `Failed` with a summary of what was skipped (only reachable with continue-on-failure).
+fn finalize_epic(state: &mut LoopState) {
+    let failed: Vec<&str> = state
+        .features
+        .iter()
+        .filter(|f| f.failed)
+        .map(|f| f.title.as_str())
+        .collect();
+    if failed.is_empty() {
         state.phase = LoopPhase::Passed;
+        state.failure_reason = None;
+    } else {
+        let done = state.features.iter().filter(|f| f.done).count();
+        let total = state.features.len();
+        state.phase = LoopPhase::Failed;
+        state.failure_reason = Some(format!(
+            "epic finished: {done}/{total} features done; failed: {}",
+            failed.join(", ")
+        ));
     }
 }
 
@@ -803,6 +850,52 @@ mod tests {
     }
 
     #[test]
+    fn continue_on_failure_skips_a_failed_feature_and_keeps_going() {
+        let mut s = mk("l");
+        set_features(&mut s, vec!["auth".into(), "posts".into(), "search".into()]);
+        s.continue_on_failure = true;
+        s.max_iterations = 1; // each feature fails/passes in one round here
+
+        // Feature 0 fails → skipped, marked failed, moves on to feature 1.
+        s.contract = vec![crit("login works")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[false], None);
+        assert_eq!(s.phase, LoopPhase::Planning);
+        assert_eq!(s.current_feature, 1);
+        assert!(s.features[0].failed && !s.features[0].done);
+
+        // Feature 1 passes → moves on to feature 2.
+        s.contract = vec![crit("posts render")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[true], Some(true));
+        assert_eq!(s.current_feature, 2);
+        assert!(s.features[1].done);
+
+        // Feature 2 fails → backlog exhausted → epic Failed with a partial-success summary.
+        s.contract = vec![crit("search works")];
+        s.phase = LoopPhase::Evaluating;
+        grade_and_advance(&mut s, &[false], None);
+        assert_eq!(s.phase, LoopPhase::Failed);
+        let reason = s.failure_reason.as_deref().unwrap();
+        assert!(reason.contains("1/3 features done"));
+        assert!(reason.contains("auth") && reason.contains("search"));
+    }
+
+    #[test]
+    fn continue_on_failure_passes_when_every_feature_eventually_succeeds() {
+        let mut s = mk("l");
+        set_features(&mut s, vec!["auth".into(), "posts".into()]);
+        s.continue_on_failure = true;
+        for _ in 0..2 {
+            s.contract = vec![crit("c")];
+            s.phase = LoopPhase::Evaluating;
+            grade_and_advance(&mut s, &[true], Some(true));
+        }
+        assert_eq!(s.phase, LoopPhase::Passed);
+        assert!(s.features.iter().all(|f| f.done && !f.failed));
+    }
+
+    #[test]
     fn all_pass_moves_to_passed() {
         let mut s = mk("l");
         s.contract = vec![crit("a"), crit("b")];
@@ -979,6 +1072,7 @@ Criterion 3: PASS\n";
         s.features = vec![Feature {
             title: "feature a".into(),
             done: false,
+            failed: false,
         }];
         s.progress = "did the thing".into();
         save(&base, &s).unwrap();

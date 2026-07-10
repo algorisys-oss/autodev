@@ -386,11 +386,13 @@ pub fn loop_create(
     project_dir: String,
     verify_command: Option<String>,
     max_iterations: Option<u32>,
+    continue_on_failure: Option<bool>,
 ) -> AppResult<LoopState> {
     let id = loop_slug(&spec);
     let verify = verify_command.filter(|c| !c.trim().is_empty());
     let cap = max_iterations.unwrap_or(loop_engine::DEFAULT_MAX_ITERATIONS);
-    let state = LoopState::with_options(id.clone(), spec, project_dir, verify, cap);
+    let mut state = LoopState::with_options(id.clone(), spec, project_dir, verify, cap);
+    state.continue_on_failure = continue_on_failure.unwrap_or(false);
     let base = state::loops_dir()?;
     loop_engine::save(&base, &state)?;
     loop_engine::append_log(&base, &id, "created; phase=planning")?;

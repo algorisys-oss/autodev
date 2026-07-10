@@ -4,6 +4,18 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Continue-on-failure toggle for epics
+- New opt-in **Continue on failure** loop option (off by default): when a feature stalls or runs
+  out of rounds, the epic **skips it and keeps building the rest of the backlog** instead of
+  failing outright. The epic finishes `Passed` if every feature succeeded, else `Failed` with a
+  partial-success summary (`epic finished: 2/3 features done; failed: auth, search`).
+- Engine: `Feature.failed` + `LoopState.continue_on_failure`; `grade_and_advance`'s give-up branch
+  refactored into `advance_or_finalize(succeeded)` + `finalize_epic` (marks the feature done/failed,
+  moves to the next or closes out the epic). Fail-fast (the default) is unchanged. `loop_create`
+  gains a `continue_on_failure` param. +2 Rust tests.
+- Frontend: composer checkbox; the backlog now shows failed features with a red ✗. +1 frontend test.
+- Deferred (last Phase-2 item): LLM-based context compaction for very long runs.
+
 ### Onboarding auto-responder (unattended runs don't stall)
 - New opt-in **Auto-onboard** toggle in the loop composer. When on, a loop's role agents
   auto-accept Claude Code's "trust this folder?" dialog — the gate that stalls agents in fresh

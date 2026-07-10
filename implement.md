@@ -2,6 +2,28 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Continue-on-failure for epics — COMPLETE
+
+**Decided:** Make long epics resilient — one hard feature shouldn't kill the whole backlog. Opt-in
+(off by default, so fail-fast stays the honest default). Chose to represent a given-up feature with
+`Feature.failed` and finish the epic as `Failed` with a partial-success summary rather than add a
+new "Partial" phase (avoids enum/frontend churn; the failure_reason carries the nuance, and the
+backlog shows ✓/✗ per feature).
+
+**Built:**
+- `loop_engine.rs` (+2 tests) — `Feature.failed`, `LoopState.continue_on_failure` (serde-default);
+  refactored the give-up branch of `grade_and_advance` into `advance_or_finalize(succeeded)` (mark
+  done/failed → next feature or finalize) + `finalize_epic` (all done ⇒ Passed; else Failed +
+  "N/M features done; failed: …"). Fail-fast path unchanged when the toggle is off.
+- `commands.rs`/`ipc.ts` — `loop_create` + `loopCreate` gain a `continue_on_failure` param;
+  `LoopState`/`Feature` types updated.
+- Frontend — composer "Continue on failure" checkbox; backlog renders failed features with a red ✗
+  (+1 test).
+
+**Status:** complete. `./dev.sh verify` green (59 Rust + 47 frontend).
+
+**Deferred (last Phase-2 item):** LLM-based context compaction for very long runs.
+
 ## Onboarding pre-flight (auto-responder) — COMPLETE
 
 **Decided:** Stop unattended loops from stalling on Claude Code's "trust this folder?" dialog (the

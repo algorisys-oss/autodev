@@ -270,6 +270,14 @@ button.launch {
   width: 5rem;
 }
 
+.loop-cfg-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-end;
+  white-space: nowrap;
+}
+
 .loop-new-actions {
   display: flex;
   flex-direction: column;
@@ -384,6 +392,10 @@ button.launch {
 
 .feature-backlog li.done {
   color: #1a7f37;
+}
+
+.feature-backlog li.failed {
+  color: #b00020;
 }
 
 .feature-backlog .feature-mark {

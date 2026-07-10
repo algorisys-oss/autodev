@@ -215,6 +215,7 @@ export interface Criterion {
 export interface Feature {
   title: string;
   done: boolean;
+  failed?: boolean;
 }
 
 export interface LoopState {
@@ -232,6 +233,7 @@ export interface LoopState {
   verifyCommand?: string | null;
   history?: number[];
   failureReason?: string | null;
+  continueOnFailure?: boolean;
 }
 
 export interface RolePrompt {
@@ -244,12 +246,14 @@ export function loopCreate(
   projectDir: string,
   verifyCommand?: string | null,
   maxIterations?: number | null,
+  continueOnFailure?: boolean,
 ): Promise<LoopState> {
   return invoke<LoopState>("loop_create", {
     spec,
     projectDir,
     verifyCommand: verifyCommand ?? null,
     maxIterations: maxIterations ?? null,
+    continueOnFailure: continueOnFailure ?? false,
   });
 }
 
