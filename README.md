@@ -13,6 +13,23 @@ and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
 > annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop. See
 > [`handoff.md`](handoff.md) for exactly what works today and the known gaps.
 
+## Download
+
+Prebuilt installers are attached to each [GitHub release](https://github.com/algorisys-oss/autodev/releases).
+Grab the file for your platform from the latest release's **Assets**:
+
+| Platform | Download | Install |
+|---|---|---|
+| **Linux** | `AutoDev_<version>_amd64.AppImage` | `chmod +x` it and run — a portable single file, no install. (Or use the `.deb`/`.rpm`.) |
+| **macOS** | `AutoDev_<version>_universal.dmg` | Open the `.dmg` and drag AutoDev to Applications. |
+| **Windows** | `AutoDev_<version>_x64-setup.exe` | Run the installer. |
+
+To drive agents you still need their CLIs on your `PATH` (`claude` and/or `codex`), and on
+Linux the WebKit/GTK system libraries listed under [Prerequisites](#prerequisites). Releases
+are currently **unsigned**, so macOS Gatekeeper / Windows SmartScreen may warn on first launch
+(right-click → Open on macOS; "More info → Run anyway" on Windows) — see
+[Code signing & notarization](#code-signing--notarization) to publish signed builds.
+
 ## Prerequisites
 
 - **Rust** (stable) and **Cargo** — https://rustup.rs
@@ -118,6 +135,29 @@ repo ships **unsigned** and leaves the hooks for you to fill in:
 In CI, store these as encrypted secrets and export them before `./dev.sh build`; the same
 command produces signed artifacts once the credentials are present.
 
+### Publishing a release (for maintainers)
+
+Releases are built and uploaded to GitHub automatically by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) (using `tauri-action`) when you
+push a version tag. It runs a Linux/macOS/Windows matrix and attaches each platform's installers
+to a **draft** GitHub release for you to review and publish.
+
+```bash
+# 1. Bump the version in BOTH places so filenames and the in-app version match:
+#      src-tauri/tauri.conf.json  ->  "version"
+#      package.json               ->  "version"
+# 2. Commit, then tag and push the tag:
+git commit -am "Release v0.2.0"
+git tag v0.2.0
+git push origin main --tags
+```
+
+The workflow then builds every platform and creates the draft release named `AutoDev v0.2.0`.
+Open **Releases → the draft**, check the attached assets (`.AppImage`/`.deb`/`.rpm`, `.dmg`,
+`.exe`), and click **Publish**. To dry-run without a tag, trigger the workflow manually from the
+**Actions** tab (`workflow_dispatch`). Signed macOS builds require the `APPLE_*` repo secrets
+described above; without them the release ships unsigned.
+
 ## Usage
 
 1. Open a **workspace** pointed at a folder that holds your projects, and add the project
@@ -155,7 +195,22 @@ autodev/
   CLAUDE.md            guidance for AI agents working in this repo
 ```
 
-State lives at `~/.autodev/` on disk, outside the repo.
+### Where state is stored
+
+All app state lives under `~/.autodev/` (flat JSON, outside the repo):
+
+```
+~/.autodev/
+  workspaces.json        workspaces and their project directories
+  settings.json          theme, default effort, pluggable command templates
+  prompts.json           prompt history
+  logs/<agent-id>.log    per-agent raw output
+  loops/<loop-id>/       autonomous-loop state (state.json, contract.md, …)
+```
+
+**Adding a workspace or a project only records metadata** — `workspaces.json` stores the
+workspace's name/id and each project's name + **absolute path**. Your project files are never
+copied or moved; the app just references the directories where they already are.
 
 ## Contributing
 

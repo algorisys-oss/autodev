@@ -4,6 +4,15 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Release automation — GitHub Releases + download docs
+- Added `.github/workflows/release.yml`: on a `v*` tag (or manual dispatch), builds the app on a
+  Linux/macOS(universal)/Windows matrix with `tauri-action` and uploads each platform's installers
+  to a **draft** GitHub release. Wired for the `APPLE_*` signing secrets (unsigned without them).
+- README: a **Download** table (grab the AppImage/dmg/exe from Releases) and a **Publishing a
+  release** section (version-bump → tag → push → publish the draft). Documented exactly **where
+  app state lives** (`~/.autodev/`), clarifying that adding a workspace/project only records
+  metadata (name + absolute path) — project files are never copied or moved.
+
 ### Close the gaps — robust waiting detection + signing docs
 - **Agent `waiting` detection reworked.** It is now a *silence-derived* state decided in
   `tick()` (like `idle`): any fresh output flips an agent back to `running`, and only once it

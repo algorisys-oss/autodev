@@ -70,6 +70,9 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
 - `./dev.sh test` — Rust `cargo test` (40 tests) + Vitest (38).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
+- Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/
+  Windows via `tauri-action` and uploads installers to a draft GitHub release. README has a
+  Download table and a "Publishing a release" walkthrough.
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
 - `./dev.sh verify` — everything CI runs. Green.
 
