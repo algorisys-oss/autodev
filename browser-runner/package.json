@@ -1,0 +1,16 @@
+{
+  "name": "autodev-browser-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal Playwright browserCommand runner for AutoDev's Browser Handoff.",
+  "bin": {
+    "browser-runner": "./browser-runner.mjs"
+  },
+  "scripts": {
+    "postinstall-hint": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

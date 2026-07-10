@@ -198,10 +198,15 @@ that: it turns a web task into a structured brief you hand to a browser-driving 
    or **Run browserCommand** to execute it automatically.
 
 The **`browserCommand`** is a pluggable shell template in `~/.autodev/settings.json` (or the ⚙
-Settings panel) with a `{file}` placeholder — e.g. a Playwright runner: `playwright-runner.js
-{file}`. AutoDev writes the handoff to that file, runs the command, and shows its output back in
-the modal. Without a `browserCommand` configured, the **Run** button returns a clear
-"not configured" error — the copy-into-a-browser-AI path always works.
+Settings panel) with a `{file}` placeholder. AutoDev writes the handoff to that file, runs the
+command, and shows its output back in the modal. Without a `browserCommand` configured, the
+**Run** button returns a clear "not configured" error — the copy-into-a-browser-AI path always
+works.
+
+A ready-to-use example lives in [`browser-runner/`](browser-runner/) — a self-contained Playwright
+runner that opens a real browser at the handoff's starting URL and screenshots it. Set up with
+`cd browser-runner && npm install && npx playwright install chromium`, then point `browserCommand`
+at `node /abs/path/browser-runner/browser-runner.mjs {file}`.
 
 ## Project layout
 

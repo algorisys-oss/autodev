@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Browser handoff: a real Playwright browserCommand runner + docs
+- Added `browser-runner/` — a self-contained Playwright runner for the Browser handoff feature:
+  reads AutoDev's handoff file, opens a real Chromium at the `## Starting point` URL, screenshots
+  it, and prints a report AutoDev shows in the modal (`HEADLESS=0` to drive it by hand). Its own
+  `package.json` so it doesn't add Playwright to the app's deps; `node_modules` gitignored.
+  Verified live against a real page (example.com → title + screenshot). Honest scope: a launcher/
+  scaffold, not an autonomous agent — the README shows where to add an LLM loop for full autonomy.
+- Documented the Browser handoff feature in the README (with a live demo screenshot,
+  `demo/browser-handoff.png`) and pointed it at the runner.
+
 ### Ran a real autonomous epic — two live bugs fixed, end-to-end validated
 Drove a full epic in the real app with live `claude` agents (Python string-utils lib). It
 completed **PASSED** — 3 features decomposed → each planned → built → verified — with the retry
