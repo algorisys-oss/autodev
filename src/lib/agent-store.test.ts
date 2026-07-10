@@ -4,6 +4,7 @@ import {
   createAgentStore,
   detectWaiting,
   isTerminal,
+  onboardingReply,
   stripAnsi,
   type Subscribe,
 } from "./agent-store";
@@ -26,6 +27,7 @@ function harness() {
     agentSpawn: vi.fn(async () => `agent-${++n}`),
     agentKill: vi.fn(async () => {}),
     agentKillAll: vi.fn(async () => 0),
+    agentWrite: vi.fn(async () => {}),
   } as unknown as typeof ipc;
   let clock = 1000;
   return { subscribe, emit, api, now: () => clock, setClock: (t: number) => (clock = t) };
@@ -163,6 +165,54 @@ describe("agent store", () => {
     expect(stripAnsi("\x1b[31mred\x1b[0m text")).toBe("red text");
     expect(stripAnsi("\x1b]0;title\x07hi")).toBe("hi");
     expect(stripAnsi("loading...\rdone")).toBe("done");
+  });
+
+  it("onboardingReply accepts only the trust-folder prompt", () => {
+    expect(onboardingReply("Is this a project you created or one you trust?")).toBe("\r");
+    expect(onboardingReply("Do you trust the files in this folder?")).toBe("\r");
+    // The bypass/permission prompt is NOT auto-accepted (its default is No).
+    expect(onboardingReply("Do you want to proceed? 1. Yes 2. No")).toBeNull();
+    expect(onboardingReply("Editing files...")).toBeNull();
+  });
+
+  it("auto-onboard answers the trust prompt once when enabled, and again for a fresh one", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const id = await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      store.setAutoOnboard(id, true);
+
+      h.emit("agent://output", {
+        id,
+        data: b64("Quick safety check: Is this a project you created or one you trust?\n1. Yes"),
+      });
+      expect(h.api.agentWrite).toHaveBeenCalledWith(id, "\r");
+      expect(h.api.agentWrite).toHaveBeenCalledTimes(1);
+
+      // Prompt still on screen — do not re-send.
+      h.emit("agent://output", { id, data: b64(" (waiting)") });
+      expect(h.api.agentWrite).toHaveBeenCalledTimes(1);
+
+      // Agent proceeds (prompt scrolls out of the tail), then a new trust prompt appears.
+      h.emit("agent://output", { id, data: b64("Editing files...\n".repeat(60)) });
+      h.emit("agent://output", { id, data: b64("Is this a project you created or one you trust?") });
+      expect(h.api.agentWrite).toHaveBeenCalledTimes(2);
+      dispose();
+    });
+  });
+
+  it("does not touch the agent's input unless auto-onboard is enabled", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const id = await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      h.emit("agent://output", {
+        id,
+        data: b64("Is this a project you created or one you trust?"),
+      });
+      expect(h.api.agentWrite).not.toHaveBeenCalled();
+      dispose();
+    });
   });
 
   it("close removes an agent and reselects", async () => {

@@ -85,6 +85,25 @@ export function detectWaiting(tail: string): boolean {
   return WAITING_PATTERNS.some((re) => re.test(recent));
 }
 
+// Onboarding gates an unattended agent can safely clear itself, and the keystrokes that accept
+// them. Kept deliberately narrow: only Claude Code's "trust this folder?" dialog, shown on first
+// access to a new directory — the gate that stalls loops in fresh worktrees/projects. Enter
+// selects its default "Yes, proceed". NOT the bypass-permissions warning (whose default is No).
+const ONBOARDING_ACCEPTS: { pattern: RegExp; reply: string }[] = [
+  { pattern: /Is this a project you created or one you trust\?/i, reply: "\r" },
+  { pattern: /Do you trust the files in this folder\?/i, reply: "\r" },
+];
+
+/** If the recent output is a known, safe onboarding gate, the keystrokes that accept it (so an
+ *  unattended run doesn't stall on it); otherwise null. */
+export function onboardingReply(tail: string): string | null {
+  const text = stripAnsi(tail);
+  for (const { pattern, reply } of ONBOARDING_ACCEPTS) {
+    if (pattern.test(text)) return reply;
+  }
+  return null;
+}
+
 export interface AgentView {
   id: string;
   label: string;
@@ -130,6 +149,8 @@ export function createAgentStore(deps?: {
   const subscribers = new Map<string, (chunk: Uint8Array) => void>();
   const lastActivity = new Map<string, number>();
   const tails = new Map<string, string>();
+  const autoOnboard = new Set<string>(); // agents allowed to auto-clear onboarding gates
+  const onboardSent = new Set<string>(); // debounce: a reply is in flight for this agent's gate
   const decoder = new TextDecoder();
 
   const indexOf = (id: string) => state.agents.findIndex((a) => a.id === id);
@@ -150,12 +171,23 @@ export function createAgentStore(deps?: {
       bufferBytes.set(id, size);
     }
     lastActivity.set(id, now());
-    tails.set(id, ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS));
+    const tail = ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS);
+    tails.set(id, tail);
     const i = indexOf(id);
     // Fresh output ⇒ running. This also reliably clears an earlier "waiting"/"idle" the moment
     // the agent acts again. Whether it is *now* waiting on a prompt is decided in tick(), once
     // it goes quiet — so the prompt-text lingering in the tail can't keep it stuck on waiting.
     if (i >= 0 && !isTerminal(state.agents[i].status)) setStatus(id, "running");
+    // Unattended runs: auto-accept a known onboarding gate once, so the agent doesn't stall.
+    if (autoOnboard.has(id) && i >= 0 && !isTerminal(state.agents[i].status)) {
+      const reply = onboardingReply(tail);
+      if (reply && !onboardSent.has(id)) {
+        onboardSent.add(id);
+        void Promise.resolve(api.agentWrite(id, reply)).catch(() => {});
+      } else if (!reply) {
+        onboardSent.delete(id); // gate cleared — ready for the next one
+      }
+    }
     subscribers.get(id)?.(bytes);
   }
 
@@ -246,11 +278,19 @@ export function createAgentStore(deps?: {
     subscribers.delete(id);
     lastActivity.delete(id);
     tails.delete(id);
+    autoOnboard.delete(id);
+    onboardSent.delete(id);
     if (state.focusedId === id) setState("focusedId", state.agents[0]?.id ?? null);
   }
 
   function focus(id: string) {
     setState("focusedId", id);
+  }
+
+  /** Allow (or stop) an agent from auto-accepting known onboarding gates (unattended runs). */
+  function setAutoOnboard(id: string, on: boolean) {
+    if (on) autoOnboard.add(id);
+    else autoOnboard.delete(id);
   }
 
   /** A terminal calls this on mount: replay the buffer, then receive live chunks. */
@@ -273,6 +313,7 @@ export function createAgentStore(deps?: {
     killAll,
     close,
     focus,
+    setAutoOnboard,
     attach,
     detach,
     tick,

@@ -2,6 +2,29 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Onboarding pre-flight (auto-responder) — COMPLETE
+
+**Decided:** Stop unattended loops from stalling on Claude Code's "trust this folder?" dialog (the
+gate that hung the first demo). Two options weighed:
+1. **Config pre-set** — write `hasTrustDialogAccepted` into `~/.claude.json` before spawning.
+   Rejected: that file is used by the *running* Claude Code session, so a read-modify-write risks
+   clobbering it concurrently, and it couples us to Claude's config schema.
+2. **Auto-responder** — detect the exact trust prompt in the agent's streamed output and send Enter,
+   like a human. Chosen: no global side effect, backend-agnostic mechanism, reuses the store's
+   existing tail tracking.
+
+**Built:** `agent-store.ts` — pure exported `onboardingReply(tail)` (narrow: only the trust dialog,
+Enter accepts its default "Yes"; explicitly NOT the bypass warning); a per-agent `autoOnboard` set
++ `onboardSent` debounce so it fires once per gate and re-arms only when the gate clears;
+`setAutoOnboard(id, on)`. loop-panel: an opt-in **Auto-onboard** toggle (off by default) that calls
+`setAutoOnboard(agentId, true)` on each spawned role agent. +3 tests (pure matcher, once-then-again
+behaviour, no-write-unless-enabled).
+
+**Status:** complete. `./dev.sh verify` green (57 Rust + 46 frontend).
+
+**Deferred (Phase 2 remainder):** LLM context compaction, continue-on-feature-failure toggle,
+per-feature disk companion files.
+
 ## Feature-epic driver — COMPLETE
 
 **Decided:** Make a loop an *epic* over a feature backlog rather than a single contract — the

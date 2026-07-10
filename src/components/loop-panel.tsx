@@ -39,6 +39,9 @@ export function LoopPanel(props: {
   // Off by default: when on, the loop spawns the next role itself after each advance, so a run
   // is hands-off end to end. Auto-launching a chain of agents is never the silent default.
   const [autoRun, setAutoRun] = createSignal(false);
+  // Off by default: auto-accept Claude Code's "trust this folder?" prompt so an unattended run
+  // doesn't stall on it. Sending keystrokes to an agent is never the silent default.
+  const [autoOnboard, setAutoOnboard] = createSignal(false);
 
   const active = () => loops().find((l) => l.id === activeId()) ?? null;
   const roleRunning = (loopId: string) => roleAgent()?.loopId === loopId;
@@ -151,6 +154,7 @@ export function LoopPanel(props: {
         },
         `loop:${rp.role}`,
       );
+      if (autoOnboard()) props.agents.setAutoOnboard(agentId, true);
       setRoleAgent({ loopId: l.id, agentId, role: rp.role });
     } catch (e) {
       setError(String(e));
@@ -250,6 +254,14 @@ export function LoopPanel(props: {
               onChange={(e) => setAutoRun(e.currentTarget.checked)}
             />
             Auto-run
+          </label>
+          <label class="auto-run" title="Auto-accept Claude Code's 'trust this folder?' prompt so an unattended run doesn't stall">
+            <input
+              type="checkbox"
+              checked={autoOnboard()}
+              onChange={(e) => setAutoOnboard(e.currentTarget.checked)}
+            />
+            Auto-onboard
           </label>
         </div>
       </div>

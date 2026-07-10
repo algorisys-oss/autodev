@@ -4,6 +4,18 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Onboarding auto-responder (unattended runs don't stall)
+- New opt-in **Auto-onboard** toggle in the loop composer. When on, a loop's role agents
+  auto-accept Claude Code's "trust this folder?" dialog — the gate that stalls agents in fresh
+  worktrees/project dirs (it's why the first demo recording hung). The agent-store detects the
+  exact trust prompt in the streamed output and sends Enter once (pure, exported `onboardingReply`;
+  debounced so it fires once per gate, and again only for a genuinely new one).
+- Chosen over mutating `~/.claude.json`: that file is used by the running Claude Code session, so
+  rewriting it risks a concurrent-write clobber. The responder handles the prompt like a human
+  would, with no global-config side effect, and is **off by default** — sending keystrokes to an
+  agent is never silent. Deliberately narrow: only the trust dialog (Enter = its default "Yes"),
+  never the bypass-permissions warning (whose default is No). +3 frontend tests.
+
 ### Feature-epic driver (autonomous multi-feature builds)
 Turns a loop from "one bounded contract" into an epic that builds a whole backlog to completion.
 - New **Decomposer** role + **Decomposing** phase: a loop now starts by breaking the spec into an
