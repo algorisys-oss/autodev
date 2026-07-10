@@ -2,6 +2,31 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Gap-closing — waiting detection + signing docs — COMPLETE
+
+**Decided:** Of the three documented gaps, one was genuinely code-fillable; be honest about the
+other two.
+
+- **`waiting` detection (filled).** The end-anchored heuristic cleared reliably but missed
+  Claude/Codex's multi-line approval menus, and a whole-tail match would get *stuck* (prompt
+  text lingers in the raw-byte buffer; a real terminal would have redrawn over it, but the store
+  works on raw bytes, not an emulated screen). Reframed `waiting` as a **silence-derived** state:
+  `pushOutput` always sets `running` (so any activity clears waiting *reliably*), and `tick()` —
+  once an agent is quiet past the idle threshold — classifies the tail as `waiting` (trailing
+  prompt) vs `idle`. This decouples "is it a prompt" from "has it cleared", so detection can now
+  afford richer, multi-line, ANSI-stripped patterns without getting stuck. Added `stripAnsi` (TS
+  mirror of the Rust one) and selection-menu patterns.
+- **Code signing (not code-fillable — documented).** Requires Apple Developer ID / Windows certs,
+  which are secrets. Can't be committed. Expanded the README into an actionable recipe (exact env
+  vars / config keys) so a maintainer enables it by adding credentials; the build path already
+  supports it.
+- **Live-LLM dependency (inherent — mitigated).** The loop drives real agents, so correctness
+  depends on the model following the prompts. Not "fillable"; already mitigated by tolerant
+  parsers (bullets/checkboxes/`criterion N:` forms, FAIL-by-default) and the manual fallbacks.
+
+**Built:** `agent-store` `stripAnsi` + reworked `detectWaiting` + silence-derived `tick`; README
+"Code signing & notarization" subsection. `./dev.sh verify` green (40 Rust + 38 frontend).
+
 ## Hardening — remaining items (diff wiring, settings UI, status) — COMPLETE
 
 **Decided:** Clear the rest of the deferrals in one pass.

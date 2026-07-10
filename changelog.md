@@ -4,6 +4,20 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Close the gaps — robust waiting detection + signing docs
+- **Agent `waiting` detection reworked.** It is now a *silence-derived* state decided in
+  `tick()` (like `idle`): any fresh output flips an agent back to `running`, and only once it
+  goes quiet is the tail classified — a trailing prompt ⇒ `waiting`, otherwise `idle`. This
+  fixes the old bug where prompt text lingering in the buffer kept an agent stuck on `waiting`.
+  Detection now strips ANSI (new exported `stripAnsi`, mirrors the Rust one), scans the last few
+  lines, and recognises Claude/Codex multi-line approval menus (`❯ 1.` selection cursor,
+  "(use arrow keys)", "No, and tell Claude…") in addition to y/n and "press enter" prompts.
+  +2 tests (waiting/idle classification, stripAnsi).
+- **README: code signing & notarization.** Turned the vague "not configured" note into an
+  actionable, CI-ready recipe — the exact macOS (`APPLE_*` env, notarization) and Windows
+  (`certificateThumbprint` / Azure `signCommand`) hooks to fill in. Still ships unsigned (certs
+  are secrets); the same `./dev.sh build` produces signed artifacts once credentials are present.
+
 ### Evaluator diff wiring — base-commit tracking
 - `git`: `head_commit` + `diff_since` (+1 test). `LoopState` gains `base_commit` (serde-default
   so old state loads). Entering Generating (set-contract, planner auto-apply, retry) captures the

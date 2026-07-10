@@ -1,7 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import { createRoot } from "solid-js";
-import { createAgentStore, detectWaiting, isTerminal, type Subscribe } from "./agent-store";
+import {
+  createAgentStore,
+  detectWaiting,
+  isTerminal,
+  stripAnsi,
+  type Subscribe,
+} from "./agent-store";
 import type * as ipc from "./ipc";
+
+/** Base64 of a string's UTF-8 bytes — how the Rust core actually emits agent output (btoa
+ *  alone throws on non-Latin1 chars like the ❯ menu cursor). */
+const b64 = (s: string) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
 
 /** Fake ipc + a controllable event bus so tests drive agent://* events deterministically. */
 function harness() {
@@ -103,31 +113,56 @@ describe("agent store", () => {
     });
   });
 
-  it("shows waiting when the output tail looks like a confirmation prompt", async () => {
+  it("classifies silence as waiting when parked on a prompt, else idle; output clears it", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
       const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
 
-      h.emit("agent://output", { id: "agent-1", data: btoa("working on it\n") });
+      // A Claude-style multi-line approval menu (prompt line + options), still actively drawing.
+      h.emit("agent://output", {
+        id: "agent-1",
+        data: b64("Do you want to proceed?\n❯ 1. Yes\n  2. No, and tell Claude what to do\n"),
+      });
       expect(store.focused()?.status).toBe("running");
 
-      h.emit("agent://output", { id: "agent-1", data: btoa("Do you want to proceed?") });
+      // It goes quiet at the menu → waiting (not idle).
+      h.setClock(1000 + 2000);
+      store.tick();
       expect(store.focused()?.status).toBe("waiting");
 
-      // The user answers and the agent resumes producing output.
-      h.emit("agent://output", { id: "agent-1", data: btoa("\nediting files...") });
+      // The user answers; the agent acts again → running, and staying quiet now is plain idle.
+      h.emit("agent://output", { id: "agent-1", data: btoa("Editing src/app.ts\n".repeat(8)) });
       expect(store.focused()?.status).toBe("running");
+      h.setClock(1000 + 5000);
+      store.tick();
+      expect(store.focused()?.status).toBe("idle");
       dispose();
     });
   });
 
-  it("detectWaiting matches prompts but not ordinary output", () => {
+  it("detectWaiting matches prompts and TUI menus but not ordinary output", () => {
     expect(detectWaiting("... Do you want to proceed?")).toBe(true);
     expect(detectWaiting("Continue? (y/n)")).toBe(true);
     expect(detectWaiting("Press enter to continue")).toBe(true);
+    // Claude/Codex selection menu, prompt line followed by options (not at the very end).
+    expect(
+      detectWaiting("Do you want to proceed?\n❯ 1. Yes\n  2. No, and keep going\n"),
+    ).toBe(true);
+    // Colourised menu — ANSI codes must not defeat detection.
+    expect(detectWaiting("\x1b[1mSelect an option\x1b[0m\n\x1b[36m❯ 1.\x1b[0m Approve")).toBe(
+      true,
+    );
+    expect(detectWaiting("(Use arrow keys)")).toBe(true);
     expect(detectWaiting("Running tests, 42 passed.")).toBe(false);
     expect(detectWaiting("What is the meaning of life?")).toBe(false);
+    expect(detectWaiting("Step 1. clone the repo")).toBe(false);
+  });
+
+  it("stripAnsi removes escape codes and applies carriage-return redraws", () => {
+    expect(stripAnsi("\x1b[31mred\x1b[0m text")).toBe("red text");
+    expect(stripAnsi("\x1b]0;title\x07hi")).toBe("hi");
+    expect(stripAnsi("loading...\rdone")).toBe("done");
   });
 
   it("close removes an agent and reselects", async () => {

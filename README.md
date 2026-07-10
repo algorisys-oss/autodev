@@ -90,11 +90,33 @@ Notes:
   one step; run `./dev.sh build` on each platform you want to ship for.
 - **Version** comes from `src-tauri/tauri.conf.json` (`version`); bump it there before a
   release so bundle filenames and the in-app version match.
-- **Code signing / notarization** (macOS `.app`/`.dmg`, Windows installers) is not configured
-  here; add signing identities to `tauri.conf.json` when you need distributable, unflagged
-  binaries. Unsigned builds run fine locally and for internal sharing.
 - The app still shells out to the agent CLIs at runtime — whoever runs the bundle needs
   `claude` and/or `codex` on their `PATH`.
+
+### Code signing & notarization
+
+Unsigned builds run fine locally and for internal sharing. For public distribution (no
+Gatekeeper/SmartScreen warnings) you need OS signing credentials — which are secrets, so this
+repo ships **unsigned** and leaves the hooks for you to fill in:
+
+- **macOS** — sign with a Developer ID and notarize. Provide, in the build environment:
+  ```bash
+  export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+  export APPLE_ID="you@example.com"
+  export APPLE_PASSWORD="app-specific-password"   # appleid.apple.com → App-Specific Passwords
+  export APPLE_TEAM_ID="TEAMID"
+  ./dev.sh build
+  ```
+  Tauri signs the `.app`, staples the notarization ticket, and produces the `.dmg`.
+- **Windows** — set the signing cert in `src-tauri/tauri.conf.json` under
+  `bundle.windows.certificateThumbprint` (plus `digestAlgorithm: "sha256"` and a
+  `timestampUrl`), or wire `bundle.windows.signCommand` to Azure Trusted Signing for a
+  cloud-held cert. Build on Windows.
+- **Linux** — AppImages are not code-signed; distribute the `.AppImage` directly, or GPG-sign
+  the `.deb`/`.rpm` in your package repository as usual.
+
+In CI, store these as encrypted secrets and export them before `./dev.sh build`; the same
+command produces signed artifacts once the credentials are present.
 
 ## Usage
 

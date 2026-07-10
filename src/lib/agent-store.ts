@@ -9,21 +9,80 @@ export function isTerminal(status: AgentStatus): boolean {
   return status === "exited" || status === "error";
 }
 
-// Conservative signals that an agent is blocked on the user (Claude Code / shell confirmation
-// prompts). Anchored to the END of the output so a prompt only counts while it is the last
-// thing printed; once the agent gets an answer and prints more, it is no longer waiting. Kept
-// narrow to avoid false positives.
+/** Strip ANSI escape sequences and carriage-return redraws so prompt text is legible. Mirrors
+ *  the Rust `loop_engine::strip_ansi`; the frontend needs it to read prompts out of raw PTY
+ *  bytes (TUI agents wrap everything in colour and cursor codes). */
+export function stripAnsi(input: string): string {
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    if (input[i] === "\x1b") {
+      const next = input[i + 1];
+      if (next === "[") {
+        // CSI: ESC [ ... <final byte 0x40..0x7e>
+        i += 2;
+        while (i < input.length && !(input[i] >= "\x40" && input[i] <= "\x7e")) i++;
+        i++;
+      } else if (next === "]") {
+        // OSC: ESC ] ... terminated by BEL or ST (ESC \)
+        i += 2;
+        while (i < input.length) {
+          if (input[i] === "\x07") {
+            i++;
+            break;
+          }
+          if (input[i] === "\x1b" && input[i + 1] === "\\") {
+            i += 2;
+            break;
+          }
+          i++;
+        }
+      } else {
+        i += 2; // other two-char escape
+      }
+      continue;
+    }
+    out += input[i];
+    i++;
+  }
+  // Apply carriage-return overwrites per line.
+  return out
+    .split("\n")
+    .map((line) => {
+      const parts = line.split("\r");
+      return parts[parts.length - 1];
+    })
+    .join("\n");
+}
+
+// Signals that an agent is parked on the user: shell y/n prompts, "press enter", and the
+// interactive selection menus Claude Code and Codex render for permission/approval (a `❯`/`>`
+// cursor on a numbered option, or the arrow-key hint). Matched against the last few lines of
+// recent output; clearing is handled by "any output ⇒ running", not by the prompt scrolling off.
 const WAITING_PATTERNS = [
-  /Do you want to proceed\?\s*$/i,
-  /Do you want to continue\?\s*$/i,
-  /\bPress\s+enter\s+to\s+continue\.?\s*$/i,
-  /\(y\/n\)\s*$/i,
-  /\[y\/N\]\s*$/i,
+  /Do you want to proceed\?/i,
+  /Do you want to continue\?/i,
+  /\bPress\s+enter\s+to\s+continue/i,
+  /\by\s*\/\s*n\b/i,
+  /\(y\/n\)/i,
+  /\[y\/N\]/i,
+  /[❯▶►›➤]\s*\d+[.)]\s/, // selection cursor on a numbered option (Claude/Codex approval menu)
+  /\(use\s+arrow\s+keys\)/i,
+  /\bNo,\s+and\s+(tell|keep)\b/i, // the "No, and tell Claude…" menu option
 ];
 
-/** Does the recent output tail look like the agent is waiting for the user to answer a prompt? */
+const WAITING_SCAN_LINES = 6; // how many trailing non-empty lines to inspect for a prompt
+
+/** Does the recent output tail look like the agent is waiting for the user to answer a prompt?
+ *  Only the last few non-empty lines are considered — a prompt means the agent is currently
+ *  parked at it. */
 export function detectWaiting(tail: string): boolean {
-  return WAITING_PATTERNS.some((re) => re.test(tail));
+  const lines = stripAnsi(tail)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const recent = lines.slice(-WAITING_SCAN_LINES).join("\n");
+  return WAITING_PATTERNS.some((re) => re.test(recent));
 }
 
 export interface AgentView {
@@ -91,14 +150,12 @@ export function createAgentStore(deps?: {
       bufferBytes.set(id, size);
     }
     lastActivity.set(id, now());
-    const tail = ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS);
-    tails.set(id, tail);
+    tails.set(id, ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS));
     const i = indexOf(id);
-    // Output never resurrects a stopped agent; otherwise reflect whether it now looks blocked
-    // on the user (waiting) or is actively producing output (running).
-    if (i >= 0 && !isTerminal(state.agents[i].status)) {
-      setStatus(id, detectWaiting(tail) ? "waiting" : "running");
-    }
+    // Fresh output ⇒ running. This also reliably clears an earlier "waiting"/"idle" the moment
+    // the agent acts again. Whether it is *now* waiting on a prompt is decided in tick(), once
+    // it goes quiet — so the prompt-text lingering in the tail can't keep it stuck on waiting.
+    if (i >= 0 && !isTerminal(state.agents[i].status)) setStatus(id, "running");
     subscribers.get(id)?.(bytes);
   }
 
@@ -116,12 +173,15 @@ export function createAgentStore(deps?: {
     }),
   ];
 
-  /** Mark long-silent running agents idle. Called by an interval in the app; tests call it. */
+  /** Once an agent goes quiet, classify the silence: a trailing prompt in its output means it
+   *  is blocked on the user (waiting); otherwise it is merely idle. Called by an interval in the
+   *  app; tests call it. Fresh output flips it back to running via pushOutput. */
   function tick() {
     const t = now();
     for (const a of state.agents) {
-      if (a.status === "running" && t - (lastActivity.get(a.id) ?? 0) > IDLE_AFTER_MS) {
-        setStatus(a.id, "idle");
+      if (isTerminal(a.status)) continue;
+      if (t - (lastActivity.get(a.id) ?? 0) > IDLE_AFTER_MS) {
+        setStatus(a.id, detectWaiting(tails.get(a.id) ?? "") ? "waiting" : "idle");
       }
     }
   }

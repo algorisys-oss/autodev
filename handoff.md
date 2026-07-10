@@ -26,11 +26,15 @@ Updated as the final step of every task (LOOPS XXVI).
   prompt. Non-repo project dirs → empty diff.
 - **Settings UI:** ⚙ in the header opens a modal to edit theme, default effort, and the
   transcribe/screenshot/browser command templates (previously hand-edited in settings.json).
-- **Agent status:** dots now distinguish `running` / `idle` / `waiting` (blocked on a
-  confirmation prompt) / `exited` / `error` (non-zero exit). `waiting` is a conservative,
-  end-anchored heuristic (`detectWaiting`).
-- **Next up:** the `waiting` heuristic doesn't cover every TUI prompt shape; release-bundle
-  code signing/notarization is unconfigured (see README). See `implement.md` for the full list.
+- **Agent status:** dots distinguish `running` / `idle` / `waiting` (blocked on a prompt) /
+  `exited` / `error` (non-zero exit). `waiting` is now silence-derived: any output ⇒ `running`,
+  and only when an agent goes quiet does `tick()` classify its tail as `waiting` vs `idle`.
+  Detection strips ANSI and recognises Claude/Codex approval menus, y/n, and "press enter".
+- **Signing:** release bundles ship unsigned (certs are secrets). The README "Code signing &
+  notarization" section has the exact macOS/Windows hooks to enable it in CI.
+- **Next up:** nothing outstanding from the original gap list. Remaining honest caveats: the
+  `waiting` heuristic is still pattern-based (won't catch every exotic prompt), and a live loop
+  run depends on the agent models following the tightened prompts. See `implement.md`.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
@@ -63,7 +67,7 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Evaluator (each as a real agent in the project dir); set the contract, grade criteria,
   and the loop advances (pass / retry / fail). State lives on disk under
   `~/.autodev/loops/<id>/` (state.json, contract.md, feature-list.json, progress.md, log.md).
-- `./dev.sh test` — Rust `cargo test` (40 tests) + Vitest (37).
+- `./dev.sh test` — Rust `cargo test` (40 tests) + Vitest (38).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - `./dev.sh lint` — eslint + tsc + clippy (-D warnings) + rustfmt check. Green.
