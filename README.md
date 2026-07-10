@@ -181,6 +181,28 @@ repo secrets above; without them the release ships unsigned.
 Configuration and state live at `~/.autodev/` (settings, prompt history, per-agent logs,
 loop state).
 
+### Browser handoff
+
+Terminal coding agents can't finish tasks that need a *browser* — creating a Discord app,
+setting up OAuth, configuring a dashboard, signing up for a service. **Browser handoff** bridges
+that: it turns a web task into a structured brief you hand to a browser-driving AI.
+
+![Browser handoff](demo/browser-handoff.png)
+
+1. Click **🌐** in the composer, then describe the task: a **goal**, an optional **starting URL**,
+   and any **context/constraints**.
+2. **Generate handoff** produces a structured prompt — `## Goal`, `## Starting point`, `## Context`,
+   `## How to proceed`, and a `## Report back` section asking the browser AI to return any
+   credentials / IDs / URLs it created and anything that needs your input.
+3. Then either **Copy** it into any browser AI (a Comet-style agent, a browsing-enabled assistant),
+   or **Run browserCommand** to execute it automatically.
+
+The **`browserCommand`** is a pluggable shell template in `~/.autodev/settings.json` (or the ⚙
+Settings panel) with a `{file}` placeholder — e.g. a Playwright runner: `playwright-runner.js
+{file}`. AutoDev writes the handoff to that file, runs the command, and shows its output back in
+the modal. Without a `browserCommand` configured, the **Run** button returns a clear
+"not configured" error — the copy-into-a-browser-AI path always works.
+
 ## Project layout
 
 ```
