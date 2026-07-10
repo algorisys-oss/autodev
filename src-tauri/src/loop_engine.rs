@@ -14,6 +14,8 @@ pub enum Role {
     Planner,
     Generator,
     Evaluator,
+    /// Compresses the loop's accumulated progress memory when it grows too large (long runs).
+    Summarizer,
 }
 
 /// Where a loop is in its life cycle.
@@ -93,6 +95,14 @@ pub struct LoopState {
 pub const STUCK_WINDOW: usize = 3;
 /// Default iteration budget (raised from the original 5 now that stuck-detection ends dead loops).
 pub const DEFAULT_MAX_ITERATIONS: u32 = 8;
+/// Progress-memory size (chars) past which the Summarizer should compress it, so long epics keep
+/// carrying the important context instead of a truncated tail.
+pub const MAX_PROGRESS_CHARS: usize = 2500;
+
+/// Has the loop's progress memory grown large enough to warrant an LLM compaction pass?
+pub fn needs_compaction(progress: &str) -> bool {
+    progress.chars().count() > MAX_PROGRESS_CHARS
+}
 
 impl LoopState {
     pub fn with_options(
@@ -203,7 +213,52 @@ pub fn append_progress(progress: &mut String, line: &str, max_lines: usize) {
     }
 }
 
+/// Replace the loop's progress memory with a compacted summary (bounded), marking it as such so a
+/// future agent knows it is a digest of earlier work rather than a raw round log.
+pub fn compact_progress(state: &mut LoopState, summary: &str) {
+    let trimmed: String = summary.trim().chars().take(MAX_PROGRESS_CHARS).collect();
+    state.progress = format!("(compacted summary of earlier work)\n{trimmed}");
+}
+
+/// Pull the compacted summary out of the summarizer agent's output: the text after a `SUMMARY:`
+/// header, or — absent it — the tail of the output. Bounded to `MAX_PROGRESS_CHARS`.
+pub fn parse_summary(output: &str) -> String {
+    let clean = strip_ansi(output);
+    let text = match clean.find("SUMMARY:") {
+        Some(idx) => clean[idx + "SUMMARY:".len()..].trim().to_string(),
+        None => {
+            // No header — keep the last MAX_PROGRESS_CHARS chars (the useful end of the output).
+            let t = clean.trim();
+            let n = t.chars().count();
+            if n <= MAX_PROGRESS_CHARS {
+                t.to_string()
+            } else {
+                t.chars().skip(n - MAX_PROGRESS_CHARS).collect()
+            }
+        }
+    };
+    text.chars().take(MAX_PROGRESS_CHARS).collect()
+}
+
 // --- Role prompts (pure; the heart of role separation) ---
+
+pub fn summarizer_prompt(spec: &str, backlog: &str, progress: &str) -> String {
+    let backlog_line = if backlog.trim().is_empty() {
+        String::new()
+    } else {
+        format!("FEATURE BACKLOG (\\[x]=done, \\[>]=current, \\[ ]=pending):\n{backlog}\n\n")
+    };
+    format!(
+        "You are the SUMMARIZER. You never write code. Compress the running progress log below \
+         into a dense, durable memory for the agents that continue this build — keep what a future \
+         generator/evaluator needs and drop the noise: what has been built and where, the key \
+         design decisions and file/module layout, and what was tried and FAILED and why (so it is \
+         not repeated). Be specific and terse; no pleasantries.\n\n\
+         Output a line containing only `SUMMARY:` followed by the compressed summary, and nothing \
+         else. This exact shape is parsed automatically.\n\n\
+         OVERALL SPEC:\n{spec}\n\n{backlog_line}PROGRESS LOG SO FAR:\n{progress}\n"
+    )
+}
 
 pub fn decomposer_prompt(spec: &str) -> String {
     format!(
@@ -811,6 +866,47 @@ mod tests {
             parse_features(out),
             vec!["user auth", "create posts", "full-text search"]
         );
+    }
+
+    #[test]
+    fn compaction_triggers_over_the_threshold_and_replaces_progress() {
+        assert!(!needs_compaction("short"));
+        assert!(needs_compaction(&"x".repeat(MAX_PROGRESS_CHARS + 1)));
+
+        let mut s = mk("l");
+        s.progress = "round 1: 0/3 met\nround 2: 1/3 met\n".repeat(200);
+        assert!(needs_compaction(&s.progress));
+        compact_progress(
+            &mut s,
+            "Built auth (src/auth.rs). Search FAILED: regex too slow.",
+        );
+        assert!(s.progress.starts_with("(compacted summary"));
+        assert!(s.progress.contains("Search FAILED"));
+        assert!(!needs_compaction(&s.progress));
+    }
+
+    #[test]
+    fn parse_summary_reads_after_the_header_else_tails() {
+        let out = "thinking...\nSUMMARY:\nAuth done in src/auth.rs. Posts use SQLite.\n";
+        assert_eq!(
+            parse_summary(out),
+            "Auth done in src/auth.rs. Posts use SQLite."
+        );
+        // No header → keep the tail (bounded).
+        let long: String = (0..5000).map(|i| format!("line{i}\n")).collect();
+        let got = parse_summary(&long);
+        assert!(got.chars().count() <= MAX_PROGRESS_CHARS);
+        assert!(got.contains("line4999"));
+    }
+
+    #[test]
+    fn summarizer_prompt_carries_spec_backlog_and_progress() {
+        let p = summarizer_prompt("build a blog", "[x] auth\n[>] posts", "round 3: 2/4 met");
+        assert!(p.contains("You are the SUMMARIZER"));
+        assert!(p.contains("SUMMARY:"));
+        assert!(p.contains("build a blog"));
+        assert!(p.contains("[>] posts"));
+        assert!(p.contains("round 3: 2/4 met"));
     }
 
     #[test]

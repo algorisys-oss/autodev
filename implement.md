@@ -2,6 +2,34 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## LLM context compaction — COMPLETE (Phase 2 done)
+
+**Decided:** Fix long-run context loss (the naive last-15-lines progress tail drops cross-feature
+memory). Implemented as a **Summarizer** role — same role-separation pattern as decomposer/planner
+/evaluator — rather than a non-LLM structured memory, since the user asked for LLM compaction and
+a model produces a far richer digest (design decisions, file layout, what failed and why).
+Modelled as a **maintenance step, not a phase**: it doesn't move the phase machine; it just
+rewrites `progress`, then the deferred phase role runs. Threshold-triggered (`MAX_PROGRESS_CHARS`
+= 2500) so it only fires on genuinely long runs.
+
+**Built:**
+- `loop_engine.rs` (+3 tests) — `Role::Summarizer`; `summarizer_prompt(spec, backlog, progress)`;
+  `parse_summary` (after a `SUMMARY:` header, else the tail; bounded); `compact_progress` (replace
+  memory with a marked, bounded digest); `needs_compaction` + `MAX_PROGRESS_CHARS`.
+- `commands.rs` — `loop_needs_compaction`, `loop_compact_prompt` (Summarizer role + prompt),
+  `loop_compact` (parse the agent's summary → replace progress); registered.
+- Frontend — ipc `summarizer` role + `needsCompaction`/`MAX_PROGRESS_CHARS` + bindings; loop-panel
+  `runNextRole` inserts a read-only summarizer before the next phase role in the Auto-run chain
+  when progress is large, `autoAdvance` handles the `summarizer` role via `loopCompact`, and a
+  manual **🗜 Compact memory** button appears over the threshold (+1 test).
+
+**Status:** complete. `./dev.sh verify` green (62 Rust + 48 frontend). **All Phase-2 autonomy items
+are done** — trust/durability, feature-epic driver, onboarding auto-responder, continue-on-failure,
+and context compaction.
+
+**Honest boundary (unchanged):** all logic is unit-tested; a full multi-hour live epic with real
+agents has not been driven end-to-end (needs authenticated CLIs + the GUI).
+
 ## Continue-on-failure for epics — COMPLETE
 
 **Decided:** Make long epics resilient — one hard feature shouldn't kill the whole backlog. Opt-in

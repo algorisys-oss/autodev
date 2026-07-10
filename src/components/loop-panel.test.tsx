@@ -9,6 +9,8 @@ vi.mock("../lib/ipc", () => ({
   loopList: vi.fn(),
   loopCreate: vi.fn(),
   loopCurrentPrompt: vi.fn(),
+  loopCompactPrompt: vi.fn(),
+  loopCompact: vi.fn(),
   loopApplyDecomposer: vi.fn(),
   loopApplyPlanner: vi.fn(),
   loopApplyEvaluator: vi.fn(),
@@ -16,6 +18,8 @@ vi.mock("../lib/ipc", () => ({
   loopSetFeatures: vi.fn(),
   loopSetContract: vi.fn(),
   loopGrade: vi.fn(),
+  MAX_PROGRESS_CHARS: 2500,
+  needsCompaction: (p?: string | null) => (p?.length ?? 0) > 2500,
 }));
 import * as ipc from "../lib/ipc";
 
@@ -56,7 +60,9 @@ function agentHarness() {
 
 describe("loop panel auto-advance", () => {
   beforeEach(() => {
-    for (const fn of Object.values(mocked)) fn.mockReset();
+    for (const fn of Object.values(mocked)) {
+      if (typeof fn?.mockReset === "function") fn.mockReset();
+    }
   });
 
   it("applies the planner's contract when its agent exits, advancing to generating", async () => {
@@ -134,6 +140,35 @@ describe("loop panel auto-advance", () => {
     await waitFor(() => expect(store.state.agents).toHaveLength(2));
     expect(mocked.loopCurrentPrompt).toHaveBeenCalledTimes(2);
     expect(mocked.loopReadyToEvaluate).not.toHaveBeenCalled();
+  });
+
+  it("compacts memory before the next role when progress has grown too large", async () => {
+    const big = "x".repeat(3000); // over MAX_PROGRESS_CHARS
+    mocked.loopList.mockResolvedValue([loop()]);
+    mocked.loopCurrentPrompt.mockResolvedValue({ role: "planner", prompt: "PLAN" });
+    // Applying the planner lands in generating with an oversized progress memory.
+    mocked.loopApplyPlanner.mockResolvedValue(
+      loop({ phase: "generating", progress: big, contract: [{ text: "c1", met: null }] }),
+    );
+    mocked.loopCompactPrompt.mockResolvedValue({ role: "summarizer", prompt: "SUMMARIZE" });
+
+    const { store, emit } = agentHarness();
+    const { getByText, getByLabelText, findByText } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    await findByText(/Run planner/);
+    fireEvent.click(getByLabelText("Auto-run"));
+    fireEvent.click(getByText(/Run planner/));
+    await waitFor(() => expect(store.state.agents).toHaveLength(1));
+
+    // Planner exits → generating with big progress → the chain runs a summarizer, not the generator.
+    emit("agent://exit", { id: "agent-1", code: 0 });
+
+    await waitFor(() => expect(mocked.loopCompactPrompt).toHaveBeenCalledWith("l1"));
+    await waitFor(() => expect(store.state.agents).toHaveLength(2));
+    // The generator prompt was NOT fetched yet — compaction runs first.
+    expect(mocked.loopCurrentPrompt).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces a parse failure and leaves the phase for manual entry", async () => {

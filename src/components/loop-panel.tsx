@@ -7,9 +7,12 @@ import {
   loopReadyToEvaluate,
   loopGrade,
   loopCurrentPrompt,
+  loopCompactPrompt,
+  loopCompact,
   loopApplyDecomposer,
   loopApplyPlanner,
   loopApplyEvaluator,
+  needsCompaction,
   type LoopState,
   type Role,
 } from "../lib/ipc";
@@ -68,6 +71,14 @@ export function LoopPanel(props: {
     setApplying(true);
     setError(null);
     try {
+      // The summarizer is a maintenance step: it compacts memory, then the deferred phase role
+      // runs. Every other role advances the phase machine.
+      if (ra.role === "summarizer") {
+        const next = await loopCompact(ra.loopId, ra.agentId);
+        replace(next);
+        if (autoRun() && inProgress(next.phase)) await runRoleFor(next);
+        return;
+      }
       let next: LoopState;
       if (ra.role === "decomposer") {
         next = await loopApplyDecomposer(ra.loopId, ra.agentId);
@@ -79,8 +90,8 @@ export function LoopPanel(props: {
         next = await loopApplyEvaluator(ra.loopId, ra.agentId);
       }
       replace(next);
-      // Hands-off: chain straight into the next role while the loop is still in progress.
-      if (autoRun() && inProgress(next.phase)) await runRoleFor(next);
+      // Hands-off: chain into the next role, compacting memory first if it has grown too large.
+      if (autoRun() && inProgress(next.phase)) await runNextRole(next);
     } catch (e) {
       setError(`Auto-advance failed — continue manually below. (${String(e)})`);
     } finally {
@@ -127,7 +138,7 @@ export function LoopPanel(props: {
       replace(l);
       setActiveId(l.id);
       setSpec("");
-      if (autoRun()) await runRoleFor(l);
+      if (autoRun()) await runNextRole(l);
     } catch (e) {
       setError(String(e));
     }
@@ -137,6 +148,33 @@ export function LoopPanel(props: {
   async function runRole() {
     const l = active();
     if (l) await runRoleFor(l);
+  }
+
+  /** In the hands-off chain: compact the memory first if it has grown too large, otherwise run
+   *  the current-phase role directly. */
+  async function runNextRole(l: LoopState) {
+    if (l.phase !== "decomposing" && needsCompaction(l.progress)) {
+      await runSummarizerFor(l);
+    } else {
+      await runRoleFor(l);
+    }
+  }
+
+  /** Spawn a read-only Summarizer to compact the loop's progress memory. */
+  async function runSummarizerFor(l: LoopState) {
+    if (roleRunning(l.id)) return;
+    setError(null);
+    try {
+      const rp = await loopCompactPrompt(l.id);
+      const agentId = await props.agents.spawn(
+        { backend: "claude", cwd: l.projectDir, planMode: true, initialPrompt: rp.prompt },
+        "loop:summarizer",
+      );
+      if (autoOnboard()) props.agents.setAutoOnboard(agentId, true);
+      setRoleAgent({ loopId: l.id, agentId, role: "summarizer" });
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   /** Spawn the given loop's current-phase role as an agent in its project dir. */
@@ -320,6 +358,15 @@ export function LoopPanel(props: {
               </Show>
               <Show when={applying()}>
                 <span class="muted">reading output…</span>
+              </Show>
+              <Show when={l.phase !== "passed" && l.phase !== "failed" && needsCompaction(l.progress)}>
+                <button
+                  onClick={() => runSummarizerFor(l)}
+                  disabled={roleRunning(l.id) || applying()}
+                  title="Compress the accumulated progress memory with a summarizer agent"
+                >
+                  🗜 Compact memory
+                </button>
               </Show>
               <Show when={l.phase !== "passed" && l.phase !== "failed"}>
                 <button onClick={runRole} disabled={roleRunning(l.id) || applying()}>

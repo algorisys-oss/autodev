@@ -81,8 +81,8 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
 - Unattended runs: tick **Auto-onboard** (off by default) so a loop's role agents auto-accept
   Claude Code's "trust this folder?" prompt (the gate that stalls fresh worktrees) — the store
   detects the exact prompt and sends Enter once. Narrow by design: only the trust dialog, never
-  the bypass warning. Only remaining Phase-2 item: LLM-based context compaction for very long runs.
-- `./dev.sh test` — Rust `cargo test` (59 tests) + Vitest (47).
+  the bypass warning. Long runs stay coherent: when the progress memory grows past a threshold a read-only **Summarizer** compacts it (auto in the chain, or the 🗜 Compact memory button). All Phase-2 autonomy items are done.
+- `./dev.sh test` — Rust `cargo test` (62 tests) + Vitest (48).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

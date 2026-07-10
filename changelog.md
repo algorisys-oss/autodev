@@ -4,6 +4,20 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### LLM context compaction (long-run memory) — last Phase-2 item
+Over a long epic the naive bounded progress tail loses cross-feature context. A **Summarizer**
+role now compresses it.
+- Engine: `Role::Summarizer` + `summarizer_prompt` (compact "what's built / key decisions / what
+  FAILED and why" into a `SUMMARY:` block); `parse_summary`, `compact_progress` (replace the
+  progress memory with a bounded digest), and `needs_compaction`/`MAX_PROGRESS_CHARS` (2500). +3
+  tests.
+- Commands: `loop_needs_compaction`, `loop_compact_prompt` (Summarizer role + prompt — a
+  maintenance step, not a phase), `loop_compact` (parse the summarizer's output → replace progress).
+- Frontend: in the hands-off **Auto-run** chain, when a loop's progress has grown past the
+  threshold the panel spawns a read-only summarizer to compact memory **before** the next
+  plan/generate/evaluate role; a manual **🗜 Compact memory** button appears when the memory is
+  large. +1 test. **All Phase-2 autonomy items are now done.**
+
 ### Continue-on-failure toggle for epics
 - New opt-in **Continue on failure** loop option (off by default): when a feature stalls or runs
   out of rounds, the epic **skips it and keeps building the rest of the backlog** instead of

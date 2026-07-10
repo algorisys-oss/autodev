@@ -571,6 +571,41 @@ pub fn loop_current_prompt(id: String, diff: String) -> AppResult<Option<RolePro
     Ok(loop_engine::prompt_for_phase(&s, &diff).map(|(role, prompt)| RolePrompt { role, prompt }))
 }
 
+/// Whether the loop's progress memory has grown large enough to warrant a summarizer pass.
+#[tauri::command]
+pub fn loop_needs_compaction(id: String) -> AppResult<bool> {
+    let s = loop_engine::load(&state::loops_dir()?, &id)?;
+    Ok(loop_engine::needs_compaction(&s.progress))
+}
+
+/// The Summarizer role + prompt for compacting the loop's progress memory (a maintenance step,
+/// not a phase). Runs read-only; the caller applies the result with `loop_compact`.
+#[tauri::command]
+pub fn loop_compact_prompt(id: String) -> AppResult<RolePrompt> {
+    let s = loop_engine::load(&state::loops_dir()?, &id)?;
+    Ok(RolePrompt {
+        role: loop_engine::Role::Summarizer,
+        prompt: loop_engine::summarizer_prompt(&s.spec, &s.backlog_overview(), &s.progress),
+    })
+}
+
+/// Replace the loop's progress memory with the summarizer agent's compacted summary.
+#[tauri::command]
+pub fn loop_compact(id: String, agent_id: String) -> AppResult<LoopState> {
+    let base = state::loops_dir()?;
+    let mut s = loop_engine::load(&base, &id)?;
+    let summary = loop_engine::parse_summary(&read_agent_log(&agent_id)?);
+    if summary.trim().is_empty() {
+        return Err(AppError::Conflict(
+            "no summary found in the summarizer output".into(),
+        ));
+    }
+    loop_engine::compact_progress(&mut s, &summary);
+    loop_engine::save(&base, &s)?;
+    loop_engine::append_log(&base, &id, "progress compacted by summarizer")?;
+    Ok(s)
+}
+
 /// Read a finished agent's captured output log (lossy UTF-8; the log holds raw PTY bytes).
 fn read_agent_log(agent_id: &str) -> AppResult<String> {
     let path = state::logs_dir()?.join(format!("{agent_id}.log"));

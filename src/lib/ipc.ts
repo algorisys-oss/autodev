@@ -205,7 +205,16 @@ export type LoopPhase =
   | "evaluating"
   | "passed"
   | "failed";
-export type Role = "decomposer" | "planner" | "generator" | "evaluator";
+export type Role = "decomposer" | "planner" | "generator" | "evaluator" | "summarizer";
+
+/** Progress-memory size past which the summarizer should compact it. Mirrors the Rust
+ *  `loop_engine::MAX_PROGRESS_CHARS`. */
+export const MAX_PROGRESS_CHARS = 2500;
+
+/** Has a loop's progress memory grown large enough to warrant a compaction pass? */
+export function needsCompaction(progress: string | undefined | null): boolean {
+  return (progress?.length ?? 0) > MAX_PROGRESS_CHARS;
+}
 
 export interface Criterion {
   text: string;
@@ -283,6 +292,16 @@ export function loopGrade(id: string, verdicts: boolean[]): Promise<LoopState> {
 
 export function loopCurrentPrompt(id: string, diff: string): Promise<RolePrompt | null> {
   return invoke<RolePrompt | null>("loop_current_prompt", { id, diff });
+}
+
+/** The Summarizer role + prompt for compacting the loop's progress memory (not a phase). */
+export function loopCompactPrompt(id: string): Promise<RolePrompt> {
+  return invoke<RolePrompt>("loop_compact_prompt", { id });
+}
+
+/** Replace the loop's progress memory with the summarizer agent's compacted summary. */
+export function loopCompact(id: string, agentId: string): Promise<LoopState> {
+  return invoke<LoopState>("loop_compact", { id, agentId });
 }
 
 /** Parse the decomposer agent's output into the feature backlog and advance to planning. */
