@@ -1,0 +1,38 @@
+Script started on 2026-07-10 09:32:53+05:30 [COMMAND="bash multi-agent-demo.sh" <not executed on terminal>]
+
+[1m▶ AutoDev multi-agent demo — 3 agents build a calc library in parallel[0m
+[2mproject repo: /tmp/tmp.qeJkFgfu1e/calc[0m
+
+[1m▶ Isolate: give each agent its own worktree + branch[0m
+  created worktree wt-1 on branch autodev/agent-1
+  created worktree wt-2 on branch autodev/agent-2
+  created worktree wt-3 on branch autodev/agent-3
+
+[1m▶ Fan out: 3 agents work in parallel (interleaved output = real concurrency)[0m
+[36m[agent 1][0m spawned — task: create add.js
+[35m[agent 2][0m spawned — task: create sub.js
+[32m[agent 3][0m spawned — task: create calc.test.js
+[36m[agent 1][0m wrote add.js
+[36m[agent 1][0m committed to autodev/agent-1 ✓
+[35m[agent 2][0m wrote sub.js
+[35m[agent 2][0m committed to autodev/agent-2 ✓
+[32m[agent 3][0m wrote calc.test.js
+[32m[agent 3][0m committed to autodev/agent-3 ✓
+
+[1m▶ Merge back: fold every agent's branch into main[0m
+  merged autodev/agent-1
+  merged autodev/agent-2
+  merged autodev/agent-3
+
+[1m▶ Result: one assembled project from three parallel agents[0m
+  README.md
+  add.js
+  calc.test.js
+  sub.js
+
+[1m▶ Run the agents' tests[0m
+  all calc tests passed
+
+[1m✓ Done: 3 agents · 3 isolated worktrees · merged into one project[0m
+
+Script done on 2026-07-10 09:32:55+05:30 [COMMAND_EXIT_CODE="0"]

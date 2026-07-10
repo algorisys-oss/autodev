@@ -4,6 +4,13 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-10]
 
+### Demo — recorded multi-agent walkthrough
+- Added `demo/`: `multi-agent-demo.sh` reproduces AutoDev's fan-out + worktree-isolation flow
+  (3 agents build a calc library in parallel, each on its own `git worktree`/branch, then merge
+  back) using only git + bash — no GUI or CLI auth, runs in a temp dir and cleans up. Recorded
+  to `multi-agent-demo.txt` (plain text) and a replayable `script`(1) capture (`.rec`/`.timing`);
+  `demo/README.md` maps each step to the app's composer/grid/merge. Linked from the README.
+
 ### Open folder as workspace + one-command releases
 - **"Open folder as workspace…"** button in the sidebar: pick any existing folder via the native
   picker and it creates a workspace named after the folder's basename with that folder added as

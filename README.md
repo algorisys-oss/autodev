@@ -13,6 +13,9 @@ and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
 > annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop. See
 > [`handoff.md`](handoff.md) for exactly what works today and the known gaps.
 
+> **Demo:** [`demo/`](demo/) has a runnable, recorded walkthrough of the multi-agent +
+> worktree-isolation flow (3 agents build a library in parallel, then merge back).
+
 ## Download
 
 Prebuilt installers are attached to each [GitHub release](https://github.com/algorisys-oss/autodev/releases).

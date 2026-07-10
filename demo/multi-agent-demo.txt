@@ -1,0 +1,35 @@
+
+▶ AutoDev multi-agent demo — 3 agents build a calc library in parallel
+project repo: /tmp/tmp.lZMnARn8ce/calc
+
+▶ Isolate: give each agent its own worktree + branch
+  created worktree wt-1 on branch autodev/agent-1
+  created worktree wt-2 on branch autodev/agent-2
+  created worktree wt-3 on branch autodev/agent-3
+
+▶ Fan out: 3 agents work in parallel (interleaved output = real concurrency)
+[agent 1] spawned — task: create add.js
+[agent 2] spawned — task: create sub.js
+[agent 3] spawned — task: create calc.test.js
+[agent 1] wrote add.js
+[agent 1] committed to autodev/agent-1 ✓
+[agent 2] wrote sub.js
+[agent 2] committed to autodev/agent-2 ✓
+[agent 3] wrote calc.test.js
+[agent 3] committed to autodev/agent-3 ✓
+
+▶ Merge back: fold every agent's branch into main
+  merged autodev/agent-1
+  merged autodev/agent-2
+  merged autodev/agent-3
+
+▶ Result: one assembled project from three parallel agents
+  README.md
+  add.js
+  calc.test.js
+  sub.js
+
+▶ Run the agents' tests
+  all calc tests passed
+
+✓ Done: 3 agents · 3 isolated worktrees · merged into one project
