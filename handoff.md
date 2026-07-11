@@ -5,14 +5,15 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** "Open in editor" button (on `dev`) — each agent's session bar opens its
+- **Last task:** Prompt-UX clarity (on `dev`) — the composer and each agent's `❯` input were
+  both "the prompt". Labelled the composer as **"New task"** (launches agents) with a caption
+  pointing follow-ups to the agent's terminal, and captioned each agent's terminal ("type here
+  to reply to this agent"). Copy-only, verified in the running app.
+- **Prior task:** "Open in editor" button (on `dev`) — each agent's session bar opens its
   worktree (or cwd) in your editor via a Rust `open_in_editor` command; editor is configurable
   (`editorCommand` setting, default `code`). New unit-tested `src-tauri/src/editor.rs`; verified
   end-to-end against a fake editor. This is phase 0 of the code-editor plan (embed a real editor
-  later — see `~/.claude/plans/keen-crunching-puppy.md`). **Parked:** a prompt-UX clarity fix —
-  the composer's top "prompt" (spawns agents) vs each agent's own `❯` prompt (Claude's TUI, for
-  follow-ups) are both called "prompt" and the distinction is unclear; awaiting the user's call
-  on the exact fix.
+  later — see `~/.claude/plans/keen-crunching-puppy.md`).
 - **Prior task:** Per-agent prompts in the composer (branch `feat/per-agent-prompts`), plus a
   dark-mode dropdown-contrast fix and a demo video. A fan-out can now hand each agent a different
   prompt: shared base + opt-in per-agent override boxes (blank inherits the base), `@`-mentions

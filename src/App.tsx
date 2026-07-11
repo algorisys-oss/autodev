@@ -157,6 +157,9 @@ function App() {
                     </div>
                   )}
                 </Show>
+                <div class="terminal-hint muted">
+                  This is {a.label}'s own terminal — type here to reply to this agent.
+                </div>
                 <TerminalPane agentId={a.id} store={agents} />
               </section>
             )}

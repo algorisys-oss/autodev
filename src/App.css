@@ -646,6 +646,23 @@ button.mic.recording {
   color: #b00020;
 }
 
+.composer-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85em;
+}
+
+.composer-heading {
+  font-weight: 600;
+}
+
+.terminal-hint {
+  font-size: 0.8em;
+  padding: 0.25rem 0.1rem;
+}
+
 .composer-controls {
   display: flex;
   flex-wrap: wrap;

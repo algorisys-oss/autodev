@@ -50,7 +50,9 @@ describe("PromptComposer per-agent prompts", () => {
 
   it("shows no per-agent boxes until enabled with count > 1", async () => {
     const { agents } = storeWithRecorder();
-    const { container } = render(() => <PromptComposer workspace={workspace} agents={agents} />);
+    const { container, getByText } = render(() => <PromptComposer workspace={workspace} agents={agents} />);
+    // The composer is labelled as a launcher so it reads distinctly from an agent's own prompt.
+    expect(getByText("New task")).toBeTruthy();
     expect(container.querySelectorAll('textarea[placeholder="same as shared prompt"]')).toHaveLength(0);
   });
 
@@ -80,7 +82,7 @@ describe("PromptComposer per-agent prompts", () => {
       target: { value: "2" },
     });
     fireEvent.change(labelInput(container, "Per-agent prompts"), { target: { checked: true } });
-    fireEvent.input(getByPlaceholderText("Describe the task. @mention a project to add it as context…"), {
+    fireEvent.input(getByPlaceholderText("Describe the task to start. @mention a project to add it as context…"), {
       target: { value: "shared task" },
     });
 

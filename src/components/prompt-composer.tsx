@@ -201,12 +201,19 @@ export function PromptComposer(props: {
 
   return (
     <section class="composer">
+      <div class="composer-head">
+        <span class="composer-heading">New task</span>
+        <span class="muted">
+          Launches a fresh agent for each. To continue an agent that's already running, type in
+          its terminal below — not here.
+        </span>
+      </div>
       <div class="composer-input">
         <textarea
           class="composer-text"
           value={text()}
           onInput={(e) => setText(e.currentTarget.value)}
-          placeholder="Describe the task. @mention a project to add it as context…"
+          placeholder="Describe the task to start. @mention a project to add it as context…"
           rows={3}
         />
         <button

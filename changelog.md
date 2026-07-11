@@ -4,6 +4,15 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-11]
 
+### Prompt UX: disambiguate the composer from an agent's own prompt
+- Two things were both called "the prompt" and it wasn't clear which did what: the composer
+  at the top (which *launches* new agents) and each agent's `❯` input inside its terminal
+  (Claude Code's own TUI, for continuing that agent). Labelled both: the composer now has a
+  **"New task"** heading with "Launches a fresh agent for each. To continue an agent that's
+  already running, type in its terminal below — not here.", and each agent's session shows
+  "This is <label>'s own terminal — type here to reply to this agent." above the terminal.
+  Placeholder tweaked to "Describe the task to start…". Copy-only; no behavior change.
+
 ### "Open in editor" — open an agent's worktree/cwd in your editor
 - Added an **Open in editor** button on each agent's session bar. It opens that agent's git
   worktree (or its cwd if not isolated) in your editor — closing the review loop without
