@@ -29,6 +29,10 @@ pub struct AppSettings {
     /// path to a file holding the handoff prompt. Example: a Playwright runner script.
     #[serde(default)]
     pub browser_command: Option<String>,
+    /// Editor command used by "Open in editor". Split on whitespace, the target path appended
+    /// as the final arg (e.g. `code`, `code -n`, `cursor`, `subl`). Absent/empty ⇒ `code`.
+    #[serde(default)]
+    pub editor_command: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -39,6 +43,7 @@ impl Default for AppSettings {
             transcribe_command: None,
             screenshot_command: None,
             browser_command: None,
+            editor_command: None,
         }
     }
 }
@@ -156,6 +161,7 @@ mod tests {
             transcribe_command: Some("whisper {file}".to_string()),
             screenshot_command: Some("grim {file}".to_string()),
             browser_command: Some("node run.js {file}".to_string()),
+            editor_command: Some("code -n".to_string()),
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

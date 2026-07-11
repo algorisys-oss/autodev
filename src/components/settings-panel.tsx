@@ -7,6 +7,7 @@ const DEFAULTS: AppSettings = {
   transcribeCommand: "",
   screenshotCommand: "",
   browserCommand: "",
+  editorCommand: "",
 };
 
 /** Modal to view and edit app settings — including the pluggable shell commands (voice,
@@ -26,6 +27,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
         transcribeCommand: s.transcribeCommand ?? "",
         screenshotCommand: s.screenshotCommand ?? "",
         browserCommand: s.browserCommand ?? "",
+        editorCommand: s.editorCommand ?? "",
       });
     } catch (e) {
       setError(String(e));
@@ -46,6 +48,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
       transcribeCommand: f.transcribeCommand?.trim() ? f.transcribeCommand.trim() : null,
       screenshotCommand: f.screenshotCommand?.trim() ? f.screenshotCommand.trim() : null,
       browserCommand: f.browserCommand?.trim() ? f.browserCommand.trim() : null,
+      editorCommand: f.editorCommand?.trim() ? f.editorCommand.trim() : null,
     };
     try {
       await setSettings(payload);
@@ -122,6 +125,15 @@ export function SettingsPanel(props: { onClose: () => void }) {
               value={form().browserCommand ?? ""}
               onInput={(e) => patch({ browserCommand: e.currentTarget.value })}
               placeholder="playwright-runner.js {file}"
+            />
+          </label>
+          <label class="handoff-field">
+            Editor (for "Open in editor" — path is appended, no <code>{"{file}"}</code>)
+            <input
+              type="text"
+              value={form().editorCommand ?? ""}
+              onInput={(e) => patch({ editorCommand: e.currentTarget.value })}
+              placeholder="code  ·  code -n  ·  cursor  ·  subl   (blank = code)"
             />
           </label>
 

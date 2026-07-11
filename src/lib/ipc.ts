@@ -14,6 +14,7 @@ export interface AppSettings {
   transcribeCommand?: string | null;
   screenshotCommand?: string | null;
   browserCommand?: string | null;
+  editorCommand?: string | null;
 }
 
 export function appInfo(): Promise<AppInfo> {
@@ -22,6 +23,11 @@ export function appInfo(): Promise<AppInfo> {
 
 export function getSettings(): Promise<AppSettings> {
   return invoke<AppSettings>("get_settings");
+}
+
+/** Open a directory (an agent's worktree or cwd) in the configured editor. */
+export function openInEditor(path: string): Promise<void> {
+  return invoke<void>("open_in_editor", { path });
 }
 
 export function setSettings(settings: AppSettings): Promise<AppSettings> {

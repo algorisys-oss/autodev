@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-11]
 
+### "Open in editor" — open an agent's worktree/cwd in your editor
+- Added an **Open in editor** button on each agent's session bar. It opens that agent's git
+  worktree (or its cwd if not isolated) in your editor — closing the review loop without
+  hunting for the path. Process spawning stays in the Rust core (`open_in_editor` command);
+  the editor is configurable via a new **Editor** setting (`editorCommand`, default `code`;
+  e.g. `code -n`, `cursor`, `subl`). The command is split on whitespace and the canonicalized
+  path appended as the final arg — never run through a shell (LOOPS XV). New `editor.rs` with
+  a unit-tested `build_open_command`; verified end-to-end by driving the app against a fake
+  editor (the path was passed correctly).
+
 ### Dropdown contrast fix (dark mode) + a per-agent prompts demo video
 - **Fixed invisible dropdowns in dark mode.** The Backend / Run-in `<select>`s rendered dark-on-dark
   because no `color-scheme` was declared, so WebKitGTK themed native controls light while our CSS

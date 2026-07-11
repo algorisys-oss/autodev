@@ -47,6 +47,25 @@ pub fn set_settings(settings: AppSettings) -> AppResult<AppSettings> {
     Ok(settings)
 }
 
+/// Open `path` (an agent's worktree or cwd) in the configured editor. Spawns the editor
+/// detached — GUI editors return immediately — and never blocks the app.
+#[tauri::command]
+pub fn open_in_editor(path: String) -> AppResult<()> {
+    let editor = state::load_settings()?
+        .editor_command
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("code")
+        .to_string();
+    let (program, args) = crate::editor::build_open_command(&editor, &path)?;
+    std::process::Command::new(&program)
+        .args(&args)
+        .spawn()
+        .map_err(AppError::Io)?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn list_workspaces() -> AppResult<Vec<Workspace>> {
     Ok(load_store()?.workspaces)

@@ -1,6 +1,7 @@
 mod agent;
 mod capture;
 mod commands;
+mod editor;
 mod error;
 mod git;
 mod handoff;
@@ -31,6 +32,7 @@ pub fn run() {
             commands::app_info,
             commands::get_settings,
             commands::set_settings,
+            commands::open_in_editor,
             commands::list_workspaces,
             commands::create_workspace,
             commands::delete_workspace,

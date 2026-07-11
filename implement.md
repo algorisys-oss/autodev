@@ -27,6 +27,27 @@ tsc + vite build clean; 63 frontend + 64 Rust tests green.
 
 **Status:** complete. Frontend-only; Rust core untouched.
 
+## "Open in editor" button — COMPLETE
+
+**Context:** First slice toward the in-app code-editor idea (Part 2 of the per-agent-prompts
+plan): rather than embed an editor, let the user open an agent's changes in the editor they
+already use. Cheapest thing that closes the review loop.
+
+**Approach (respects the Rust/UI boundary):** new `src-tauri/src/editor.rs` with a pure,
+unit-tested `build_open_command(editor, path)` — splits the editor command on whitespace,
+canonicalizes the path (must exist; path-traversal/typo guard), appends it as the final arg,
+never a shell (LOOPS XV). A thin `open_in_editor(path)` Tauri command loads settings, defaults
+the editor to `code`, and spawns it detached. New `editor_command` field on `AppSettings`
+(state.rs + ipc.ts + settings-panel field). UI: an "Open in editor" button on the agent bar
+in `App.tsx` opening `a.worktree?.path ?? a.cwd`, errors surfaced inline.
+
+**Verification:** `build_open_command` unit tests (4). Drove the release app on a virtual
+display with `editorCommand` pointed at a fake editor script; clicking the button logged
+`opened: /tmp/demo-web-shop` — the full chain (button → IPC → command → spawn → correct
+canonical path) confirmed. 68 Rust + 63 frontend tests green; lint clean.
+
+**Status:** complete.
+
 ## Dark-mode dropdown contrast fix — COMPLETE
 
 **Context:** In dark mode the composer's Backend / Run-in `<select>`s showed no visible text

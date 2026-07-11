@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { appInfo, gitMergeWorktree, gitRemoveWorktree, type AppInfo } from "./lib/ipc";
+import { appInfo, gitMergeWorktree, gitRemoveWorktree, openInEditor, type AppInfo } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore, isTerminal } from "./lib/agent-store";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -30,6 +30,16 @@ function App() {
 
   const selected = () => workspaces.selected();
   const [wtMsg, setWtMsg] = createSignal<string | null>(null);
+  const [editorMsg, setEditorMsg] = createSignal<string | null>(null);
+
+  async function openIn(path: string) {
+    setEditorMsg(null);
+    try {
+      await openInEditor(path);
+    } catch (e) {
+      setEditorMsg(String(e));
+    }
+  }
 
   async function mergeWorktree(repo: string, branch: string) {
     setWtMsg("merging…");
@@ -125,6 +135,13 @@ function App() {
                     {a.label} · <span class="muted">{a.id} · {a.backend}</span>
                   </span>
                   <span class="spacer" />
+                  <Show when={editorMsg()}>{(m) => <span class="error">{m()}</span>}</Show>
+                  <button
+                    title="Open this agent's working directory in your editor"
+                    onClick={() => openIn(a.worktree?.path ?? a.cwd)}
+                  >
+                    Open in editor
+                  </button>
                   <Show when={!isTerminal(a.status)}>
                     <button onClick={() => agents.kill(a.id)}>Kill</button>
                   </Show>
