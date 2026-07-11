@@ -126,7 +126,17 @@ pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
                 args.push("-m".into());
                 args.push(m.clone());
             }
+            // agy has its own project/workspace model and does NOT treat its process cwd as the
+            // place to write files: given a self-contained task with no directory in its
+            // workspace, it spins up a scratch project under ~/.gemini and writes there. Adding
+            // the cwd to the workspace keeps deliverables in the opened project. cwd goes first;
+            // skip it if a later @-mention already names it so it isn't passed twice.
+            args.push("--add-dir".into());
+            args.push(opts.cwd.clone());
             for dir in &opts.add_dirs {
+                if dir == &opts.cwd {
+                    continue;
+                }
                 args.push("--add-dir".into());
                 args.push(dir.clone());
             }
@@ -443,6 +453,10 @@ mod tests {
                 "--dangerously-skip-permissions",
                 "-m",
                 "gemini-3.1-pro",
+                // The cwd is added to agy's workspace first, so it writes into the opened
+                // project instead of a scratch sandbox, then any @-mentioned dirs follow.
+                "--add-dir",
+                "/tmp",
                 "--add-dir",
                 "/a",
                 "-i",
@@ -454,10 +468,12 @@ mod tests {
     }
 
     #[test]
-    fn antigravity_bare_session_is_just_agy() {
+    fn antigravity_adds_cwd_to_workspace() {
+        // Even a bare session must put the working directory in agy's workspace, or agy
+        // writes deliverables into its own scratch project instead of the opened folder.
         let opts = AgentOptions {
             backend: AgentBackend::Antigravity,
-            cwd: "/tmp".into(),
+            cwd: "/work/zlog".into(),
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
@@ -469,7 +485,26 @@ mod tests {
         };
         let (program, args) = command_line(&opts).unwrap();
         assert_eq!(program, "agy");
-        assert!(args.is_empty());
+        assert_eq!(args, vec!["--add-dir", "/work/zlog"]);
+    }
+
+    #[test]
+    fn antigravity_does_not_duplicate_cwd_in_add_dirs() {
+        // If the cwd also appears in add_dirs, it must be emitted once, not twice.
+        let opts = AgentOptions {
+            backend: AgentBackend::Antigravity,
+            cwd: "/work/zlog".into(),
+            plan_mode: false,
+            bypass_permissions: false,
+            print_mode: false,
+            model: None,
+            initial_prompt: None,
+            add_dirs: vec!["/work/zlog".into(), "/other".into()],
+            images: vec![],
+            mock_command: None,
+        };
+        let (_, args) = command_line(&opts).unwrap();
+        assert_eq!(args, vec!["--add-dir", "/work/zlog", "--add-dir", "/other"]);
     }
 
     #[test]
