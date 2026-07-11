@@ -13,6 +13,7 @@ import {
 } from "../lib/ipc";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
+import { selectPrompts, withUltrathink, promptsDiffer } from "../lib/agent-prompts";
 import { resolveMentions } from "../lib/mentions";
 import { Annotator } from "./annotator";
 import { BrowserHandoff } from "./browser-handoff";
@@ -28,6 +29,8 @@ export function PromptComposer(props: {
   const [backend, setBackend] = createSignal<AgentBackend>("claude");
   const [difficulty, setDifficulty] = createSignal(3);
   const [agentCount, setAgentCount] = createSignal(1);
+  const [perAgent, setPerAgent] = createSignal(false);
+  const [prompts, setPrompts] = createSignal<string[]>([]);
   const [planMode, setPlanMode] = createSignal(false);
   const [bypass, setBypass] = createSignal(false);
   const [ultrathink, setUltrathink] = createSignal(false);
@@ -57,6 +60,28 @@ export function PromptComposer(props: {
       setPlanMode(s.planMode);
       setUltrathink(s.ultrathink);
     }),
+  );
+
+  // Set one agent's prompt override, growing the sparse array as needed. Trailing entries
+  // beyond the current count are kept so they survive lowering then raising the count.
+  const setPromptAt = (i: number, val: string) =>
+    setPrompts((ps) => {
+      const next = [...ps];
+      next[i] = val;
+      return next;
+    });
+
+  // Turning on per-agent prompts defaults Isolate on: divergent tasks in one working
+  // directory would collide. The user can still turn it back off.
+  createEffect(
+    on(perAgent, (v) => {
+      if (v) setIsolate(true);
+    }),
+  );
+
+  // The effective (pre-suffix) prompt each agent will run, driving the collision hint below.
+  const selected = createMemo(() =>
+    selectPrompts(text(), prompts(), Math.max(1, agentCount()), perAgent()),
   );
 
   // Default the working directory to the workspace's first project.
@@ -123,18 +148,18 @@ export function PromptComposer(props: {
       return;
     }
     const cwdProject = ws.projects.find((p) => p.name === runIn()) ?? ws.projects[0];
-    const addDirs = mentions()
-      .resolved.map((p) => p.path)
-      .filter((path) => path !== cwdProject.path);
-
-    const raw = text().trim();
-    let prompt = raw;
-    if (ultrathink() && backend() === "claude") prompt = prompt ? `${prompt} ultrathink` : "ultrathink";
 
     const n = Math.max(1, agentCount());
+    const bases = selectPrompts(text(), prompts(), n, perAgent());
     const useWorktree = isolate() && (await gitIsRepo(cwdProject.path).catch(() => false));
     try {
       for (let i = 0; i < n; i++) {
+        // Each agent's context dirs come from its own prompt's @mentions.
+        const addDirs = resolveMentions(bases[i], ws.projects)
+          .resolved.map((p) => p.path)
+          .filter((path) => path !== cwdProject.path);
+        const prompt = withUltrathink(bases[i].trim(), ultrathink(), backend());
+
         let cwd = cwdProject.path;
         let worktree: WorktreeInfo | undefined;
         if (useWorktree) {
@@ -157,8 +182,17 @@ export function PromptComposer(props: {
           worktree,
         );
       }
-      if (raw) setHistory(await addPromptHistory(raw));
+      // Record each distinct non-empty prompt in history.
+      const seen = new Set<string>();
+      for (const b of bases) {
+        const raw = b.trim();
+        if (raw && !seen.has(raw)) {
+          seen.add(raw);
+          setHistory(await addPromptHistory(raw));
+        }
+      }
       setText("");
+      setPrompts([]);
       setImages([]);
     } catch (e) {
       setError(String(e));
@@ -274,16 +308,40 @@ export function PromptComposer(props: {
         </label>
       </div>
 
+      <Show when={perAgent() && agentCount() > 1}>
+        <div class="per-agent-prompts">
+          <For each={Array.from({ length: agentCount() })}>
+            {(_, i) => (
+              <label class="per-agent-prompt">
+                <span class="muted">#{i() + 1}</span>
+                <textarea
+                  class="composer-text"
+                  rows={2}
+                  value={prompts()[i()] ?? ""}
+                  onInput={(e) => setPromptAt(i(), e.currentTarget.value)}
+                  placeholder="same as shared prompt"
+                />
+              </label>
+            )}
+          </For>
+        </div>
+      </Show>
+
       <div class="composer-toggles">
         <label><input type="checkbox" checked={planMode()} onChange={(e) => setPlanMode(e.currentTarget.checked)} /> Plan mode</label>
         <label><input type="checkbox" checked={bypass()} onChange={(e) => setBypass(e.currentTarget.checked)} /> Bypass permissions</label>
         <label><input type="checkbox" checked={ultrathink()} onChange={(e) => setUltrathink(e.currentTarget.checked)} /> Ultrathink</label>
         <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>
+        <label><input type="checkbox" checked={perAgent()} onChange={(e) => setPerAgent(e.currentTarget.checked)} /> Per-agent prompts</label>
         <span class="spacer" />
         <button class="primary" onClick={launch}>
           Launch {agentCount()} agent{agentCount() > 1 ? "s" : ""}
         </button>
       </div>
+
+      <Show when={perAgent() && promptsDiffer(selected()) && !isolate()}>
+        <p class="warn">Agents share one working directory — enable Isolate to avoid collisions.</p>
+      </Show>
 
       <Show when={error()}>{(e) => <p class="error">{e()}</p>}</Show>
 

@@ -12,6 +12,16 @@ parallel, each in its own worktree, with live terminals and status dots — **th
 opened and used** (add a few items, delete one) to prove it actually works. Captured headlessly on
 a virtual display — see [`docs/recording-a-demo.md`](../docs/recording-a-demo.md) for exactly how.
 
+## Per-agent prompts — divide one project across the fan-out
+
+[`autodev-per-agent-prompts-demo.mp4`](autodev-per-agent-prompts-demo.mp4) — a real screen
+recording of the composer's **per-agent prompts**: type one shared task, set **2 agents**, tick
+**Per-agent prompts** (which auto-enables **Isolate**), then give each agent its own instruction —
+`@web-shop build the product grid UI` and `@api-service add a GET /products endpoint`. One Launch
+fans out two `claude` agents, each with its **own** prompt and `@`-mentioned project, each in its
+own worktree. This is the "N copies of one task" fan-out turned into "N different sub-tasks of one
+project". Captured headlessly on a virtual display, same method as above.
+
 ## Runnable script (no GUI, no auth)
 
 For a version you can run anywhere in seconds, `multi-agent-demo.sh` reproduces the same
@@ -55,6 +65,7 @@ and watch them work in parallel; the isolation and merge-back are the same.
 ## Files
 
 - `autodev-multi-agent-demo.mp4` — real screen recording of the app (see above).
+- `autodev-per-agent-prompts-demo.mp4` — real screen recording of per-agent prompts (see above).
 - `multi-agent-demo.sh` — the runnable no-GUI demo.
 - `multi-agent-demo.txt` — plain-text transcript of a run (the "recording").
 - `multi-agent-demo.rec` + `multi-agent-demo.timing` — `script`(1) capture for `scriptreplay`.

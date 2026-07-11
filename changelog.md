@@ -2,6 +2,30 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## [2026-07-11]
+
+### Dropdown contrast fix (dark mode) + a per-agent prompts demo video
+- **Fixed invisible dropdowns in dark mode.** The Backend / Run-in `<select>`s rendered dark-on-dark
+  because no `color-scheme` was declared, so WebKitGTK themed native controls light while our CSS
+  painted a dark background behind them. Added `color-scheme: light` on `:root` and `color-scheme:
+  dark` in the dark media query. Verified on a dark virtual display: both selects now show their
+  values in legible white. `src/App.css`.
+- **Added `demo/autodev-per-agent-prompts-demo.mp4`** — a real screen recording of the per-agent
+  prompts flow (shared task → 2 agents → per-agent overrides + auto-isolate → fan out to two
+  `claude` agents in separate worktrees). Captured headlessly per `docs/recording-a-demo.md`.
+
+### Per-agent prompts — divide one project across a fan-out
+The Prompt Composer used to send the *same* prompt to every agent in a fan-out. Added
+opt-in **Per-agent prompts**: the main textarea is a shared base, and a "Per-agent prompts"
+toggle reveals one override box per agent (shown when Agents > 1). A blank override inherits
+the shared prompt, so the single-prompt path is unchanged. `@`-mentions now resolve from each
+agent's *own* effective prompt, so agents can be pointed at different projects in one Launch.
+Enabling per-agent prompts defaults **Isolate (worktree)** on (divergent tasks in one working
+dir would collide), with a visible hint if the prompts differ and Isolate is off. History
+records each distinct prompt. Selection logic extracted to `src/lib/agent-prompts.ts`
+(`selectPrompts` / `withUltrathink` / `promptsDiffer`), unit-tested; the launch path is
+covered by a new `prompt-composer.test.tsx` that drives the real fan-out. Frontend-only.
+
 ## [2026-07-10]
 
 ### Browser handoff: a real Playwright browserCommand runner + docs

@@ -4,6 +4,9 @@
   line-height: 1.5;
   color: #0f0f0f;
   background-color: #f6f6f6;
+  /* Native controls (select, scrollbars) must theme with the page — without this WebKitGTK
+     renders selects light-themed, so their text is dark-on-dark in our dark UI. */
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -681,6 +684,32 @@ button.mic.recording {
   gap: 0.3rem;
 }
 
+.per-agent-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.per-agent-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.per-agent-prompt > .muted {
+  padding-top: 0.4rem;
+  min-width: 1.6rem;
+}
+
+.per-agent-prompt > .composer-text {
+  flex: 1;
+}
+
+.warn {
+  color: #b06a00;
+  font-size: 0.9em;
+}
+
 button.primary {
   background: #396cd8;
   color: #fff;
@@ -878,6 +907,7 @@ button.danger {
   :root {
     color: #f6f6f6;
     background-color: #1f1f1f;
+    color-scheme: dark;
   }
   .app-header,
   .sidebar {
