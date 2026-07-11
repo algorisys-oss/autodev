@@ -5,7 +5,19 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Hardening pass — evaluator diff wiring, a settings UI, and richer agent
+- **Last task:** Per-agent prompts in the composer (branch `feat/per-agent-prompts`), plus a
+  dark-mode dropdown-contrast fix and a demo video. A fan-out can now hand each agent a different
+  prompt: shared base + opt-in per-agent override boxes (blank inherits the base), `@`-mentions
+  resolved per prompt, Isolate auto-on when enabled. Logic in `src/lib/agent-prompts.ts`; end-to-end
+  covered by `prompt-composer.test.tsx`. Also fixed invisible Backend/Run-in `<select>`s in dark
+  mode (missing `color-scheme` → WebKitGTK light-themed native controls on our dark bg; `src/App.css`).
+  Recorded `demo/autodev-per-agent-prompts-demo.mp4` on a virtual display. Complete and tested;
+  **not yet merged to `main`**. **One command to verify:** `./dev.sh test` (63 frontend + 64 Rust
+  green). Note: `./dev.sh lint`/`verify` has a *pre-existing* failure in
+  `browser-runner/browser-runner.mjs` (no-undef on node globals), unrelated to this change.
+  Next possible step: the embedded code-editor plan (CodeMirror 6 + git-diff view) sketched in
+  `~/.claude/plans/keen-crunching-puppy.md`.
+- **Prior task:** Hardening pass — evaluator diff wiring, a settings UI, and richer agent
   status. Complete. Earlier in the session: loop auto-advance + hands-off auto-run, and a
   dark-mode text-input contrast fix. README now documents building a standalone executable.
 - **Phases done:** 0–9. **All planned phases are built.** The full ecosystem from `PLAN.md`

@@ -2,6 +2,45 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Per-agent prompts in the composer — COMPLETE
+
+**Context:** A fan-out (Agents > 1) launched N copies of one prompt — there was no way to
+hand each parallel agent a different sub-task. Added per-agent prompts so one Launch can
+divide a project across agents. UX confirmed with the user: shared base + opt-in overrides
+(blank inherits the base); `@`-mentions resolved per agent's own prompt; Isolate defaults on
+when per-agent is enabled (collision safety, LOOPS XV).
+
+**Approach:** kept the component thin by extracting pure selection logic to
+`src/lib/agent-prompts.ts` (`selectPrompts`, `withUltrathink` — lifted from the inline rule
+in `launch()` —, `promptsDiffer`), mirroring the `difficulty.ts`/`mentions.ts` pattern. TDD:
+RED tests in `composer.test.ts` first, then the helper. Wired `perAgent`/`prompts` signals,
+a `setPromptAt` grower, and an `on(perAgent)` auto-isolate effect into `prompt-composer.tsx`;
+`launch()` now selects per-agent bases once, resolves `addDirs` inside the loop, applies the
+ultrathink suffix per prompt, and records each distinct prompt in history. UI: a toggle + a
+`<For>` of override textareas + a non-blocking collision hint. Styles in `App.css`.
+
+**Verification:** `selectPrompts`/`withUltrathink`/`promptsDiffer` unit-tested (composer.test.ts).
+New `prompt-composer.test.tsx` mounts the real component with an injected agent store and
+asserts the end-to-end launch: boxes appear per agent, Isolate auto-checks, and a fan-out
+spawns two agents with distinct `initialPrompt`s (blank override inheriting the shared one).
+tsc + vite build clean; 63 frontend + 64 Rust tests green.
+
+**Status:** complete. Frontend-only; Rust core untouched.
+
+## Dark-mode dropdown contrast fix — COMPLETE
+
+**Context:** In dark mode the composer's Backend / Run-in `<select>`s showed no visible text
+(dark-on-dark). Root cause: no `color-scheme` was declared anywhere, so WebKitGTK rendered native
+controls with its default *light* theme while the app's CSS painted a dark `#2a2a2a` background —
+the native value text stayed dark and vanished.
+
+**Fix:** declared `color-scheme: light` on base `:root` and `color-scheme: dark` in the
+`prefers-color-scheme: dark` `:root` block (`src/App.css`), so native controls theme with the page.
+
+**Verification:** ran the release build on a dark virtual display (`GTK_THEME=Adwaita:dark`) and
+captured a frame — both selects now render "Claude" / "web-shop" in legible white. Also visible in
+`demo/autodev-per-agent-prompts-demo.mp4`.
+
 ## Live epic validation + two fixes it surfaced — COMPLETE
 
 **Context:** Every autonomy piece was unit-tested but never driven live end-to-end. Ran a real
