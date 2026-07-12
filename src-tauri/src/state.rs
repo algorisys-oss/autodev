@@ -33,6 +33,11 @@ pub struct AppSettings {
     /// as the final arg (e.g. `code`, `code -n`, `cursor`, `subl`). Absent/empty ⇒ `code`.
     #[serde(default)]
     pub editor_command: Option<String>,
+    /// When on, the composer's Launch first runs the auto-split classifier (unless the task is
+    /// already split or the agent count was set by hand), so the user reviews the proposed
+    /// parallel split before the actual fan-out. Off by default — Launch fans out immediately.
+    #[serde(default)]
+    pub auto_split_on_launch: bool,
 }
 
 impl Default for AppSettings {
@@ -44,6 +49,7 @@ impl Default for AppSettings {
             screenshot_command: None,
             browser_command: None,
             editor_command: None,
+            auto_split_on_launch: false,
         }
     }
 }
@@ -162,6 +168,7 @@ mod tests {
             screenshot_command: Some("grim {file}".to_string()),
             browser_command: Some("node run.js {file}".to_string()),
             editor_command: Some("code -n".to_string()),
+            auto_split_on_launch: true,
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

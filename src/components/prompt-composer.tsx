@@ -2,6 +2,7 @@ import { createSignal, createMemo, createEffect, on, onMount, For, Show } from "
 import {
   addPromptHistory,
   getPromptHistory,
+  getSettings,
   gitCreateWorktree,
   gitIsRepo,
   transcribeAudio,
@@ -10,9 +11,11 @@ import {
   type AgentBackend,
   type Workspace,
   type WorktreeInfo,
+  type TaskPlan,
 } from "../lib/ipc";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
+import { analyzeTask } from "../lib/task-split";
 import { selectPrompts, withUltrathink, promptsDiffer } from "../lib/agent-prompts";
 import { resolveMentions } from "../lib/mentions";
 import { Annotator } from "./annotator";
@@ -43,6 +46,10 @@ export function PromptComposer(props: {
   const [captured, setCaptured] = createSignal<string | null>(null);
   const [images, setImages] = createSignal<string[]>([]);
   const [showHandoff, setShowHandoff] = createSignal(false);
+  const [analyzing, setAnalyzing] = createSignal(false);
+  const [plan, setPlan] = createSignal<TaskPlan | null>(null);
+  // True once the user sets the agent count by hand — analyze-on-launch then defers to them.
+  const [countTouched, setCountTouched] = createSignal(false);
 
   onMount(async () => {
     try {
@@ -76,6 +83,23 @@ export function PromptComposer(props: {
   createEffect(
     on(perAgent, (v) => {
       if (v) setIsolate(true);
+    }),
+  );
+
+  // Applying an auto-split plan. Created after the difficulty effect above, and driven by a
+  // setPlan() that always follows setDifficulty(), so on any flush this runs last: the concrete
+  // unit count wins over the difficulty→agents heuristic. A parallel plan fills per-agent
+  // prompts; a non-parallel verdict collapses to a single agent.
+  createEffect(
+    on(plan, (p) => {
+      if (!p) return;
+      if (p.parallel && p.units.length > 1) {
+        setPerAgent(true);
+        setAgentCount(p.units.length);
+        setPrompts(p.units.map((u) => u.prompt));
+      } else {
+        setAgentCount(1);
+      }
     }),
   );
 
@@ -140,6 +164,49 @@ export function PromptComposer(props: {
     }
   }
 
+  // Ask a one-shot classifier whether this task parallelizes, and pre-fill the fan-out. Nothing
+  // launches — the user reviews the proposed split (and per-agent prompts) before Launch. Returns
+  // true when a plan was applied (so analyze-on-launch can pause for review instead of firing).
+  async function autoSplit(): Promise<boolean> {
+    setError(null);
+    const ws = props.workspace;
+    if (!ws || ws.projects.length === 0) {
+      setError("Add a project directory to this workspace first.");
+      return false;
+    }
+    if (!text().trim()) {
+      setError("Describe the task first, then Auto-split.");
+      return false;
+    }
+    const cwdProject = ws.projects.find((p) => p.name === runIn()) ?? ws.projects[0];
+    const addDirs = mentions()
+      .resolved.map((p) => p.path)
+      .filter((path) => path !== cwdProject.path);
+    setAnalyzing(true);
+    try {
+      const result = await analyzeTask({
+        task: text().trim(),
+        cwd: cwdProject.path,
+        backend: backend(),
+        projects: ws.projects.map((p) => p.name),
+        addDirs,
+      });
+      if (!result) {
+        setError("Couldn't analyze this task — set the agent count manually.");
+        return false;
+      }
+      // Difficulty first (drives plan/ultrathink via its effect), then the plan (overrides count).
+      setDifficulty(result.difficulty);
+      setPlan(result);
+      return true;
+    } catch (e) {
+      setError(String(e));
+      return false;
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   async function launch() {
     setError(null);
     const ws = props.workspace;
@@ -147,6 +214,17 @@ export function PromptComposer(props: {
       setError("Add a project directory to this workspace first.");
       return;
     }
+
+    // Analyze-on-launch (opt-in): the first Launch on a task that isn't already split and whose
+    // count wasn't set by hand runs the classifier and pauses for review. A second Launch (now
+    // with a plan applied) fans out. Read the setting fresh so a mid-session toggle takes effect.
+    if (!plan() && !countTouched() && text().trim()) {
+      const on = await getSettings()
+        .then((s) => s.autoSplitOnLaunch ?? false)
+        .catch(() => false);
+      if (on && (await autoSplit())) return;
+    }
+
     const cwdProject = ws.projects.find((p) => p.name === runIn()) ?? ws.projects[0];
 
     const n = Math.max(1, agentCount());
@@ -194,6 +272,8 @@ export function PromptComposer(props: {
       setText("");
       setPrompts([]);
       setImages([]);
+      setPlan(null);
+      setCountTouched(false);
     } catch (e) {
       setError(String(e));
     }
@@ -310,10 +390,40 @@ export function PromptComposer(props: {
             min="1"
             max="16"
             value={agentCount()}
-            onInput={(e) => setAgentCount(Number(e.currentTarget.value))}
+            onInput={(e) => {
+              setCountTouched(true);
+              setAgentCount(Number(e.currentTarget.value));
+            }}
           />
         </label>
+
+        <button
+          class="auto-split"
+          title="Analyze the task and split it across independent agents"
+          onClick={autoSplit}
+          disabled={analyzing() || !text().trim()}
+        >
+          {analyzing() ? "Analyzing…" : "✨ Auto-split"}
+        </button>
       </div>
+
+      <Show when={plan()}>
+        {(p) => (
+          <div class="split-plan" classList={{ parallel: p().parallel }}>
+            <span class="split-plan-head">
+              {p().parallel
+                ? `Split into ${p().units.length} independent units — review the per-agent prompts below, then Launch.`
+                : `Best as a single agent (difficulty ${p().difficulty}).`}
+            </span>
+            <Show when={p().rationale}>
+              <span class="muted">{p().rationale}</span>
+            </Show>
+            <button class="chip-x" title="Dismiss" onClick={() => setPlan(null)}>
+              ×
+            </button>
+          </div>
+        )}
+      </Show>
 
       <Show when={perAgent() && agentCount() > 1}>
         <div class="per-agent-prompts">
@@ -341,8 +451,8 @@ export function PromptComposer(props: {
         <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>
         <label><input type="checkbox" checked={perAgent()} onChange={(e) => setPerAgent(e.currentTarget.checked)} /> Per-agent prompts</label>
         <span class="spacer" />
-        <button class="primary" onClick={launch}>
-          Launch {agentCount()} agent{agentCount() > 1 ? "s" : ""}
+        <button class="primary" onClick={launch} disabled={analyzing()}>
+          {analyzing() ? "Analyzing…" : `Launch ${agentCount()} agent${agentCount() > 1 ? "s" : ""}`}
         </button>
       </div>
 

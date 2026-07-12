@@ -7,6 +7,7 @@ mod git;
 mod handoff;
 mod loop_engine;
 mod state;
+mod task_split;
 mod transcribe;
 mod verify;
 mod workspace;
@@ -72,6 +73,8 @@ pub fn run() {
             commands::loop_apply_decomposer,
             commands::loop_apply_planner,
             commands::loop_apply_evaluator,
+            commands::task_split_prompt,
+            commands::task_split_parse,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

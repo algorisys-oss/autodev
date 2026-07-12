@@ -175,6 +175,22 @@ Each phase ships working, tested, and is a natural stopping point.
 - **Done:** point the loop at a small spec, walk away, come back to a build graded
   against a contract with a full trace on disk.
 
+### Phase 10 — Auto-split: intelligent parallel decomposition
+- The app decides *on its own* whether a task fans out across independent agents, instead of
+  the user guessing the count — the missing "smart enough to use many agents even when not
+  asked" layer (large batch jobs, independent edits).
+- A pre-launch, one-shot **read-only classifier** (reuses the decomposer round-trip) inspects
+  the prompt and — permitted — the working dir, and returns a `TaskPlan`: inferred **difficulty**
+  (1–10), a **parallel** verdict, and one self-contained sub-prompt per unit. Distinct from the
+  loop's decomposer, which emits a *serial* backlog.
+- Prompt + parsing in Rust (`task_split.rs`, pure); the composer's **✨ Auto-split** button
+  pre-fills the existing per-agent fan-out (parallel → N units + Isolate; not parallel → 1) and
+  the inferred difficulty. Human reviews the split before Launch — nothing runs automatically.
+- Opt-in **Auto-split on Launch** setting: the first Launch analyzes + pauses for review, unless
+  the task is already split or the agent count was set by hand.
+- **Done:** type "convert every video in ./media", Auto-split, see one unit per real file
+  pre-filled across agents; type a cohesive bug fix, see it stay a single agent.
+
 ---
 
 ## Risks & how we handle them

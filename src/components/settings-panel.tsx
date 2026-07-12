@@ -8,6 +8,7 @@ const DEFAULTS: AppSettings = {
   screenshotCommand: "",
   browserCommand: "",
   editorCommand: "",
+  autoSplitOnLaunch: false,
 };
 
 /** Modal to view and edit app settings — including the pluggable shell commands (voice,
@@ -135,6 +136,16 @@ export function SettingsPanel(props: { onClose: () => void }) {
               onInput={(e) => patch({ editorCommand: e.currentTarget.value })}
               placeholder="code  ·  code -n  ·  cursor  ·  subl   (blank = code)"
             />
+          </label>
+
+          <label class="settings-check">
+            <input
+              type="checkbox"
+              checked={form().autoSplitOnLaunch ?? false}
+              onChange={(e) => patch({ autoSplitOnLaunch: e.currentTarget.checked })}
+            />
+            Auto-split on Launch — analyze the task for a parallel split before fanning out
+            (unless already split or the agent count was set by hand)
           </label>
 
           <div class="handoff-row">

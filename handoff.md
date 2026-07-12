@@ -5,7 +5,21 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Prompt-UX clarity (on `dev`) — the composer and each agent's `❯` input were
+- **Last task:** Auto-split — intelligent parallel decomposition (branch `feat/auto-decompose`,
+  **Phase 10**, not yet merged). The composer's **✨ Auto-split** button runs a one-shot read-only
+  classifier (`claude -p`) that infers difficulty and whether the task parallelizes, then pre-fills
+  the per-agent fan-out (parallel → N units as per-agent prompts + Isolate; not parallel → 1 agent).
+  Nothing launches until the user reviews and clicks Launch. Also shipped the **Auto-split on Launch**
+  setting (opt-in, off by default): when on, the first Launch analyzes + pauses for review unless the
+  task is already split or the count was hand-set. Rust `task_split.rs` (pure prompt+parse, 11 tests)
+  + commands `task_split_prompt`/`task_split_parse` + `AppSettings.autoSplitOnLaunch`; frontend
+  `lib/task-split.ts` (round-trip, 3 tests) + composer wiring (4 tests: units-win-over-difficulty,
+  parallel vs single, analyze-on-launch pause/fan-out, hand-set count opts out). **Verify:**
+  `./dev.sh verify` green (80 Rust + 70 frontend). **Proven live** (headless, real `claude -p`):
+  batch task → `parallel:true` with one unit per real file (dir enumerated); cohesive bug fix →
+  `parallel:false`, 1 unit — both parsed back through `parse_task_plan`. Only the in-app GUI *render*
+  of the button/banner is unverified (covered by component tests).
+- **Prior task:** Prompt-UX clarity (on `dev`) — the composer and each agent's `❯` input were
   both "the prompt". Labelled the composer as **"New task"** (launches agents) with a caption
   pointing follow-ups to the agent's terminal, and captioned each agent's terminal ("type here
   to reply to this agent"). Copy-only, verified in the running app.
@@ -29,9 +43,10 @@ Updated as the final step of every task (LOOPS XXVI).
 - **Prior task:** Hardening pass — evaluator diff wiring, a settings UI, and richer agent
   status. Complete. Earlier in the session: loop auto-advance + hands-off auto-run, and a
   dark-mode text-input contrast fix. README now documents building a standalone executable.
-- **Phases done:** 0–9. **All planned phases are built.** The full ecosystem from `PLAN.md`
-  is implemented: workspaces, multi-agent orchestration, composer, worktrees, voice,
-  screenshot, browser handoff, and the Planner/Generator/Evaluator loop.
+- **Phases done:** 0–9, plus **Phase 10 (auto-split)** on branch `feat/auto-decompose`. The
+  full ecosystem from `PLAN.md` is implemented: workspaces, multi-agent orchestration, composer,
+  worktrees, voice, screenshot, browser handoff, the Planner/Generator/Evaluator loop, and now
+  intelligent parallel decomposition in the composer.
 - **Loop auto-advance:** the loop now parses each role agent's terminal output to advance
   itself. On planner exit the contract is filled and the loop moves to generating; on
   generator exit it moves to evaluating; on evaluator exit the `N. PASS/FAIL` verdicts are
@@ -53,9 +68,11 @@ Updated as the final step of every task (LOOPS XXVI).
   Detection strips ANSI and recognises Claude/Codex approval menus, y/n, and "press enter".
 - **Signing:** release bundles ship unsigned (certs are secrets). The README "Code signing &
   notarization" section has the exact macOS/Windows hooks to enable it in CI.
-- **Next up:** nothing outstanding from the original gap list. Remaining honest caveats: the
-  `waiting` heuristic is still pattern-based (won't catch every exotic prompt), and a live loop
-  run depends on the agent models following the tightened prompts. See `implement.md`.
+- **Next up:** merge `feat/auto-decompose` to `main` (Auto-split + the analyze-on-launch setting are
+  both done and verified). Remaining honest caveats: the `waiting` heuristic is still pattern-based
+  (won't catch every exotic prompt); a live loop run depends on the agent models following the
+  tightened prompts; and the Auto-split button/banner has been proven at the classifier + parse level
+  but not eyeballed rendering in the running GUI. See `implement.md`.
 
 Voice and screenshot both use pluggable shell commands in `~/.autodev/settings.json`
 (each a template with a `{file}` placeholder):
@@ -75,6 +92,13 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   Prompt history persists (`~/.autodev/prompts.json`). The agent grid shows every session
   with a live status dot; click to focus its terminal. “Kill all” and window-close kill
   every agent (no orphans). Per-agent output logs to `~/.autodev/logs/<id>.log`.
+- Auto-split: **✨ Auto-split** in the composer analyzes the typed task with a one-shot
+  read-only classifier and pre-fills the fan-out — a parallelizable task (e.g. "convert every
+  video in ./media") becomes N per-agent prompts with Isolate on; a cohesive task stays a single
+  agent. It also infers the difficulty. Review the proposed split, then Launch (nothing runs
+  until you do). Prompt + parsing are in Rust (`task_split.rs`). Optionally turn on **Auto-split on
+  Launch** in ⚙ Settings so the first Launch analyzes + pauses for review automatically (unless the
+  task is already split or you set the agent count by hand).
 - Isolate: tick “Isolate (worktree)” in the composer to run each agent in its own
   `git worktree` (own branch), so parallel agents never collide. The focused agent's bar
   shows the branch with Merge / Remove actions (merge refuses a dirty target).
@@ -109,7 +133,7 @@ Without them, the mic / screenshot / run buttons return a clear "not configured"
   roles now run one-shot (`claude -p` via `AgentOptions.print_mode`) so they exit and auto-advance
   fires; `strip_ansi` no longer blanks CRLF lines. Evidence: `demo/epic-passed.png`. The old "not
   driven live end-to-end" caveat is resolved.
-- `./dev.sh test` — Rust `cargo test` (64 tests) + Vitest (48).
+- `./dev.sh test` — Rust `cargo test` (80 tests) + Vitest (70).
 - `./dev.sh build` — release build + platform bundle (standalone binary + AppImage/deb/rpm on
   Linux). See the README "Building a standalone executable" section.
 - Release automation: push a `v*` tag → `.github/workflows/release.yml` builds Linux/macOS/

@@ -2,6 +2,36 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## [2026-07-12]
+
+### Auto-split: intelligent parallel decomposition (Phase 10)
+- The composer can now decide *on its own* whether a task fans out across independent agents,
+  instead of the user guessing the count. A new **✨ Auto-split** button runs a one-shot
+  classifier agent (`claude -p`, read-only — it may inspect the working dir to enumerate real
+  work items, e.g. "transcode every video in ./media" → one unit per file) that returns a
+  fenced `TASKPLAN` JSON: an inferred **difficulty** (1–10), a **parallel** verdict, and one
+  self-contained sub-prompt per unit. A parallel plan pre-fills the existing per-agent fan-out
+  (per-agent prompts + Isolate auto-on, agent count = units); a non-parallel verdict collapses
+  to a single agent. Nothing launches — the user reviews the proposed split, then Launch.
+  Closes two gaps: difficulty is now *inferred*, not dialed, and the split is *parallel* (vs the
+  loop engine's serial backlog).
+- Prompt construction and output parsing live in Rust (`task_split.rs`, pure + unit-tested):
+  `split_prompt` builds the classifier prompt; `parse_task_plan` strips terminal escapes, takes
+  the last fenced block, deserializes, and validates (clamps difficulty, drops blank units, caps
+  at 12, forces `parallel` off for a lone unit). Two commands (`task_split_prompt`,
+  `task_split_parse`) mirror the loop's decomposer round-trip. Frontend controller
+  `lib/task-split.ts` spawns the invisible classifier, waits for its exit (with a timeout that
+  kills a hung run), and parses. The apply logic is ordered so the concrete unit count wins over
+  the difficulty→agents heuristic — covered by `prompt-composer.test.tsx`.
+### Auto-split on launch (opt-in)
+- Added an **Auto-split on Launch** setting (⚙ Settings; `autoSplitOnLaunch`, off by default). When
+  on, the first **Launch** on a task that isn't already split and whose agent count wasn't set by
+  hand runs the classifier and pauses for review (fills the per-agent prompts + shows the split
+  banner) instead of fanning out; a second Launch then goes. Editing the Agents number, or having
+  already used the ✨ button, opts that task out of the auto-analysis. The setting is read fresh on
+  each Launch, so toggling it mid-session takes effect immediately. New Rust `AppSettings`
+  field + settings-panel toggle; composer gating covered by `prompt-composer.test.tsx`.
+
 ## [2026-07-11]
 
 ### Prompt UX: disambiguate the composer from an agent's own prompt

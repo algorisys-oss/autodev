@@ -567,6 +567,19 @@ button.mic.recording {
   font-size: 0.95em;
 }
 
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  font-size: 0.9em;
+  line-height: 1.35;
+}
+
+.settings-check input {
+  margin-top: 0.15rem;
+}
+
 .settings-btn {
   font-size: 1rem;
   line-height: 1;
@@ -731,6 +744,52 @@ button.primary {
   background: #396cd8;
   color: #fff;
   border-color: #396cd8;
+}
+
+.auto-split {
+  align-self: flex-end;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.auto-split:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.split-plan {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.9em;
+  background: #eef2fb;
+  border: 1px solid #cdd8f0;
+}
+
+.split-plan.parallel {
+  background: #e9f6ee;
+  border-color: #bfe3cc;
+}
+
+.split-plan-head {
+  font-weight: 600;
+}
+
+.split-plan .muted {
+  flex: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .split-plan {
+    background: rgba(57, 108, 216, 0.15);
+    border-color: rgba(57, 108, 216, 0.4);
+  }
+  .split-plan.parallel {
+    background: rgba(58, 168, 100, 0.15);
+    border-color: rgba(58, 168, 100, 0.4);
+  }
 }
 
 button.primary:hover {

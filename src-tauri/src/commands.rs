@@ -710,3 +710,22 @@ pub fn loop_apply_evaluator(id: String, agent_id: String) -> AppResult<LoopState
     let verdicts = loop_engine::parse_verdicts(&read_agent_log(&agent_id)?, &s.contract);
     apply_grade(&base, s, &verdicts, "evaluator auto-graded")
 }
+
+// --- Task splitter (Phase 10): pre-launch parallel-decomposition classifier ---
+
+/// Build the classifier prompt for `task`. Returned to the frontend so the exact wording
+/// lives once in Rust; the frontend spawns a one-shot agent with it, then calls
+/// `task_split_parse` on the agent's output.
+#[tauri::command]
+pub fn task_split_prompt(task: String, projects: Vec<String>) -> String {
+    crate::task_split::split_prompt(&task, &projects)
+}
+
+/// Parse a finished classifier agent's output into a `TaskPlan`. Returns `None` (not an
+/// error) when the output has no valid plan block, so the UI can fall back to manual setup.
+#[tauri::command]
+pub fn task_split_parse(agent_id: String) -> AppResult<Option<crate::task_split::TaskPlan>> {
+    Ok(crate::task_split::parse_task_plan(&read_agent_log(
+        &agent_id,
+    )?))
+}

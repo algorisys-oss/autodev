@@ -2,6 +2,68 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Auto-split — intelligent parallel decomposition (Phase 10) — COMPLETE (branch `feat/auto-decompose`)
+
+**Context:** AutoDev could fan out to N agents, but the human decided N (difficulty was a
+manual slider, never inferred from the task), and the only automatic task-splitting — the loop
+engine's decomposer — produces a *serial* backlog worked one feature at a time, never parallel.
+Goal: let the app decide *on its own* whether a task parallelizes (large batch jobs, independent
+edits) and pre-fill the fan-out, without the user asking. Two product forks confirmed with the
+user: (1) ship an explicit **✨ Auto-split** button now + an opt-in "analyze on launch" setting
+as a fast follow ("Both"); (2) the classifier **may read the working dir** (read-only) so it can
+enumerate concrete work items (20 videos → 20 units), not just abstract splits.
+
+**Approach — reuse the decomposer round-trip, but pre-launch and parallel.** The decomposer
+already proves the pattern: spawn a one-shot agent → read its `~/.autodev/logs/<id>.log` → pure
+Rust parser → structured result. Mirrored it for a stateless, pre-launch classifier:
+
+- `src-tauri/src/task_split.rs` (new, pure, TDD — 11 tests written first):
+  - `split_prompt(task, projects)` — builds the classifier prompt: defines parallel-vs-sequential,
+    permits read-only cwd inspection, asks for a fenced `<<<TASKPLAN … TASKPLAN` JSON block.
+  - `parse_task_plan(output)` — reuses `loop_engine::strip_ansi`, takes the **last** fenced block
+    (model may restate the template), `serde_json`-deserializes a lenient `RawPlan`, then
+    normalizes: clamp difficulty 1–10, drop blank-prompt units, title falls back to prompt, cap
+    at `MAX_UNITS` (12), and force `parallel=false` whenever ≤1 unit survives. Chose JSON over the
+    decomposer's line-list because sub-prompts are long/multi-line — regex-parsing that is fragile.
+  - `TaskPlan`/`TaskUnit` (serde, camelCase) — the typed contract.
+- `commands.rs`: `task_split_prompt` (frontend gets the prompt from Rust — wording lives once) and
+  `task_split_parse` (reads the log via the existing `read_agent_log`, returns `Option<TaskPlan>`;
+  `None` = no plan block, so the UI degrades to manual). Registered in `lib.rs`. Types mirrored in
+  `src/lib/ipc.ts`.
+- `src/lib/task-split.ts` (new, 3 tests): `analyzeTask` spawns the classifier **invisibly**
+  (`printMode`, not added to the agent grid — a throwaway; the Rust ProcessManager still owns it),
+  waits for `agent://exit` (injectable `Subscribe`), and parses. A timeout kills a hung classifier
+  and still attempts a parse (so a slow-but-complete or missed-event run still yields a plan).
+- `prompt-composer.tsx`: an `autoSplit()` handler + a `plan` signal driving a review banner and an
+  apply effect. **Ordering subtlety (the load-bearing bit):** the existing `on(difficulty)` effect
+  owns `agentCount`, so applying a plan sets `setDifficulty(...)` first (each Solid setter flushes
+  its effects synchronously) *then* `setPlan(...)`; the plan-apply effect is created after the
+  difficulty effect and thus wins the count — parallel → per-agent prompts + count = units + Isolate
+  on; non-parallel → 1. Locked by `prompt-composer.test.tsx` ("units win over the difficulty
+  heuristic"). Nothing launches: human reviews first (consistent with the bypass/parallel-power
+  security posture, LOOPS XV).
+
+**Scope guard (LOOPS IV):** new files + two commands + composer button/banner + CSS. Untouched:
+the fan-out loop, worktree flow, agent adapters, the loop engine (only reused its `pub strip_ansi`).
+No new deps (`serde_json` already present).
+
+**Analyze-on-launch (fast follow, now built):** added `AppSettings.auto_split_on_launch` (Rust,
+`#[serde(default)]` false; mirrored `autoSplitOnLaunch` in TS) + a settings-panel checkbox. In
+`launch()`, a gate `!plan() && !countTouched() && text().trim()` reads the setting **fresh** each
+Launch (so a mid-session toggle applies) and, when on, runs `autoSplit()` (now returning a bool) and
+returns early on success — the user reviews, then a second Launch fans out (plan now set → gate skips
+re-analysis). A `countTouched` signal, flipped only by the Agents number input, opts a hand-counted
+task out; it resets after a successful launch. Launch is disabled while analyzing. Covered by
+`prompt-composer.test.tsx`: pause-then-fan-out, and "hand-set count opts out". The `save_then_load`
+Rust roundtrip test gained the new field.
+
+**Status:** complete on `feat/auto-decompose`. `./dev.sh verify` green (80 Rust + 70 frontend + lint).
+**Verified live (headless):** ran the real `claude -p` classifier with the faithful `split_prompt`
+against a dir of 5 `.mov` files → it enumerated all 5 read-only and emitted a valid `TASKPLAN`
+(`parallel:true`, 5 units, one ffmpeg command per file); a cohesive "fix the login redirect bug" →
+`parallel:false`, 1 unit. Both parsed cleanly through `parse_task_plan`. **Unverified:** only the
+in-app GUI *render* of the button/banner (component tests cover the wiring).
+
 ## Per-agent prompts in the composer — COMPLETE
 
 **Context:** A fan-out (Agents > 1) launched N copies of one prompt — there was no way to

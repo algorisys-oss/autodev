@@ -15,6 +15,7 @@ export interface AppSettings {
   screenshotCommand?: string | null;
   browserCommand?: string | null;
   editorCommand?: string | null;
+  autoSplitOnLaunch?: boolean;
 }
 
 export function appInfo(): Promise<AppInfo> {
@@ -326,4 +327,33 @@ export function loopApplyPlanner(id: string, agentId: string): Promise<LoopState
 /** Parse the evaluator agent's PASS/FAIL verdicts and grade (pass / retry / fail). */
 export function loopApplyEvaluator(id: string, agentId: string): Promise<LoopState> {
   return invoke<LoopState>("loop_apply_evaluator", { id, agentId });
+}
+
+// --- Task splitter (Phase 10): pre-launch parallel-decomposition classifier ---
+
+/** One independently-runnable slice of a task, launched as its own agent. */
+export interface TaskUnit {
+  title: string;
+  prompt: string;
+  mentions: string[];
+}
+
+/** The classifier's verdict on how to run a task. */
+export interface TaskPlan {
+  /** Inferred 1–10 difficulty (feeds the difficulty heuristic). */
+  difficulty: number;
+  /** Whether the units are independent enough to run in parallel (false when only one). */
+  parallel: boolean;
+  units: TaskUnit[];
+  rationale: string;
+}
+
+/** The classifier prompt for `task` (built in Rust so the wording lives in one place). */
+export function taskSplitPrompt(task: string, projects: string[]): Promise<string> {
+  return invoke<string>("task_split_prompt", { task, projects });
+}
+
+/** Parse a finished classifier agent's output into a plan, or null if it had no plan block. */
+export function taskSplitParse(agentId: string): Promise<TaskPlan | null> {
+  return invoke<TaskPlan | null>("task_split_parse", { agentId });
 }
