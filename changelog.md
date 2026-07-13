@@ -4,6 +4,24 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Executable extensions (P5 — extensibility track)
+- Drop a self-contained JS module in `~/.autodev/extensions/`; its default export receives an
+  `autodev` API to register lifecycle hooks (the P3 bus: `onSpawn`/`onOutput`/`onIdle`/
+  `onWaiting`/`onExit`) and composer slash-commands (`registerCommand`). This is the code-level
+  extension surface P1/P4 (data files) can't provide — conditional hooks, side effects.
+- **Trust model (chosen with the user): trusted, surfaced.** Extensions run with the app's full
+  access — no sandbox, because they are the user's own files (Pi's stance). Loading is *visible*:
+  Settings lists each extension with ✓/✗ and any load error, and the Help panel documents the
+  format with a prominent trust warning. A throwing extension is isolated — it fails alone.
+- Rust `extensions.rs` reads the files (name + source); the frontend runs each as an ES module
+  via a blob URL and calls its default export. Extension-registered commands merge into the
+  composer's `/name` expansion alongside disk templates. Extensions must be single self-contained
+  files (bare `import` won't resolve).
+- Tests: `extensions.rs` (list js/mjs, sort, ignore others); `extensions.ts` (api wires hooks +
+  commands, failing extension isolated, version passed). 96 Rust + frontend green. The blob
+  module-loader path itself is GUI-only (CSP is permissive so it runs in the webview); its
+  surrounding logic is unit-tested via an injected evaluator.
+
 ### Theme toggle, dark-mode contrast, and screenshot-out-of-the-box
 - **Light/dark theme toggle** — a ☀/🌙 icon in the header switches theme instantly; the choice
   persists. Theming moved from `@media (prefers-color-scheme)` only to attribute-driven

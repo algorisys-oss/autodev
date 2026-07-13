@@ -1,6 +1,7 @@
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, onMount, Show, For } from "solid-js";
 import { getSettings, setSettings, type AppSettings } from "../lib/ipc";
 import { getThemePref, setThemePref, type ThemePref } from "../lib/theme";
+import { loadedExtensions } from "../lib/extensions";
 
 const DEFAULTS: AppSettings = {
   theme: "system",
@@ -155,6 +156,28 @@ export function SettingsPanel(props: { onClose: () => void }) {
             Auto-split on Launch — analyze the task for a parallel split before fanning out
             (unless already split or the agent count was set by hand)
           </label>
+
+          <div class="settings-extensions">
+            <p class="muted settings-note">
+              Extensions (<code>~/.autodev/extensions/*.js</code>) run code with the app's full
+              access — they are your own files. Restart to pick up changes.
+            </p>
+            <Show
+              when={loadedExtensions().length}
+              fallback={<p class="muted">No extensions loaded.</p>}
+            >
+              <ul class="ext-list">
+                <For each={loadedExtensions()}>
+                  {(e) => (
+                    <li classList={{ "ext-bad": !e.ok }}>
+                      <span class="ext-mark">{e.ok ? "✓" : "✗"}</span> {e.name}
+                      <Show when={e.error}>{(err) => <span class="error"> — {err()}</span>}</Show>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          </div>
 
           <div class="handoff-row">
             <button class="primary" onClick={save}>

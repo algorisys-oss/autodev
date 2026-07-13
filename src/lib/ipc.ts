@@ -117,6 +117,18 @@ export function skillsDir(): Promise<string | null> {
   return invoke<string | null>("skills_dir");
 }
 
+/** An executable extension (P5): a `~/.autodev/extensions/*.js` module's name and source.
+ *  The frontend runs each against the `autodev` API to register hooks and commands. */
+export interface ExtensionFile {
+  name: string;
+  source: string;
+}
+
+/** List extension files (name + source) from `~/.autodev/extensions/`. */
+export function listExtensions(): Promise<ExtensionFile[]> {
+  return invoke<ExtensionFile[]>("list_extensions");
+}
+
 export interface AgentOptions {
   backend: AgentBackend;
   cwd: string;

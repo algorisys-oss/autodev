@@ -58,6 +58,40 @@ Not exercised: writing into the user's real `~/.autodev` (avoided on purpose —
 cover the disk logic). Design note: the skills-dir feature is the proof that P3's frontend TS
 bus was the right call — a product feature slotted onto it with a one-line `onSpawn`.
 
+## Executable extensions (P5 — extensibility track) — COMPLETE (branch `dev`)
+
+**Context:** The code-level extension surface. P1 (backends) and P4 (templates/skills) are
+data-file extensions; P5 adds executable JS so extensions can register *logic* — conditional
+hooks, side effects, dynamic commands.
+
+**Decision (asked the user): trust model = trusted, surfaced.** Chosen over data-only (too
+limited) and Web-Worker sandbox (much more complex, hooks can't do core side-effects). Extensions
+run with the app's full privileges — they are the user's own files, same trust as a shell script
+in `~`. Mitigation is visibility, not sandboxing: Settings lists loaded extensions with ✓/✗ +
+errors, and Help documents the format with a trust warning.
+
+**Approach:** `src-tauri/src/extensions.rs` reads `~/.autodev/extensions/*.{js,mjs}` (name +
+source, hermetic + tested); command `list_extensions`. Frontend `extensions.ts`:
+`loadExtensions(hooks, version, deps)` fetches the files and runs each via `evaluateModule` — a
+blob-URL dynamic `import()` so `export default` works (CSP is `null`, so blob modules execute in
+the webview). Each extension's default export gets an `AutoDevApi { hooks, registerCommand,
+version }`. `registerCommand` feeds a reactive `extensionCommands` signal the composer merges into
+its `/name` expansion. A per-extension status (`ok`/`error`) drives the Settings list; a throwing
+extension is isolated. `evaluate`/`list` are injectable so the registry/report/api logic is
+unit-tested without the browser module loader.
+
+**Scope note:** extensions register hooks + composer commands, not backends — backends are
+already file-based (P1), and a frontend-registered spec wouldn't be visible to Rust's
+`build_command`. UI-panel injection is out of scope (compiled Solid bundle).
+
+**Files:** `extensions.rs` (new) + `commands.rs`/`lib.rs`; `src/lib/extensions.ts` +
+`extensions.test.ts` (new); `ipc.ts` (`ExtensionFile`, `listExtensions`); `App.tsx` (load on
+mount); `prompt-composer.tsx` (merge commands); `settings-panel.tsx` (surface list); `help-panel`
+(docs); `App.css` (list styles).
+
+**Verification:** `./dev.sh verify` green (96 Rust + 17 frontend files). GUI-only: the blob
+module-loader path (`evaluateModule`) — its surrounding logic is tested via an injected evaluator.
+
 ## Public hook lifecycle (P3 — extensibility track) — COMPLETE (branch `dev`)
 
 **Close-out (loop auto-advance = 2nd built-in):** replaced the `createEffect` in `loop-panel.tsx`

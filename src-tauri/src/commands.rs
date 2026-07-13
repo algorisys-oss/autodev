@@ -74,6 +74,14 @@ pub fn skills_dir() -> AppResult<Option<String>> {
     crate::templates::skills_dir()
 }
 
+/// Executable extensions (`~/.autodev/extensions/*.js`) as name + source. The frontend runs
+/// each as a module against the `autodev` API. These run untrusted-user code with the app's
+/// full privileges — surfaced, not sandboxed (they are the user's own files).
+#[tauri::command]
+pub fn list_extensions() -> AppResult<Vec<crate::extensions::ExtensionFile>> {
+    crate::extensions::list_extensions()
+}
+
 #[tauri::command]
 pub fn get_settings() -> AppResult<AppSettings> {
     state::load_settings()

@@ -5,7 +5,19 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Theme toggle + dark contrast + screenshot default (on `dev`, from review
+- **Last task:** Executable extensions (P5 of `PI-PARITY-PLAN.md`, on `dev`). Drop a
+  self-contained JS module in `~/.autodev/extensions/`; its default export gets an `autodev` API
+  to register P3 hooks and composer `/commands`. **Trust model (chosen with user): trusted +
+  surfaced** — no sandbox (user's own files), but Settings lists loaded extensions with ✓/✗ +
+  errors and Help documents it with a trust warning. Rust `extensions.rs` reads name+source;
+  frontend runs each via a blob-URL ES module import; commands merge into the composer. **Verify:**
+  `./dev.sh verify` green (96 Rust + 17 frontend files). GUI-only: the blob module-loader path
+  (logic around it is unit-tested via an injected evaluator). To try: create
+  `~/.autodev/extensions/x.js` with `export default (autodev)=>{ autodev.registerCommand('hi','Hello') }`,
+  restart, type `/hi`. **Remaining roadmap:** P9 (cross-agent annotation — browser bridge), M1
+  (Pi spike — hands-on browser); P6/P7/P8 optional. **Queued next:** a maximize/expand control for
+  the New-task textarea (user request).
+- **Prior task:** Theme toggle + dark contrast + screenshot default (on `dev`, from review
   feedback). Header ☀/🌙 toggles light/dark (persisted); theming is now attribute-driven
   (`:root[data-theme]`, converted from media-query-only) with a pre-paint script in `index.html`
   and a `theme.ts` module — "system" still follows the OS live. Full dark-mode contrast pass

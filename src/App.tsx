@@ -3,6 +3,7 @@ import { appInfo, gitMergeWorktree, gitRemoveWorktree, openInEditor, type AppInf
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore, isTerminal } from "./lib/agent-store";
 import { installSkillsHook } from "./lib/skills";
+import { loadExtensions } from "./lib/extensions";
 import { getThemePref, setThemePref, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
@@ -35,6 +36,8 @@ function App() {
     await workspaces.refresh();
     // Add the skills dir (if any) to every agent's context via a spawn hook (P4).
     await installSkillsHook(agents.hooks);
+    // Load executable extensions (P5): they register hooks and composer commands.
+    await loadExtensions(agents.hooks, info()?.version ?? "");
     agents.start();
   });
   onCleanup(() => {

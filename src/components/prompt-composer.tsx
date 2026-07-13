@@ -18,6 +18,7 @@ import {
   type TaskPlan,
 } from "../lib/ipc";
 import { expandTemplate, templateMatches } from "../lib/templates";
+import { extensionCommands } from "../lib/extensions";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { analyzeTask } from "../lib/task-split";
@@ -81,8 +82,10 @@ export function PromptComposer(props: {
     }
   });
 
+  // All slash-commands: disk templates (P4) plus any registered by extensions (P5).
+  const allCommands = createMemo(() => [...templates(), ...extensionCommands()]);
   // Templates matching the `/command` being typed (for the suggestion row).
-  const templateSuggest = createMemo(() => templateMatches(text(), templates()));
+  const templateSuggest = createMemo(() => templateMatches(text(), allCommands()));
 
   // Tab expands a `/name` slash-command: to the sole matching template while still typing the
   // name, or — once past the name — to its body with any trailing text kept.
@@ -94,7 +97,7 @@ export function PromptComposer(props: {
       setText(suggest[0].body);
       return;
     }
-    const expanded = expandTemplate(text(), templates());
+    const expanded = expandTemplate(text(), allCommands());
     if (expanded !== null) {
       e.preventDefault();
       setText(expanded);

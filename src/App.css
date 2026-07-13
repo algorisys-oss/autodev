@@ -1209,3 +1209,30 @@ button.danger {
 :root[data-theme="dark"] .phase.evaluating { color: #d2a8ff; }
 :root[data-theme="dark"] .phase.passed { color: #56d364; }
 :root[data-theme="dark"] .phase.failed { color: #ff7b72; }
+
+/* Loaded-extensions list in Settings. */
+.settings-extensions {
+  margin-top: 0.2rem;
+}
+.ext-list {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: 0.85em;
+}
+.ext-list li {
+  padding: 0.1rem 0;
+}
+.ext-mark {
+  color: #1a7f37;
+  font-weight: 600;
+}
+.ext-list li.ext-bad .ext-mark {
+  color: #b00020;
+}
+:root[data-theme="dark"] .ext-mark {
+  color: #56d364;
+}
+:root[data-theme="dark"] .ext-list li.ext-bad .ext-mark {
+  color: #ff7b72;
+}

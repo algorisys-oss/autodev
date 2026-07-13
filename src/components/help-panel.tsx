@@ -253,6 +253,39 @@ const SECTIONS: Section[] = [
           added to <em>every</em> agent’s context on every backend — so all your agents follow the
           same guidance without you attaching it each time.
         </p>
+
+        <h4>Extensions (advanced — runs code)</h4>
+        <p>
+          For behavior that data files can’t express, drop a self-contained JavaScript module in
+          <code> ~/.autodev/extensions/</code>. Each file’s default export receives an
+          <code> autodev</code> API to register lifecycle hooks and composer commands. Extensions
+          load at startup — restart to pick up changes, and see which loaded (and any errors) in
+          Settings.
+        </p>
+        <p class="help-callout">
+          ⚠ Extensions run with the app’s full access (they can do anything AutoDev can). Only add
+          files you trust — they are code, like a shell script in your home dir. There is no
+          sandbox.
+        </p>
+        <pre class="help-code">{`// ~/.autodev/extensions/team.js
+export default (autodev) => {
+  // Add a team skills dir to every agent's context:
+  autodev.hooks.onSpawn((o) => ({
+    ...o, addDirs: [...(o.addDirs ?? []), '/team/skills'],
+  }));
+
+  // React when any agent exits:
+  autodev.hooks.onExit((id, code) => console.log(id, 'exited', code));
+
+  // Add a /standup slash-command to the composer:
+  autodev.registerCommand('standup', 'Summarize what changed today and what is next.');
+};`}</pre>
+        <p class="help-muted">
+          Hooks: <code>onSpawn</code> (rewrite launch options before an agent starts),
+          <code> onOutput</code>, <code>onIdle</code>, <code>onWaiting</code>, <code>onExit</code>.
+          Extensions must be a single self-contained file — bare <code>import</code> of other
+          modules won’t resolve.
+        </p>
       </>
     ),
   },

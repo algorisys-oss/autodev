@@ -4,6 +4,7 @@ mod capture;
 mod commands;
 mod editor;
 mod error;
+mod extensions;
 mod git;
 mod handoff;
 mod loop_engine;
@@ -36,6 +37,7 @@ pub fn run() {
             commands::backend_list,
             commands::list_templates,
             commands::skills_dir,
+            commands::list_extensions,
             commands::get_settings,
             commands::set_settings,
             commands::open_in_editor,
