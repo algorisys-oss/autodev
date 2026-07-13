@@ -1,5 +1,6 @@
 import { createSignal, onMount, Show } from "solid-js";
 import { getSettings, setSettings, type AppSettings } from "../lib/ipc";
+import { getThemePref, setThemePref, type ThemePref } from "../lib/theme";
 
 const DEFAULTS: AppSettings = {
   theme: "system",
@@ -15,6 +16,9 @@ const DEFAULTS: AppSettings = {
  *  screenshot, browser) that were previously only editable by hand in ~/.autodev/settings.json. */
 export function SettingsPanel(props: { onClose: () => void }) {
   const [form, setForm] = createSignal<AppSettings>(DEFAULTS);
+  // Theme is applied live (attribute-driven) via the theme module, so it stays in sync with the
+  // header toggle rather than only taking effect on Save.
+  const [theme, setTheme] = createSignal<ThemePref>(getThemePref());
   const [error, setError] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal<string | null>(null);
   const [loaded, setLoaded] = createSignal(false);
@@ -74,8 +78,12 @@ export function SettingsPanel(props: { onClose: () => void }) {
             <label class="handoff-field">
               Theme
               <select
-                value={form().theme}
-                onChange={(e) => patch({ theme: e.currentTarget.value as AppSettings["theme"] })}
+                value={theme()}
+                onChange={(e) => {
+                  const t = e.currentTarget.value as ThemePref;
+                  setTheme(t);
+                  setThemePref(t); // apply immediately, in sync with the header toggle
+                }}
               >
                 <option value="system">system</option>
                 <option value="light">light</option>

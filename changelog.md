@@ -4,6 +4,22 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Theme toggle, dark-mode contrast, and screenshot-out-of-the-box
+- **Light/dark theme toggle** — a ☀/🌙 icon in the header switches theme instantly; the choice
+  persists. Theming moved from `@media (prefers-color-scheme)` only to attribute-driven
+  (`:root[data-theme]`), so a manual choice works *and* "system" still follows the OS live. A
+  tiny pre-paint script in `index.html` applies the saved theme before first paint (no flash).
+  New `theme.ts` module; the Settings theme dropdown now applies immediately and stays in sync
+  with the header toggle.
+- **Dark-mode contrast pass** — fixed washed-out text on dark: the Help panel's code/callout/ToC,
+  the green/red status chips and contract checks, phase badges, `#555` modal labels, secondary
+  captions, and the active tab were all tuned for a light background and fell below AA on
+  `#1f1f1f`; each now has an accessible dark value.
+- **Screenshots work without configuration** — when no `screenshotCommand` is set, AutoDev now
+  detects a platform tool on `PATH` (grim / spectacle / gnome-screenshot / scrot / maim / import
+  on Linux, `screencapture` on macOS) instead of erroring. If none is found, the message says to
+  install one or set a command in Settings.
+
 ### Loop auto-advance on the hook bus (P3 complete)
 - The autonomous loop's auto-advance now reacts to the public `exit` hook instead of a reactive
   `createEffect` polling agent status — the **second** built-in on the P3 bus, alongside

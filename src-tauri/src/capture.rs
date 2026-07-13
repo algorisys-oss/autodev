@@ -11,6 +11,40 @@ fn shell_quote(path: &Path) -> String {
     format!("'{}'", path.display().to_string().replace('\'', "'\\''"))
 }
 
+/// True if `bin` is found as a file on the `PATH` — a good-enough "is this tool installed"
+/// check for picking a default screenshot command.
+fn program_on_path(bin: &str) -> bool {
+    let Some(paths) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&paths).any(|dir| dir.join(bin).is_file())
+}
+
+/// A screenshot command to use when the user hasn't configured one: the first known tool
+/// found on `PATH`, per platform, in preference order. `{file}` is the output PNG path;
+/// capture is whole-screen (the annotate step lets the user crop). `None` if nothing is
+/// installed, so the caller can prompt the user to install a tool or set a command.
+pub fn default_screenshot_template() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    let candidates: &[(&str, &str)] = &[("screencapture", "screencapture -x {file}")];
+    #[cfg(target_os = "linux")]
+    let candidates: &[(&str, &str)] = &[
+        ("grim", "grim {file}"),
+        ("spectacle", "spectacle -b -n -o {file}"),
+        ("gnome-screenshot", "gnome-screenshot -f {file}"),
+        ("scrot", "scrot {file}"),
+        ("maim", "maim {file}"),
+        ("import", "import -window root {file}"),
+    ];
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let candidates: &[(&str, &str)] = &[];
+
+    candidates
+        .iter()
+        .find(|(bin, _)| program_on_path(bin))
+        .map(|(_, tmpl)| (*tmpl).to_string())
+}
+
 /// Run a screenshot command template (with `{file}` → a PNG path) and read the PNG bytes.
 pub fn run_capture(template: &str, file: &Path) -> AppResult<Vec<u8>> {
     let rendered = template.replace("{file}", &shell_quote(file));
@@ -70,6 +104,20 @@ mod tests {
         let file = std::env::temp_dir().join("autodev-cap-missing.png");
         let _ = fs::remove_file(&file);
         assert!(run_capture("true", &file).is_err());
+    }
+
+    #[test]
+    fn program_on_path_finds_a_real_tool_but_not_a_bogus_one() {
+        assert!(program_on_path("sh"));
+        assert!(!program_on_path("definitely-not-a-real-binary-xyz"));
+    }
+
+    #[test]
+    fn default_screenshot_template_is_well_formed_when_present() {
+        // Depends on what's installed; assert only the invariant: any default names {file}.
+        if let Some(tmpl) = default_screenshot_template() {
+            assert!(tmpl.contains("{file}"));
+        }
     }
 
     #[test]

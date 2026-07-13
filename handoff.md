@@ -5,7 +5,16 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** P3 close-out — loop auto-advance on the hook bus (on `dev`). The autonomous
+- **Last task:** Theme toggle + dark contrast + screenshot default (on `dev`, from review
+  feedback). Header ☀/🌙 toggles light/dark (persisted); theming is now attribute-driven
+  (`:root[data-theme]`, converted from media-query-only) with a pre-paint script in `index.html`
+  and a `theme.ts` module — "system" still follows the OS live. Full dark-mode contrast pass
+  (Help panel, status chips, phase badges, modal labels, captions). Screenshots now fall back to
+  a detected platform tool (grim/scrot/spectacle/… , macOS `screencapture`) when unconfigured.
+  **Verify:** `./dev.sh verify` green (94 Rust + 16 frontend files). NOTE: theme/contrast are
+  covered by unit tests + tsc/eslint but not a live GUI pass here — worth an eyeball in the
+  running app.
+- **Prior task:** P3 close-out — loop auto-advance on the hook bus (on `dev`). The autonomous
   loop's auto-advance now reacts to the public `exit` hook (`loop-panel.tsx`) instead of a
   reactive status-polling `createEffect` — the second built-in on the P3 bus. A non-zero (error)
   exit does not auto-advance (guard `!code`, locked by a new test). **P3 Done bar is now fully

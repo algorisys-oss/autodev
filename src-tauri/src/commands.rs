@@ -371,11 +371,21 @@ pub fn transcribe_audio(data: Vec<u8>, ext: String) -> AppResult<String> {
 /// Capture the screen via the configured `screenshotCommand` and return a base64 PNG.
 #[tauri::command]
 pub fn capture_screen() -> AppResult<String> {
-    let template = state::load_settings()?.screenshot_command.ok_or_else(|| {
-        crate::error::AppError::Capture(
-            "no screenshotCommand configured in settings (~/.autodev/settings.json)".into(),
-        )
-    })?;
+    // Prefer an explicitly configured command; otherwise fall back to a detected platform
+    // tool so screenshots work out of the box.
+    let template = match state::load_settings()?
+        .screenshot_command
+        .filter(|t| !t.trim().is_empty())
+    {
+        Some(t) => t,
+        None => crate::capture::default_screenshot_template().ok_or_else(|| {
+            crate::error::AppError::Capture(
+                "No screenshot tool found. Install one (e.g. grim, scrot, spectacle, or \
+                 gnome-screenshot on Linux) or set a Screenshot command in Settings."
+                    .into(),
+            )
+        })?,
+    };
     let dir = state::data_dir()?.join("tmp");
     std::fs::create_dir_all(&dir)?;
     let file = dir.join("capture.png");

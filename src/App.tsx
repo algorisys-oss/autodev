@@ -3,6 +3,7 @@ import { appInfo, gitMergeWorktree, gitRemoveWorktree, openInEditor, type AppInf
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore, isTerminal } from "./lib/agent-store";
 import { installSkillsHook } from "./lib/skills";
+import { getThemePref, setThemePref, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
@@ -17,6 +18,11 @@ function App() {
   const [view, setView] = createSignal<"workspace" | "loops">("workspace");
   const [showSettings, setShowSettings] = createSignal(false);
   const [showHelp, setShowHelp] = createSignal(false);
+  // Effective (rendered) theme, for the toggle icon. The attribute is set pre-paint in
+  // index.html; here we mirror it and keep "system" in sync with the OS.
+  const [theme, setTheme] = createSignal<"light" | "dark">(resolveTheme(getThemePref()));
+  const toggleTheme = () => setTheme(setThemePref(theme() === "dark" ? "light" : "dark"));
+  const stopThemeWatch = watchSystemTheme(getThemePref, setTheme);
   const workspaces = createWorkspaceStore();
   const agents = createAgentStore();
 
@@ -31,7 +37,10 @@ function App() {
     await installSkillsHook(agents.hooks);
     agents.start();
   });
-  onCleanup(() => agents.dispose());
+  onCleanup(() => {
+    agents.dispose();
+    stopThemeWatch();
+  });
 
   const selected = () => workspaces.selected();
   const [wtMsg, setWtMsg] = createSignal<string | null>(null);
@@ -80,6 +89,13 @@ function App() {
           </button>
           <button classList={{ active: view() === "loops" }} onClick={() => setView("loops")}>
             Loops
+          </button>
+          <button
+            class="icon theme-btn"
+            title={theme() === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            onClick={toggleTheme}
+          >
+            {theme() === "dark" ? "☀" : "🌙"}
           </button>
           <button class="icon help-btn" title="Help & documentation" onClick={() => setShowHelp(true)}>
             ?

@@ -618,22 +618,20 @@ button.mic.recording {
   overflow: auto;
 }
 
-@media (prefers-color-scheme: dark) {
-  .handoff-modal {
-    background: #2a2a2a;
-    color: #f6f6f6;
-  }
-  .handoff-field textarea,
-  .handoff-field input,
-  .handoff-field select,
-  .handoff-output {
-    background: #1f1f1f;
-    color: #f6f6f6;
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-  .handoff-result {
-    background: #1a1a1a;
-  }
+:root[data-theme="dark"] .handoff-modal {
+  background: #2a2a2a;
+  color: #f6f6f6;
+}
+:root[data-theme="dark"] .handoff-field textarea,
+:root[data-theme="dark"] .handoff-field input,
+:root[data-theme="dark"] .handoff-field select,
+:root[data-theme="dark"] .handoff-output {
+  background: #1f1f1f;
+  color: #f6f6f6;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .handoff-result {
+  background: #1a1a1a;
 }
 
 .mention-row {
@@ -781,15 +779,13 @@ button.primary {
   flex: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  .split-plan {
-    background: rgba(57, 108, 216, 0.15);
-    border-color: rgba(57, 108, 216, 0.4);
-  }
-  .split-plan.parallel {
-    background: rgba(58, 168, 100, 0.15);
-    border-color: rgba(58, 168, 100, 0.4);
-  }
+:root[data-theme="dark"] .split-plan {
+  background: rgba(57, 108, 216, 0.15);
+  border-color: rgba(57, 108, 216, 0.4);
+}
+:root[data-theme="dark"] .split-plan.parallel {
+  background: rgba(58, 168, 100, 0.15);
+  border-color: rgba(58, 168, 100, 0.4);
 }
 
 button.primary:hover {
@@ -950,67 +946,63 @@ button.danger {
   background: #1a1a1a;
 }
 
-@media (prefers-color-scheme: dark) {
-  .agent-session {
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-  .agent-bar {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-  .agent-grid .card {
-    background: #2a2a2a;
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-  .composer {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-  .composer-text,
-  .composer select,
-  .composer input[type="number"],
-  .loop-new textarea,
-  .loop-step textarea {
-    background: #2a2a2a;
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-  .control {
-    color: #aaa;
-  }
+:root[data-theme="dark"] .agent-session {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .agent-bar {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .agent-grid .card {
+  background: #2a2a2a;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .composer {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme="dark"] .composer-text,
+:root[data-theme="dark"] .composer select,
+:root[data-theme="dark"] .composer input[type="number"],
+:root[data-theme="dark"] .loop-new textarea,
+:root[data-theme="dark"] .loop-step textarea {
+  background: #2a2a2a;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] .control {
+  color: #bcbcbc;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #1f1f1f;
-    color-scheme: dark;
-  }
-  .app-header,
-  .sidebar {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-  .muted,
-  .project-path {
-    color: #9a9a9a;
-  }
-  input,
-  button {
-    color: #fff;
-    background-color: #2a2a2a;
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-  ::placeholder {
-    color: #9a9a9a;
-  }
-  .workspace-name {
-    background: none;
-  }
-  .workspace-list > li.selected {
-    background: rgba(90, 140, 240, 0.18);
-  }
-  .detail-projects li {
-    border-color: rgba(255, 255, 255, 0.08);
-  }
+:root[data-theme="dark"] {
+  color: #f6f6f6;
+  background-color: #1f1f1f;
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .app-header,
+:root[data-theme="dark"] .sidebar {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme="dark"] .muted,
+:root[data-theme="dark"] .project-path {
+  color: #b3b3b3;
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] button {
+  color: #fff;
+  background-color: #2a2a2a;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme="dark"] ::placeholder {
+  color: #9a9a9a;
+}
+:root[data-theme="dark"] .workspace-name {
+  background: none;
+}
+:root[data-theme="dark"] .workspace-list > li.selected {
+  background: rgba(90, 140, 240, 0.18);
+}
+:root[data-theme="dark"] .detail-projects li {
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* --- Help & documentation panel --- */
@@ -1141,3 +1133,79 @@ button.danger {
     padding-bottom: 0.4rem;
   }
 }
+
+/* Help panel — dark theme (the modal itself flips to #2a2a2a via .handoff-modal above). */
+:root[data-theme="dark"] .help-toc {
+  border-right-color: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme="dark"] .help-toc-item {
+  color: #dcdcdc;
+}
+:root[data-theme="dark"] .help-toc-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #8fbcff;
+}
+:root[data-theme="dark"] .help-section {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme="dark"] .help-section code {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f6f6f6;
+}
+:root[data-theme="dark"] .help-code {
+  background: #1b1b1b;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f0f0f0;
+}
+:root[data-theme="dark"] .help-callout {
+  background: rgba(47, 129, 247, 0.16);
+  border-left-color: #2f81f7;
+  color: #f6f6f6;
+}
+:root[data-theme="dark"] .help-muted {
+  color: #b3b3b3;
+}
+@media (max-width: 640px) {
+  :root[data-theme="dark"] .help-toc {
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* Dark-theme contrast: several semantic colors are tuned for a light background and fall
+   below AA on #1f1f1f/#2a2a2a. Lift them to accessible equivalents in dark mode. */
+:root[data-theme="dark"] .chip.ok,
+:root[data-theme="dark"] .contract .check.ok,
+:root[data-theme="dark"] .feature-backlog li.current,
+:root[data-theme="dark"] .feature-backlog li.done {
+  color: #56d364;
+}
+:root[data-theme="dark"] .chip.bad,
+:root[data-theme="dark"] .contract .check.bad,
+:root[data-theme="dark"] .feature-backlog li.failed,
+:root[data-theme="dark"] .error,
+:root[data-theme="dark"] button.danger,
+:root[data-theme="dark"] button.mic.recording {
+  color: #ff7b72;
+}
+:root[data-theme="dark"] .warn {
+  color: #e3b341;
+}
+:root[data-theme="dark"] .handoff-field,
+:root[data-theme="dark"] .wt-msg {
+  color: #c2c2c2;
+}
+:root[data-theme="dark"] .view-tabs button.active {
+  color: #6ea8ff;
+}
+
+/* Secondary captions and phase badges: lift for AA on dark. */
+:root[data-theme="dark"] .feature-backlog li,
+:root[data-theme="dark"] .loop-cfg,
+:root[data-theme="dark"] .auto-run {
+  color: #a8a8a8;
+}
+:root[data-theme="dark"] .phase.planning { color: #58a6ff; }
+:root[data-theme="dark"] .phase.generating { color: #e3c000; }
+:root[data-theme="dark"] .phase.evaluating { color: #d2a8ff; }
+:root[data-theme="dark"] .phase.passed { color: #56d364; }
+:root[data-theme="dark"] .phase.failed { color: #ff7b72; }
