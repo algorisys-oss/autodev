@@ -16,7 +16,9 @@ vi.mock("../lib/ipc", () => ({
   captureScreen: vi.fn(),
   saveShot: vi.fn(),
   backendList: vi.fn(() =>
-    Promise.resolve([{ id: "claude", label: "Claude", models: [], structured: true }]),
+    Promise.resolve([
+      { id: "claude", label: "Claude", models: [], structured: true, toolPermissions: true },
+    ]),
   ),
   listTemplates: vi.fn(() =>
     Promise.resolve([{ name: "refactor", body: "Refactor this for clarity." }]),
@@ -290,6 +292,23 @@ describe("PromptComposer Rich view", () => {
 
     await waitFor(() => expect(getByText(/type a task before launching/)).toBeTruthy());
     expect(spawned).toHaveLength(0);
+  });
+
+  it("passes parsed tool allow/deny lists through to spawn", async () => {
+    const { agents, spawned } = storeWithRecorder();
+    const { container, getByText, getByPlaceholderText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+    fireEvent.input(taskBox(container), { target: { value: "do a thing" } });
+    fireEvent.input(getByPlaceholderText(/Read, Grep, Glob/), { target: { value: "Read, Grep" } });
+    fireEvent.input(getByPlaceholderText(/Bash, Write/), { target: { value: "Bash" } });
+
+    fireEvent.click(getByText(/Launch \d agent/));
+
+    await waitFor(() => expect(spawned).toHaveLength(1));
+    expect(spawned[0].allowedTools).toEqual(["Read", "Grep"]);
+    expect(spawned[0].disallowedTools).toEqual(["Bash"]);
   });
 
   it("passes rich: true through to spawn when Rich view is on and a prompt is given", async () => {

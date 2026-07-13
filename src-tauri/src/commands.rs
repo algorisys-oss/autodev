@@ -46,6 +46,8 @@ pub struct BackendInfo {
     pub models: Vec<String>,
     /// Whether this backend can emit a structured event stream (offers the Rich view).
     pub structured: bool,
+    /// Whether this backend supports pre-launch tool allow/deny lists (Claude `--allowedTools`).
+    pub tool_permissions: bool,
 }
 
 /// List every available backend so the frontend can build its picker without hardcoding
@@ -57,6 +59,7 @@ pub fn backend_list() -> Vec<BackendInfo> {
         .map(|s| BackendInfo {
             label: s.display_label(),
             structured: s.structured.is_some(),
+            tool_permissions: s.allowed_tools_flag.is_some(),
             id: s.id,
             models: s.models,
         })

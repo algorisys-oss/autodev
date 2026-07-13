@@ -88,6 +88,12 @@ pub struct AgentOptions {
     /// conversation). Only meaningful with `rich` and a backend whose spec has `resume_flags`.
     #[serde(default)]
     pub resume_session_id: Option<String>,
+    /// Tools auto-allowed without prompting (Claude `--allowedTools`). Empty = spec default.
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    /// Tools blocked outright (Claude `--disallowedTools`). Empty = none blocked.
+    #[serde(default)]
+    pub disallowed_tools: Vec<String>,
     #[serde(default)]
     pub model: Option<String>,
     /// Prompt to start the session with, passed as the CLI's positional prompt.
@@ -349,6 +355,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -405,6 +413,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: Some("big".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -430,6 +440,8 @@ mod tests {
             print_mode: true,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -452,6 +464,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
@@ -487,6 +501,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: Some("gemini-3.1-pro".into()),
             initial_prompt: Some("build it".into()),
             add_dirs: vec!["/a".into()],
@@ -527,6 +543,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -549,6 +567,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: None,
             add_dirs: vec!["/work/zlog".into(), "/other".into()],
@@ -569,6 +589,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: Some("look".into()),
             add_dirs: vec![],
@@ -599,6 +621,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],

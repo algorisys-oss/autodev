@@ -5,7 +5,23 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Rich view increment 3A — **interactive multi-turn follow-ups** (branch
+- **Last task:** Rich view increment 3B(1) — **pre-launch tool permissions** (branch
+  `feat/rich-view`, **not yet merged/shipped**). The composer gained a **Tool permissions**
+  section (shown for backends that declare the capability — Claude) to auto-allow and/or block
+  tools before launch, wired to `--allowedTools`/`--disallowedTools`. Blocked tools are removed
+  from the session (proven live: "There's no Bash tool available in this session"); the posture is
+  stored on the agent and re-applied on Rich follow-up turns. Declarative: `BackendSpec`
+  `allowed_tools_flag`/`disallowed_tools_flag`; `AgentOptions.allowed_tools`/`disallowed_tools`;
+  `backend_list` reports `tool_permissions`. **Flags are emitted as one `--flag=a,b` arg** —
+  live testing caught that these flags are *variadic* and a space-separated value swallows the
+  positional prompt (the classic "Input must be provided… when using --print" error). This is the
+  **B1** scope the user chose: coarse per-tool control, not per-action approve/deny buttons.
+  **B2** (true per-action buttons) is deferred — it needs an MCP permission server / the Agent SDK
+  (a Node sidecar = stack change), since 2.1.207 has no `--permission-prompt-tool` and `-p`
+  stream-json emits no inline permission events. **Verify:** 124 Rust + 119 frontend tests,
+  clippy/rustfmt/eslint/tsc + vite build clean; the exact allow/deny arg vector blocks a tool while
+  keeping the prompt (real `claude` 2.1.207). GUI unverified here.
+- **Prior task:** Rich view increment 3A — **interactive multi-turn follow-ups** (branch
   `feat/rich-view`, **not yet merged/shipped**). After a Rich turn finishes, a composer in the
   card view sends a follow-up that runs as a fresh one-shot turn `--resume`ing the same backend
   session; its cards append to the **same** conversation card. Stays in the PTY model — each turn

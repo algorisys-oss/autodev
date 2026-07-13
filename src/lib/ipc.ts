@@ -101,6 +101,8 @@ export interface BackendInfo {
   models: string[];
   /** Whether this backend can emit a structured event stream (offers the Rich view). */
   structured: boolean;
+  /** Whether this backend supports pre-launch tool allow/deny lists (Claude `--allowedTools`). */
+  toolPermissions: boolean;
 }
 
 /** List available backends (bundled + disk-registered). `mock` is excluded. */
@@ -150,6 +152,10 @@ export interface AgentOptions {
   rich?: boolean;
   /** Resume a prior Rich session by its backend session id (a follow-up turn). Only with `rich`. */
   resumeSessionId?: string | null;
+  /** Tools auto-allowed without prompting (Claude `--allowedTools`). Empty = backend default. */
+  allowedTools?: string[];
+  /** Tools blocked outright (Claude `--disallowedTools`). */
+  disallowedTools?: string[];
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];

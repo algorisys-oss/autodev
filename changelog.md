@@ -4,6 +4,15 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## Unreleased (branch `feat/rich-view`)
 
+- **New: pre-launch tool permissions (B1).** For backends that support it (Claude), the composer
+  has a **Tool permissions** section to auto-allow specific tools and/or block others before
+  launch — wired to `--allowedTools`/`--disallowedTools`. Blocked tools are removed from the
+  session entirely (verified against the real CLI); the posture carries into Rich follow-up turns
+  so a resumed turn can't silently regain a blocked tool. This is coarse (per-tool, set upfront)
+  rather than per-action approve/deny buttons — headless stream-json exposes no inline permission
+  events and 2.1.207 has no `--permission-prompt-tool`, so true per-action approval would need an
+  MCP permission server (a separate, larger increment). Flags are emitted as a single `--flag=a,b`
+  argument because they're variadic and a space-separated value swallows the positional prompt.
 - **New: Rich view is now interactive — multi-turn follow-up conversations.** After a Rich turn
   finishes, a composer at the bottom of the card view lets you reply; the follow-up runs as a
   fresh one-shot turn that `--resume`s the same backend session, and its cards **append to the

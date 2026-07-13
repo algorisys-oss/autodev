@@ -2,6 +2,34 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Rich view — increment 3B(1): pre-launch tool permissions (branch `feat/rich-view`)
+
+**Context:** User chose B1 (pre-launch tool allow/deny) after research showed true per-action
+approve/deny buttons aren't achievable with CLI 2.1.207 (no `--permission-prompt-tool`; `-p`
+stream-json emits no inline permission events; even `--permission-mode manual` runs tools without
+surfacing a request). B2 (Agent SDK / MCP permission server, a Node sidecar) deferred.
+
+**Research (proved the mechanism gates):** `--disallowedTools "Bash"` removes Bash from the
+session entirely ("There's no Bash tool available in this session") — real, effective control.
+
+**Approach:** declarative — `BackendSpec.allowed_tools_flag`/`disallowed_tools_flag`;
+`AgentOptions.allowed_tools`/`disallowed_tools`; `build_args` emits the flag when the list is
+non-empty; `backend_list` reports `tool_permissions`. Frontend: composer **Tool permissions**
+collapsible (two comma/space-separated inputs, gated on `supportsToolPerms()`), parsed to arrays
+into the spawn opts; the posture is stored on the agent (`AgentView.allowedTools/disallowedTools`)
+and re-applied by `followUp` so a resumed turn can't silently regain a blocked tool.
+
+**Bug caught by live verification (LOOPS V):** first pass emitted `--disallowedTools Bash <prompt>`
+as separate args. These flags are **variadic**, so the flag swallowed the positional prompt
+("Permission deny rule 'FROG.' matches no known tool" → "Input must be provided… when using
+--print"). Fix: emit a single `--flag=a,b` argument, which binds the value and stops the greedy
+consumption — re-verified live (prompt survives, tool blocked). The Rust test was corrected to
+match the `=value` form.
+
+**TDD/verify:** Rust +2 (allow/deny `=value` form, ignored-without-flags); frontend +1 (lists
+flow to spawn). 124 Rust + 119 frontend green; clippy/rustfmt/eslint/tsc + vite build clean. GUI
+composer UI not eyeballed.
+
 ## Rich view — increment 3A: interactive multi-turn follow-ups (branch `feat/rich-view`)
 
 **Context:** Increments 1–2 were read-only/one-shot. User chose the interactive path, follow-ups

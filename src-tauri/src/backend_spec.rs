@@ -90,6 +90,13 @@ pub struct BackendSpec {
     /// Flag preceding each extra directory (Claude/`agy` `--add-dir`). None = unsupported.
     #[serde(default)]
     pub add_dir_flag: Option<String>,
+    /// Flag for the auto-allowed tool list (Claude `--allowedTools`). None = no allow/deny control.
+    /// The list is comma-joined into one argument so a variadic flag can't swallow the prompt.
+    #[serde(default)]
+    pub allowed_tools_flag: Option<String>,
+    /// Flag for the blocked tool list (Claude `--disallowedTools`). None = unsupported.
+    #[serde(default)]
+    pub disallowed_tools_flag: Option<String>,
     /// Prepend the working directory as the first add-dir. `agy` writes into its workspace
     /// rather than its process cwd, so the cwd must be added explicitly or deliverables land
     /// in a scratch project.
@@ -138,6 +145,20 @@ impl BackendSpec {
 
         if opts.bypass_permissions && !self.bypass_flag.is_empty() {
             args.extend(self.bypass_flag.iter().cloned());
+        }
+
+        // Tool allow/deny lists (headless permission control, B1). Emitted as a single
+        // `--flag=a,b` argument: these flags are variadic, so a space-separated value would
+        // greedily swallow the positional prompt that follows (verified against the real CLI).
+        if let Some(flag) = &self.allowed_tools_flag {
+            if !opts.allowed_tools.is_empty() {
+                args.push(format!("{}={}", flag, opts.allowed_tools.join(",")));
+            }
+        }
+        if let Some(flag) = &self.disallowed_tools_flag {
+            if !opts.disallowed_tools.is_empty() {
+                args.push(format!("{}={}", flag, opts.disallowed_tools.join(",")));
+            }
         }
 
         if let (Some(flag), Some(model)) = (&self.model_flag, &opts.model) {
@@ -250,6 +271,8 @@ fn claude_spec() -> BackendSpec {
         bypass_flag: vec!["--dangerously-skip-permissions".into()],
         model_flag: Some("--model".into()),
         add_dir_flag: Some("--add-dir".into()),
+        allowed_tools_flag: Some("--allowedTools".into()),
+        disallowed_tools_flag: Some("--disallowedTools".into()),
         add_cwd_to_dirs: false,
         images: screenshot_append(),
         prompt: PromptMode::Positional,
@@ -285,6 +308,8 @@ fn codex_spec() -> BackendSpec {
         bypass_flag: vec!["--dangerously-bypass-approvals-and-sandbox".into()],
         model_flag: Some("-m".into()),
         add_dir_flag: None,
+        allowed_tools_flag: None,
+        disallowed_tools_flag: None,
         add_cwd_to_dirs: false,
         images: ImageMode::Flag { flag: "-i".into() },
         prompt: PromptMode::Positional,
@@ -321,6 +346,8 @@ fn antigravity_spec() -> BackendSpec {
         bypass_flag: vec!["--dangerously-skip-permissions".into()],
         model_flag: Some("-m".into()),
         add_dir_flag: Some("--add-dir".into()),
+        allowed_tools_flag: None,
+        disallowed_tools_flag: None,
         add_cwd_to_dirs: true,
         images: screenshot_append(),
         prompt: PromptMode::Flag { flag: "-i".into() },
@@ -342,6 +369,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -498,6 +527,33 @@ mod tests {
     }
 
     #[test]
+    fn tool_allow_and_deny_lists_use_the_flag_equals_value_form() {
+        // Single `--flag=a,b` args (not space-separated): these flags are variadic and would
+        // otherwise swallow the positional prompt. Verified against the real CLI.
+        let o = AgentOptions {
+            allowed_tools: vec!["Read".into(), "Grep".into()],
+            disallowed_tools: vec!["Bash".into()],
+            initial_prompt: Some("go".into()),
+            ..opts()
+        };
+        assert_eq!(
+            claude_spec().build_args(&o),
+            ["--allowedTools=Read,Grep", "--disallowedTools=Bash", "go"]
+        );
+    }
+
+    #[test]
+    fn tool_lists_are_ignored_for_a_backend_without_the_flags() {
+        // Codex declares no allow/deny flags, so the lists produce nothing.
+        let o = AgentOptions {
+            allowed_tools: vec!["Read".into()],
+            disallowed_tools: vec!["Bash".into()],
+            ..opts()
+        };
+        assert!(codex_spec().build_args(&o).is_empty());
+    }
+
+    #[test]
     fn rich_is_ignored_for_backend_without_structured_capability() {
         // Antigravity has no `structured` spec, so asking for rich changes nothing.
         let o = AgentOptions {
@@ -578,6 +634,8 @@ mod tests {
             print_mode: false,
             rich: false,
             resume_session_id: None,
+            allowed_tools: vec![],
+            disallowed_tools: vec![],
             model: Some("google/gemini-2.0-flash".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec!["/other".into()],

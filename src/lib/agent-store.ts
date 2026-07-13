@@ -122,6 +122,10 @@ export interface AgentView {
   /** The backend's conversation id (from a Rich session's SessionInit), used to resume for a
    *  follow-up turn. Undefined until the first SessionInit arrives. */
   sessionId?: string;
+  /** Tool allow/deny posture this session launched with, carried into follow-up turns so a
+   *  resumed turn can't silently regain a blocked tool (B1). */
+  allowedTools?: string[];
+  disallowedTools?: string[];
 }
 
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
@@ -290,6 +294,8 @@ export function createAgentStore(deps?: {
       worktree,
       rich: !!opts.rich,
       events: [],
+      allowedTools: opts.allowedTools,
+      disallowedTools: opts.disallowedTools,
     });
     setState("focusedId", id);
     return id;
@@ -314,6 +320,8 @@ export function createAgentStore(deps?: {
       rich: true,
       resumeSessionId: a.sessionId,
       initialPrompt: text,
+      allowedTools: a.allowedTools,
+      disallowedTools: a.disallowedTools,
     });
     const coreId = await api.agentSpawn(opts);
     resumeMap.set(coreId, agentId);

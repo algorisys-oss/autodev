@@ -730,6 +730,56 @@ button.mic.recording {
   gap: 0.3rem;
 }
 
+.composer-tools {
+  font-size: 0.9em;
+}
+.composer-tools > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tools-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+}
+.composer-tools-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.composer-tools-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1 1 220px;
+}
+.composer-tools-body input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  font: inherit;
+}
+.tools-hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.8rem;
+}
+:root[data-theme="dark"] .tools-badge {
+  background: rgba(139, 92, 246, 0.22);
+  color: #c4b5fd;
+}
+:root[data-theme="dark"] .composer-tools-body input {
+  background: #101014;
+  color: #e6e6e6;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
 .per-agent-prompts {
   display: flex;
   flex-direction: column;

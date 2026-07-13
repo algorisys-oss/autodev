@@ -45,6 +45,9 @@ export function PromptComposer(props: {
   const [bypass, setBypass] = createSignal(false);
   // Rich (structured card) view. Only offered for backends that can emit a structured stream.
   const [rich, setRich] = createSignal(false);
+  // Pre-launch tool permission lists (B1), comma/space-separated. Only for capable backends.
+  const [allowTools, setAllowTools] = createSignal("");
+  const [denyTools, setDenyTools] = createSignal("");
   const [ultrathink, setUltrathink] = createSignal(false);
   const [isolate, setIsolate] = createSignal(false);
   const [runIn, setRunIn] = createSignal<string>("");
@@ -69,6 +72,11 @@ export function PromptComposer(props: {
   const [templates, setTemplates] = createSignal<PromptTemplate[]>([]);
   // Does the currently-selected backend support the Rich (structured) view?
   const supportsRich = () => backends().find((b) => b.id === backend())?.structured ?? false;
+  // ...and pre-launch tool allow/deny lists?
+  const supportsToolPerms = () =>
+    backends().find((b) => b.id === backend())?.toolPermissions ?? false;
+  // Split a comma/space-separated tool list into names.
+  const parseTools = (s: string) => s.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
 
   onMount(async () => {
     try {
@@ -313,6 +321,8 @@ export function PromptComposer(props: {
             planMode: planMode(),
             bypassPermissions: bypass(),
             rich: rich() && supportsRich(),
+            allowedTools: supportsToolPerms() ? parseTools(allowTools()) : undefined,
+            disallowedTools: supportsToolPerms() ? parseTools(denyTools()) : undefined,
             addDirs,
             images: annotations().map((a) => a.image),
             initialPrompt: prompt || null,
@@ -570,6 +580,48 @@ export function PromptComposer(props: {
           {analyzing() ? "Analyzing…" : `Launch ${agentCount()} agent${agentCount() > 1 ? "s" : ""}`}
         </button>
       </div>
+
+      <Show when={supportsToolPerms()}>
+        <details class="composer-tools">
+          <summary class="muted">
+            Tool permissions
+            <Show when={allowTools().trim() || denyTools().trim()}>
+              <span class="tools-badge">
+                {[
+                  parseTools(allowTools()).length && `allow ${parseTools(allowTools()).length}`,
+                  parseTools(denyTools()).length && `block ${parseTools(denyTools()).length}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </Show>
+          </summary>
+          <div class="composer-tools-body">
+            <label>
+              Auto-allow
+              <input
+                type="text"
+                placeholder="e.g. Read, Grep, Glob (blank = backend default)"
+                value={allowTools()}
+                onInput={(e) => setAllowTools(e.currentTarget.value)}
+              />
+            </label>
+            <label>
+              Block
+              <input
+                type="text"
+                placeholder="e.g. Bash, Write, Edit"
+                value={denyTools()}
+                onInput={(e) => setDenyTools(e.currentTarget.value)}
+              />
+            </label>
+            <p class="muted tools-hint">
+              Names are the agent's own tool names. Blocked tools are removed from the session;
+              auto-allowed tools run without a prompt. Applies to Rich and terminal launches.
+            </p>
+          </div>
+        </details>
+      </Show>
 
       <Show when={perAgent() && promptsDiffer(selected()) && !isolate()}>
         <p class="warn">Agents share one working directory — enable Isolate to avoid collisions.</p>
