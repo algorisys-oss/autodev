@@ -737,7 +737,30 @@ button.mic.recording {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  width: fit-content;
+  list-style: none;
+  user-select: none;
+  font-weight: 600;
+  color: #6d28d9;
+}
+/* display:flex removes the native disclosure marker, so draw our own rotating chevron. */
+.composer-tools > summary::-webkit-details-marker {
+  display: none;
+}
+.composer-tools > summary::before {
+  content: "▸";
+  font-size: 0.72em;
+  transition: transform 0.15s ease;
+}
+.composer-tools[open] > summary::before {
+  transform: rotate(90deg);
+}
+.composer-tools > summary:hover {
+  text-decoration: underline;
+}
+:root[data-theme="dark"] .composer-tools > summary {
+  color: #c4b5fd;
 }
 .tools-badge {
   font-size: 0.72rem;

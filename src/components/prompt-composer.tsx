@@ -583,7 +583,7 @@ export function PromptComposer(props: {
 
       <Show when={supportsToolPerms()}>
         <details class="composer-tools">
-          <summary class="muted">
+          <summary>
             Tool permissions
             <Show when={allowTools().trim() || denyTools().trim()}>
               <span class="tools-badge">
