@@ -4,6 +4,14 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Demo: re-recorded as a real build → screenshot → annotate → fix loop
+- Replaced the screenshot/annotation demo with a coherent before/after story: an agent builds a
+  landing page with the call-to-action on the right; the page is opened; a screenshot is annotated
+  ("move the call-to-action to the center"); the annotation is handed back to an agent; the page
+  reopens with the button centered. Recorded headlessly on a virtual display (Xvfb + ffmpeg
+  x11grab), the built page shown in a WebKit viewer, driving the real release build with a drop-in
+  "builder" backend. See [`demo/screenshot-annotation-demo.mp4`](demo/screenshot-annotation-demo.mp4).
+
 ### Verified end-to-end: screenshot → annotate → cross-agent dispatch (+ demo)
 - Drove the real release build on a virtual display (Xvfb) and confirmed the whole flow works:
   clicking 📷 captures the screen and opens the annotator; drawing + notes attach as a structured
