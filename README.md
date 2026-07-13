@@ -7,16 +7,13 @@ git-worktree isolation, voice and screenshot input, cross-agent annotation, an o
 autonomous build loop, and a file-based extension surface (backends, prompt templates, skills,
 and JS extensions under `~/.autodev/`).
 
-Built with Tauri (Rust core) and SolidJS. See [`PLAN.md`](PLAN.md) for the full roadmap
-and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
+Built with Tauri (Rust core) and SolidJS.
 
 > Status: all planned phases (0–9) are implemented — workspaces, multi-agent
 > orchestration, prompt composer, git-worktree isolation, voice input, screenshot +
 > annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop — plus an
 > extensibility track (pluggable backends, a public hook lifecycle, prompt templates, skills,
-> JS extensions, a verified Pi backend, and cross-agent structured annotation). See
-> [`handoff.md`](handoff.md) for exactly what works today and the known gaps, and
-> [`PI-PARITY-PLAN.md`](PI-PARITY-PLAN.md) for the extensibility roadmap.
+> JS extensions, a verified Pi backend, and cross-agent structured annotation).
 
 > **Demo:** [`demo/`](demo/) has a real screen recording of the app — 3 agents building an app in
 > parallel, then the built app opened and used (`autodev-multi-agent-demo.mp4`) — plus a runnable
@@ -303,9 +300,6 @@ autodev/
       error.rs         command-boundary error type
     tauri.conf.json    app config
   dev.sh               developer entry point
-  PLAN.md              build roadmap
-  LOOPS.md             engineering method
-  CLAUDE.md            guidance for AI agents working in this repo
 ```
 
 ### Where state is stored
@@ -327,9 +321,8 @@ copied or moved; the app just references the directories where they already are.
 
 ## Contributing
 
-Read [`CLAUDE.md`](CLAUDE.md) and [`LOOPS.md`](LOOPS.md) first — they define how work is
-done here (scope lock, tests first, verify before claiming done). Run `./dev.sh verify`
-before opening a PR.
+Work here follows a strict method (scope lock, tests first, verify before claiming done).
+Run `./dev.sh verify` before opening a PR.
 
 ## License
 
