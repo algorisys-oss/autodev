@@ -2,10 +2,16 @@
 // Rust core agree on the command contract. Keep these types in sync with the
 // structs in src-tauri/src/commands.rs and src-tauri/src/state.rs.
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export interface AppInfo {
   name: string;
   version: string;
+}
+
+/** Open a URL in the user's default browser (via the opener plugin). */
+export function openExternal(url: string): Promise<void> {
+  return openUrl(url);
 }
 
 export interface AppSettings {

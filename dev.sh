@@ -80,10 +80,14 @@ release)
     echo "working tree is dirty; commit or stash first" >&2
     exit 1
   fi
-  # Update only the version line in each manifest, preserving formatting.
+  # Update only the version line in each manifest, preserving formatting. Bump all of them so
+  # they stay in sync — including Cargo.toml, since the in-app version comes from
+  # env!("CARGO_PKG_VERSION").
   sed -i -E "0,/\"version\": *\"[^\"]+\"/s//\"version\": \"$ver\"/" package.json
   sed -i -E "0,/\"version\": *\"[^\"]+\"/s//\"version\": \"$ver\"/" src-tauri/tauri.conf.json
-  git add package.json src-tauri/tauri.conf.json
+  sed -i -E "0,/^version = \"[^\"]+\"/s//version = \"$ver\"/" src-tauri/Cargo.toml
+  sed -i "/^name = \"autodev\"\$/{n;s/^version = \".*\"/version = \"$ver\"/}" src-tauri/Cargo.lock
+  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
   git commit -m "Release v$ver"
   git tag "v$ver"
   git push origin HEAD "v$ver"

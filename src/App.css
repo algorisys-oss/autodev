@@ -1290,3 +1290,132 @@ button.danger {
 .annotator-notes::placeholder {
   color: #9a9a9a;
 }
+
+/* --- Help dropdown menu --- */
+.help-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.help-btn.active {
+  border-color: #396cd8;
+}
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+}
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 91;
+  min-width: 172px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.dropdown-menu button {
+  text-align: left;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.dropdown-menu button:hover {
+  background: #f0f0f0;
+  border-color: transparent;
+}
+:root[data-theme="dark"] .dropdown-menu {
+  background: #2a2a2a;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="dark"] .dropdown-menu button {
+  background: transparent;
+  color: #f6f6f6;
+}
+:root[data-theme="dark"] .dropdown-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* --- About panel --- */
+.about-modal {
+  width: min(560px, 92vw);
+}
+.about-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.about-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.about-logo {
+  font-size: 2rem;
+  color: #3b82f6;
+}
+.about-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.about-version {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #7cc7ff;
+  margin-left: 0.3rem;
+}
+.about-body p {
+  line-height: 1.55;
+  margin: 0;
+}
+.about-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0.2rem 0;
+  font-size: 0.9rem;
+}
+.about-facts > div {
+  display: contents;
+}
+.about-facts dt {
+  font-weight: 600;
+  color: #555;
+}
+.about-facts dd {
+  margin: 0;
+}
+.about-link {
+  color: #0a63c6;
+  text-decoration: none;
+  cursor: pointer;
+}
+.about-link:hover {
+  text-decoration: underline;
+}
+.about-foot {
+  font-size: 0.85rem;
+}
+.about-madeby {
+  border-top: 1px solid #eee;
+  padding-top: 0.75rem;
+  font-size: 0.9rem;
+}
+:root[data-theme="dark"] .about-facts dt {
+  color: #b3b3b3;
+}
+:root[data-theme="dark"] .about-link {
+  color: #8fbcff;
+}
+:root[data-theme="dark"] .about-madeby {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}

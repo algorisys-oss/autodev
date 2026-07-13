@@ -12,6 +12,7 @@ import { PromptComposer } from "./components/prompt-composer";
 import { LoopPanel } from "./components/loop-panel";
 import { SettingsPanel } from "./components/settings-panel";
 import { HelpPanel } from "./components/help-panel";
+import { AboutPanel } from "./components/about-panel";
 import "./App.css";
 
 function App() {
@@ -19,6 +20,8 @@ function App() {
   const [view, setView] = createSignal<"workspace" | "loops">("workspace");
   const [showSettings, setShowSettings] = createSignal(false);
   const [showHelp, setShowHelp] = createSignal(false);
+  const [showAbout, setShowAbout] = createSignal(false);
+  const [helpMenuOpen, setHelpMenuOpen] = createSignal(false);
   // Effective (rendered) theme, for the toggle icon. The attribute is set pre-paint in
   // index.html; here we mirror it and keep "system" in sync with the OS.
   const [theme, setTheme] = createSignal<"light" | "dark">(resolveTheme(getThemePref()));
@@ -100,9 +103,39 @@ function App() {
           >
             {theme() === "dark" ? "☀" : "🌙"}
           </button>
-          <button class="icon help-btn" title="Help & documentation" onClick={() => setShowHelp(true)}>
-            ?
-          </button>
+          <div class="help-menu-wrap">
+            <button
+              class="icon help-btn"
+              classList={{ active: helpMenuOpen() }}
+              title="Help"
+              onClick={() => setHelpMenuOpen((v) => !v)}
+            >
+              ?
+            </button>
+            <Show when={helpMenuOpen()}>
+              <div class="menu-backdrop" onClick={() => setHelpMenuOpen(false)} />
+              <div class="dropdown-menu" role="menu">
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowHelp(true);
+                    setHelpMenuOpen(false);
+                  }}
+                >
+                  Documentation
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowAbout(true);
+                    setHelpMenuOpen(false);
+                  }}
+                >
+                  About AutoDev
+                </button>
+              </div>
+            </Show>
+          </div>
           <button class="icon settings-btn" title="Settings" onClick={() => setShowSettings(true)}>
             ⚙
           </button>
@@ -111,6 +144,10 @@ function App() {
 
       <Show when={showHelp()}>
         <HelpPanel onClose={() => setShowHelp(false)} />
+      </Show>
+
+      <Show when={showAbout()}>
+        <AboutPanel version={info()?.version ?? ""} onClose={() => setShowAbout(false)} />
       </Show>
 
       <Show when={showSettings()}>

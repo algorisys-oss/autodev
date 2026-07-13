@@ -74,6 +74,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "AutoDev ${{ github.ref_name }}"
           releaseBody: "Download the installer for your platform below. See the changelog for what's new."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

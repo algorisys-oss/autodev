@@ -91,10 +91,23 @@ launch the app on this machine:
 
 Keep this section accurate as it changes (LOOPS XXVI).
 
-**"Ship it" means sync the code.** When the user says "ship it" (or "ship"), run
-`./dev.sh verify`, then commit the work and push to `origin` (fast-forward-merge the branch
-into `main` first if on a feature branch). It is not a request to cut a version release —
-that is only `./dev.sh release X.Y.Z`.
+**"Ship it" means cut a released version.** When the user says "ship it" (or "ship"), do all of:
+
+1. `./dev.sh verify` — must pass.
+2. Commit the work.
+3. **Bump the version and write a release note.** Default to a **patch** bump (`X.Y.Z+1`); use a
+   minor bump for a new feature, major for a breaking change. Add a dated `## vX.Y.Z — <date>`
+   section to `CHANGELOG.md` summarizing what shipped — this is the release note.
+4. `./dev.sh release X.Y.Z` — bumps every manifest (`package.json`, `tauri.conf.json`,
+   `Cargo.toml`, `Cargo.lock`), commits `Release vX.Y.Z`, tags `vX.Y.Z`, and pushes. Pushing the
+   tag triggers `.github/workflows/release.yml`, which builds installers for every OS and
+   **publishes a real GitHub release** at https://github.com/algorisys-oss/autodev/releases (no
+   longer a draft — `releaseDraft: false`).
+5. Fast-forward `main` to the release commit and push `main`.
+
+Do not ship without bumping the version and writing the release note — every "ship it" produces a
+downloadable release. The in-app version (Help → About, and the header) comes from
+`env!("CARGO_PKG_VERSION")`, so keep `Cargo.toml` in the bump (step 4 does this).
 
 ## Naming
 
