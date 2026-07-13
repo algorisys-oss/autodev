@@ -267,7 +267,16 @@ fn codex_spec() -> BackendSpec {
         add_cwd_to_dirs: false,
         images: ImageMode::Flag { flag: "-i".into() },
         prompt: PromptMode::Positional,
-        structured: None,
+        structured: Some(StructuredMode {
+            // `codex exec --json` prints JSONL events; the `exec` subcommand must lead. The
+            // git-repo check is skipped so a non-repo project dir doesn't abort the run.
+            flags: vec![
+                "exec".into(),
+                "--json".into(),
+                "--skip-git-repo-check".into(),
+            ],
+            driver: "codexJsonl".into(),
+        }),
     }
 }
 
@@ -383,19 +392,41 @@ mod tests {
     }
 
     #[test]
+    fn rich_codex_leads_with_the_exec_json_subcommand() {
+        // Codex's structured mode is `codex exec --json …`; the subcommand must lead, before
+        // bypass/model/prompt.
+        let o = AgentOptions {
+            rich: true,
+            bypass_permissions: true,
+            initial_prompt: Some("go".into()),
+            ..opts()
+        };
+        assert_eq!(
+            codex_spec().build_args(&o),
+            [
+                "exec",
+                "--json",
+                "--skip-git-repo-check",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "go",
+            ]
+        );
+    }
+
+    #[test]
     fn rich_is_ignored_for_backend_without_structured_capability() {
-        // Codex has no `structured` spec, so asking for rich changes nothing.
+        // Antigravity has no `structured` spec, so asking for rich changes nothing.
         let o = AgentOptions {
             rich: true,
             ..opts()
         };
         assert_eq!(
-            codex_spec().build_args(&o),
-            codex_spec().build_args(&opts())
+            antigravity_spec().build_args(&o),
+            antigravity_spec().build_args(&opts())
         );
-        assert!(!codex_spec()
+        assert!(!antigravity_spec()
             .build_args(&o)
-            .contains(&"stream-json".to_string()));
+            .contains(&"--json".to_string()));
     }
 
     fn temp_data_dir(tag: &str) -> std::path::PathBuf {

@@ -5,7 +5,20 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Rich view — structured card-based agent sessions, increment 1 (branch
+- **Last task:** Rich view increment 2 — **Codex driver (multi-backend seam proven)** (branch
+  `feat/rich-view`, **not yet merged/shipped**). A second `StructuredDriver`
+  (`CodexJsonlDriver`, `codex exec --json`) maps Codex's `item.started`/`item.completed`/
+  `turn.completed` JSONL (agent_message → AssistantText; command_execution → ToolCall+ToolResult;
+  turn.completed → Done) onto the **same** `AgentEvent` model — so the Rich view renders Codex
+  with **zero frontend changes** (the composer offers the toggle because `backend_list` now
+  reports Codex as `structured`; `rich-pane`'s tool summarizer already reads the `command` key).
+  Both drivers share the byte-buffered `drain_lines` splitter. Codex spec declares
+  `structured: codex exec --json --skip-git-repo-check`. Driver + spec tested against real
+  `codex-cli` 0.144.0 output (6 new tests; 118 Rust + 116 frontend green, lint clean). GUI render
+  for Codex unverified here (same read-only/one-shot shape as Claude). **Next:** the interactive
+  path (approvals/follow-ups over the bidirectional stream-json contract), or reasoning-item
+  mapping for Codex.
+- **Prior task:** Rich view — structured card-based agent sessions, increment 1 (branch
   `feat/rich-view`, **not yet merged/shipped**). An opt-in alternative to the raw xterm pane:
   a session renders as native cards (assistant text, thinking, tool calls, tool results, a done
   chip with cost/duration) driven by a normalized `agent_event::AgentEvent` stream. **Scope of

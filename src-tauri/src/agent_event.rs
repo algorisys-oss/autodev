@@ -6,9 +6,10 @@
 //! renders a single shape regardless of which CLI produced it — this enum is the multi-backend
 //! contract and is mirrored in the frontend `ipc.ts`.
 //!
-//! Increment 1 ships the Claude driver ([`ClaudeStreamJsonDriver`]) for `claude -p
-//! --output-format stream-json --verbose`. The stream is newline-delimited JSON; shapes here
-//! were captured from `claude` 2.1.207.
+//! Two drivers ship so far, both line-delimited JSON (they share [`drain_lines`]):
+//! [`ClaudeStreamJsonDriver`] for `claude -p --output-format stream-json --verbose` (shapes
+//! captured from `claude` 2.1.207) and [`CodexJsonlDriver`] for `codex exec --json` (shapes
+//! captured from `codex-cli` 0.144.0) — proof the normalized model spans backends.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -73,31 +74,55 @@ pub struct ClaudeStreamJsonDriver {
 
 impl StructuredDriver for ClaudeStreamJsonDriver {
     fn feed(&mut self, bytes: &[u8]) -> Vec<AgentEvent> {
-        self.buf.extend_from_slice(bytes);
-        let mut out = Vec::new();
-        while let Some(pos) = self.buf.iter().position(|&b| b == b'\n') {
-            let line: Vec<u8> = self.buf.drain(..=pos).collect();
-            let text = String::from_utf8_lossy(&line);
-            let text = text.trim();
-            if !text.is_empty() {
-                out.extend(parse_line(text));
-            }
-        }
-        out
+        drain_lines(&mut self.buf, bytes, parse_claude_line)
     }
+}
+
+/// The driver for `codex exec --json` (JSONL, one event per line).
+#[derive(Default)]
+pub struct CodexJsonlDriver {
+    buf: Vec<u8>,
+}
+
+impl StructuredDriver for CodexJsonlDriver {
+    fn feed(&mut self, bytes: &[u8]) -> Vec<AgentEvent> {
+        drain_lines(&mut self.buf, bytes, parse_codex_line)
+    }
+}
+
+/// Buffer `bytes`, then parse each newline-terminated line with `parse`, keeping any partial
+/// trailing line for the next call. Buffered as bytes (not a decoded string) so a multi-byte
+/// UTF-8 sequence split across two PTY chunks isn't corrupted. Shared by every line-based driver.
+fn drain_lines(
+    buf: &mut Vec<u8>,
+    bytes: &[u8],
+    parse: fn(&str) -> Vec<AgentEvent>,
+) -> Vec<AgentEvent> {
+    buf.extend_from_slice(bytes);
+    let mut out = Vec::new();
+    while let Some(pos) = buf.iter().position(|&b| b == b'\n') {
+        let line: Vec<u8> = buf.drain(..=pos).collect();
+        let text = String::from_utf8_lossy(&line);
+        let text = text.trim();
+        if !text.is_empty() {
+            out.extend(parse(text));
+        }
+    }
+    out
 }
 
 /// Construct the driver named by a backend spec's `structured.driver`, if known.
 pub fn driver_for(name: &str) -> Option<Box<dyn StructuredDriver>> {
     match name {
         "claudeStreamJson" => Some(Box::<ClaudeStreamJsonDriver>::default()),
+        "codexJsonl" => Some(Box::<CodexJsonlDriver>::default()),
         _ => None,
     }
 }
 
-/// Parse one complete NDJSON line into zero or more normalized events. Unrecognized envelope
-/// types (e.g. `rate_limit_event`) produce nothing; a line that isn't valid JSON becomes `Raw`.
-fn parse_line(line: &str) -> Vec<AgentEvent> {
+/// Parse one complete Claude NDJSON line into zero or more normalized events. Unrecognized
+/// envelope types (e.g. `rate_limit_event`) produce nothing; invalid JSON becomes `Raw`.
+fn parse_claude_line(line: &str) -> Vec<AgentEvent> {
     let Ok(v) = serde_json::from_str::<Value>(line) else {
         return vec![AgentEvent::Raw {
             text: line.to_string(),
@@ -188,6 +213,58 @@ fn block_str(b: &Value, key: &str) -> String {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string()
+}
+
+/// Parse one `codex exec --json` JSONL line. Codex frames events as `thread.started` /
+/// `turn.started` / `item.started` / `item.completed` / `turn.completed`; the content lives in
+/// the `item`. Envelope-only lines produce nothing; a line that isn't valid JSON becomes `Raw`.
+fn parse_codex_line(line: &str) -> Vec<AgentEvent> {
+    let Ok(v) = serde_json::from_str::<Value>(line) else {
+        return vec![AgentEvent::Raw {
+            text: line.to_string(),
+        }];
+    };
+    match v.get("type").and_then(Value::as_str) {
+        Some("item.started") => parse_codex_item(v.get("item"), true),
+        Some("item.completed") => parse_codex_item(v.get("item"), false),
+        Some("turn.completed") => vec![AgentEvent::Done {
+            ok: true,
+            text: String::new(),
+            cost_usd: None,
+            duration_ms: None,
+        }],
+        _ => vec![],
+    }
+}
+
+/// Map a Codex `item` to normalized events. `agent_message` is the assistant's prose (on
+/// completion); `command_execution` becomes a tool call when it starts and a tool result when it
+/// finishes (ok = exit code 0). Other item kinds (e.g. reasoning) are not surfaced yet.
+fn parse_codex_item(item: Option<&Value>, started: bool) -> Vec<AgentEvent> {
+    let Some(item) = item else {
+        return vec![];
+    };
+    match item.get("type").and_then(Value::as_str) {
+        Some("agent_message") if !started => {
+            let text = block_str(item, "text");
+            if text.is_empty() {
+                vec![]
+            } else {
+                vec![AgentEvent::AssistantText { text }]
+            }
+        }
+        Some("command_execution") if started => vec![AgentEvent::ToolCall {
+            id: block_str(item, "id"),
+            name: "shell".to_string(),
+            input: serde_json::json!({ "command": block_str(item, "command") }),
+        }],
+        Some("command_execution") => vec![AgentEvent::ToolResult {
+            tool_use_id: block_str(item, "id"),
+            ok: item.get("exit_code").and_then(Value::as_i64) == Some(0),
+            output: block_str(item, "aggregated_output"),
+        }],
+        _ => vec![],
+    }
 }
 
 #[cfg(test)]
@@ -371,5 +448,90 @@ mod tests {
             done,
             serde_json::json!({ "kind": "done", "ok": true, "text": "done", "durationMs": 10 })
         );
+    }
+
+    // --- Codex driver (`codex exec --json`) ---
+    // Real lines captured from `codex-cli 0.144.0 exec --json`.
+    const CX_THREAD: &str = r#"{"type":"thread.started","thread_id":"019f5c13"}"#;
+    const CX_TURN_STARTED: &str = r#"{"type":"turn.started"}"#;
+    const CX_AGENT_MSG: &str = r#"{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"hello from codex"}}"#;
+    const CX_CMD_STARTED: &str = r#"{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"/bin/bash -lc 'cat cx.txt'","aggregated_output":"","exit_code":null,"status":"in_progress"}}"#;
+    const CX_CMD_DONE: &str = r#"{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"/bin/bash -lc 'cat cx.txt'","aggregated_output":"codex-sample-file\n","exit_code":0,"status":"completed"}}"#;
+    const CX_TURN_DONE: &str =
+        r#"{"type":"turn.completed","usage":{"input_tokens":12311,"output_tokens":8}}"#;
+
+    fn feed_codex(lines: &[&str]) -> Vec<AgentEvent> {
+        let mut d = CodexJsonlDriver::default();
+        d.feed(format!("{}\n", lines.join("\n")).as_bytes())
+    }
+
+    #[test]
+    fn codex_text_turn_yields_assistant_text_and_done() {
+        let evs = feed_codex(&[CX_THREAD, CX_TURN_STARTED, CX_AGENT_MSG, CX_TURN_DONE]);
+        assert_eq!(
+            evs,
+            vec![
+                AgentEvent::AssistantText {
+                    text: "hello from codex".into()
+                },
+                AgentEvent::Done {
+                    ok: true,
+                    text: String::new(),
+                    cost_usd: None,
+                    duration_ms: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn codex_command_execution_maps_to_toolcall_then_toolresult() {
+        let evs = feed_codex(&[CX_CMD_STARTED, CX_CMD_DONE]);
+        assert_eq!(
+            evs,
+            vec![
+                AgentEvent::ToolCall {
+                    id: "item_0".into(),
+                    name: "shell".into(),
+                    input: serde_json::json!({ "command": "/bin/bash -lc 'cat cx.txt'" }),
+                },
+                AgentEvent::ToolResult {
+                    tool_use_id: "item_0".into(),
+                    ok: true,
+                    output: "codex-sample-file\n".into(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn codex_nonzero_exit_is_a_failed_tool_result() {
+        let line = r#"{"type":"item.completed","item":{"id":"c1","type":"command_execution","command":"false","aggregated_output":"","exit_code":1,"status":"completed"}}"#;
+        assert_eq!(
+            feed_codex(&[line]),
+            vec![AgentEvent::ToolResult {
+                tool_use_id: "c1".into(),
+                ok: false,
+                output: String::new(),
+            }]
+        );
+    }
+
+    #[test]
+    fn codex_envelope_only_lines_produce_no_events_and_bad_json_is_raw() {
+        assert!(feed_codex(&[CX_THREAD, CX_TURN_STARTED]).is_empty());
+        assert_eq!(
+            feed_codex(&["not json"]),
+            vec![AgentEvent::Raw {
+                text: "not json".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn driver_for_resolves_both_backends_and_rejects_unknown() {
+        assert!(driver_for("claudeStreamJson").is_some());
+        assert!(driver_for("codexJsonl").is_some());
+        assert!(driver_for("nope").is_none());
     }
 }

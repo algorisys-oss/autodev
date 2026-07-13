@@ -19,6 +19,12 @@ Newest first. Functional changes only (LOOPS XXIV).
     `claude` 2.1.207 output.
   - Guard: a Rich launch with an empty task box is blocked (one-shot `-p` needs a prompt, else
     the CLI exits with "Input must be provided… when using --print").
+- **New: Codex is now Rich-capable too — the multi-backend seam, proven.** A second driver
+  (`CodexJsonlDriver`, for `codex exec --json`) maps Codex's `item`/`turn` JSONL onto the *same*
+  normalized `AgentEvent` model, so the Rich view renders Codex sessions with **zero UI changes** —
+  the whole point of the normalized model. Both drivers share the byte-buffered line splitter.
+  Parser tested against real `codex-cli` 0.144.0 output; the Codex backend spec declares its
+  `structured` capability (`codex exec --json --skip-git-repo-check`).
 - **New: a purpose-drawn app icon.** Replaced the placeholder loop icon (which read like a gear
   at title-bar size) and the stock SolidJS favicon with a terminal `>_` prompt on an
   indigo→violet squircle, with a faint offset chevron for the parallel-agents motif. Regenerated

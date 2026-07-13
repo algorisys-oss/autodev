@@ -2,6 +2,35 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Rich view — increment 2: Codex driver (branch `feat/rich-view`) — multi-backend seam proven
+
+**Context:** Increment 1 built the normalized event model justified by "so Codex/others plug in
+behind the same UI." Until a second backend flowed through it, that was a claim, not a fact.
+
+**Research (before coding, same discipline as Claude):** `codex-cli` 0.144.0 has `codex exec
+--json` (JSONL). Captured real output: `thread.started` → `turn.started` →
+`item.started/completed{item:{type:"command_execution",command,aggregated_output,exit_code}}` →
+`item.completed{item:{type:"agent_message",text}}` → `turn.completed`.
+
+**Approach:** `CodexJsonlDriver` in `agent_event.rs`, mapping agent_message → AssistantText,
+command_execution → ToolCall (on `item.started`) + ToolResult (on `item.completed`, ok = exit 0),
+turn.completed → Done. Extracted the byte-buffered line splitter into `drain_lines(buf, bytes,
+parse_fn)` so both drivers share the multibyte-safe/partial-line logic; Claude's `parse_line`
+renamed `parse_claude_line`. `driver_for` gained `codexJsonl`. Codex `BackendSpec` declares
+`structured: { flags: [exec, --json, --skip-git-repo-check], driver: codexJsonl }` — the `exec`
+subcommand leads, then the existing bypass/model/prompt args follow.
+
+**Zero frontend changes** — the payoff: `backend_list` reports Codex `structured: true`, so the
+composer offers the Rich toggle automatically; `rich-pane` renders the same normalized events and
+its tool-arg summarizer already reads the `command` key Codex uses.
+
+**TDD/verify:** 5 codex driver tests (text turn, command→toolcall/toolresult, non-zero exit →
+failed result, envelope-only → no events / bad JSON → Raw, `driver_for` resolves both) + a codex
+rich-args spec test; the "rich ignored without capability" test moved to Antigravity (Codex now
+has the capability). 118 Rust + 116 frontend green; clippy/rustfmt/eslint/tsc clean. GUI render
+for Codex not eyeballed (same read-only/one-shot shape as Claude). **Not mapped yet:** Codex
+reasoning items (→ Thinking) — no fixture captured, left out per no-untested-code.
+
 ## Rich view — increment 1 (branch `feat/rich-view`) — SPIKE COMPLETE, GUI unverified
 
 **Context:** User asked for an opt-in "richer way to interact with agents" than the raw xterm
