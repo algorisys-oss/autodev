@@ -22,6 +22,19 @@ fans out two `claude` agents, each with its **own** prompt and `@`-mentioned pro
 own worktree. This is the "N copies of one task" fan-out turned into "N different sub-tasks of one
 project". Captured headlessly on a virtual display, same method as above.
 
+## Screenshot → annotate → cross-agent dispatch
+
+[`screenshot-annotation-demo.mp4`](screenshot-annotation-demo.mp4) — a real screen recording of the
+screenshot + **structured annotation** flow (P9): type a task, click **📷** to capture the screen,
+draw a box and add **notes** (one per line) in the annotator, **Attach**, then launch. The
+screenshot *and* the notes fan out to the agent — and because the notes travel as **prompt text**,
+they reach any backend, including ones that ignore image attachments. The agent's terminal shows the
+exact prompt it received, with the `## Annotations` block. Captured headlessly on a virtual display
+(screenshots grabbed via ffmpeg's `x11grab`), driving a real release build with a drop-in demo
+backend.
+
+![screenshot + annotation demo](screenshot-annotation-demo.png)
+
 ## Runnable script (no GUI, no auth)
 
 For a version you can run anywhere in seconds, `multi-agent-demo.sh` reproduces the same

@@ -4,6 +4,18 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Verified end-to-end: screenshot → annotate → cross-agent dispatch (+ demo)
+- Drove the real release build on a virtual display (Xvfb) and confirmed the whole flow works:
+  clicking 📷 captures the screen and opens the annotator; drawing + notes attach as a structured
+  annotation; launching dispatches it to the agent — the agent's terminal shows the `## Annotations`
+  notes in its prompt (verified on a drop-in no-image backend, proving the notes reach *any*
+  backend as text). Also incidentally exercised P1 (a drop-in `~/.autodev/backends/*.json` appeared
+  in the picker) and P9 end to end. Recording: [`demo/screenshot-annotation-demo.mp4`](demo/screenshot-annotation-demo.mp4).
+- Minor: `capture_screen` (and any settings read) fails if `~/.autodev/settings.json` is missing a
+  field like `defaultEffort` — surfaced during the demo with a partial settings file. Real installs
+  written by the app are complete, so this only bites hand-edited partial files; noted for a future
+  `#[serde(default)]` hardening pass.
+
 ### Fix: microphone (voice input) on Linux
 - Voice recording failed on Linux with `NotAllowedError` because WebKitGTK disables the
   media-stream feature and denies `getUserMedia` by default. The Tauri core now, on Linux,
