@@ -2,7 +2,10 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
-## Unreleased (branch `feat/rich-view`)
+## v0.11.0 — 2026-07-13
+
+The **Rich view**: an opt-in, structured, card-based way to run agents — with multi-turn
+conversations and real permission control — alongside the existing terminal.
 
 - **New: per-action tool approval (B2) — approve/deny every tool call as it happens.** An opt-in
   **Approvals** mode for Rich Claude sessions: each tool call pauses and surfaces an Approve/Deny
