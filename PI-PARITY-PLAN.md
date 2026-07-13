@@ -193,7 +193,7 @@ not a smuggled task. Decide the trust/security model first (LOOPS XV).
 → **Done:** a third-party folder adds a backend + hook + composer command with no edits to
 the AutoDev source tree.
 
-### P6 — Headless / RPC mode *(Track A; turns app into platform)* — ✅ DONE (v0.11.1-dev)
+### P6 — Headless / RPC mode *(Track A; turns app into platform)* — ✅ DONE (v0.12.0)
 Expose the orchestrator over JSONL (stdin/stdout or a local socket) — Pi's RPC/SDK
 equivalent.
 → **Done:** drive a full spawn → prompt → observe → kill cycle from a shell script, no GUI.

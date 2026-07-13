@@ -2,7 +2,7 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
-## Unreleased (branch `feat/headless-rpc`)
+## v0.12.0 — 2026-07-13
 
 - **New: headless / RPC mode (P6) — drive the orchestrator with no GUI.** A new
   `autodev-headless` binary (and `./dev.sh headless`) speaks **JSONL over stdin/stdout**: pipe
