@@ -5,7 +5,17 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Executable extensions (P5 of `PI-PARITY-PLAN.md`, on `dev`). Drop a
+- **Last task:** Pi as a backend (M1 spike, on `dev`). Installed Pi (v0.80.6), verified its CLI
+  flags, and shipped a working backend spec: `examples/backends/pi.json` (+ installed to
+  `~/.autodev/backends/pi.json`). AutoDev launches **Pi** as an interactive cell via P1 — model→
+  `--model`, bypass→`--approve`, one-shot→`-p`, positional prompt; a Rust test (`include_str!`)
+  locks the mapping. Running a model needs Pi's own `/login`. **Known gaps** (in
+  `examples/backends/README.md`): no `--add-dir` forwarding, no plan/image mapping, and Pi's
+  extensions run *inside* the cell — the RPC embedding (P7) that would surface pi-annotate in
+  AutoDev's UI is still future work. **Verify:** `./dev.sh verify` green. GUI-only: a live Pi PTY
+  session (flag acceptance was confirmed via `pi --approve --model … -p …`, which reached the
+  auth prompt).
+- **Prior task:** Executable extensions (P5 of `PI-PARITY-PLAN.md`, on `dev`). Drop a
   self-contained JS module in `~/.autodev/extensions/`; its default export gets an `autodev` API
   to register P3 hooks and composer `/commands`. **Trust model (chosen with user): trusted +
   surfaced** — no sandbox (user's own files), but Settings lists loaded extensions with ✓/✗ +

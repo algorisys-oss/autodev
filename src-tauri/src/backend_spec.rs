@@ -365,6 +365,45 @@ mod tests {
         assert_eq!(load_specs_from(&missing).len(), builtin_specs().len());
     }
 
+    /// The shipped Pi backend example (`examples/backends/pi.json`) deserializes and maps
+    /// AutoDev's toggles to real, verified `pi` flags (checked against pi v0.80.6). Uses
+    /// `include_str!` so a change to the example that breaks the mapping fails here.
+    #[test]
+    fn pi_example_spec_maps_to_verified_pi_flags() {
+        let json = include_str!("../../examples/backends/pi.json");
+        let spec: BackendSpec = serde_json::from_str(json).expect("example pi.json is valid");
+        assert_eq!(spec.program, "pi");
+
+        // Interactive run: model + bypass(→ --approve) + positional prompt. Plan mode is
+        // ignored (Pi's --plan is an extension, not core); add_dirs/images are dropped (Pi has
+        // no --add-dir and takes images via @path, which this spec format can't emit).
+        let o = AgentOptions {
+            backend: AgentBackend::Custom("pi".into()),
+            cwd: "/proj".into(),
+            plan_mode: true,
+            bypass_permissions: true,
+            print_mode: false,
+            model: Some("google/gemini-2.0-flash".into()),
+            initial_prompt: Some("do it".into()),
+            add_dirs: vec!["/other".into()],
+            images: vec!["/s.png".into()],
+            mock_command: None,
+        };
+        assert_eq!(
+            spec.build_args(&o),
+            ["--approve", "--model", "google/gemini-2.0-flash", "do it"]
+        );
+
+        // One-shot/print mode → -p, no plan leakage.
+        let p = AgentOptions {
+            print_mode: true,
+            bypass_permissions: false,
+            model: None,
+            ..o
+        };
+        assert_eq!(spec.build_args(&p), ["-p", "do it"]);
+    }
+
     /// The heart of P1: a spec that arrives as data (JSON) builds the same args as code.
     #[test]
     fn spec_deserialized_from_json_builds_args() {

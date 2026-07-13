@@ -1,0 +1,10 @@
+{
+  "id": "pi",
+  "label": "Pi",
+  "program": "pi",
+  "models": ["google/gemini-2.0-flash", "anthropic/claude-sonnet-5", "openai/gpt-5"],
+  "printFlag": ["-p"],
+  "bypassFlag": ["--approve"],
+  "modelFlag": "--model",
+  "prompt": { "mode": "positional" }
+}

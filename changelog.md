@@ -4,6 +4,21 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Pi as a backend (M1 spike → verified)
+- Ran the M1 spike: installed Pi (`@earendil-works/pi-coding-agent` v0.80.6), read its real CLI,
+  and produced a **verified** backend spec — `examples/backends/pi.json` (also installed to
+  `~/.autodev/backends/` here). AutoDev can now launch **Pi** as an interactive agent cell via the
+  P1 file-drop, no code changes.
+- Flag mapping (confirmed accepted by `pi`, not guessed): model → `--model`; bypass/yolo →
+  `--approve` (Pi has no per-action permission system — this pre-trusts project-local files);
+  one-shot → `-p`; prompt passed positionally. A Rust test (`include_str!` of the example) locks
+  the mapping.
+- **Scope:** this is Pi-as-an-interactive-cell. Known gaps (documented in
+  `examples/backends/README.md`): `@`-mentioned *other* dirs aren't forwarded (Pi has no
+  `--add-dir`), plan mode and image attach aren't mapped, and Pi's own extensions (pi-annotate)
+  run inside the Pi cell rather than surfaced in AutoDev's UI — the deeper RPC embedding (P7) is
+  still future work. Running a model requires Pi's own `/login`.
+
 ### Maximize the task editor
 - The New-task box now has a **⛶ maximize** button that opens a large full-window editor for
   writing longer prompts, bound to the same text (edits carry back on minimize). Close with

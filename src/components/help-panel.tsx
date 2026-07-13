@@ -236,6 +236,12 @@ const SECTIONS: Section[] = [
           with a <code>{"{path}"}</code> template); <code>prompt</code> (<code>positional</code> or
           <code>flag</code>). Only <code>id</code> and <code>program</code> are required.
         </p>
+        <p class="help-muted">
+          A ready-made <strong>Pi</strong> backend ships in <code>examples/backends/pi.json</code>.
+          Install Pi (<code>npm i -g @earendil-works/pi-coding-agent</code>), log it in once with{" "}
+          <code>pi</code> → <code>/login</code>, copy that file to
+          <code> ~/.autodev/backends/pi.json</code>, and pick <strong>Pi</strong> as the backend.
+        </p>
 
         <h4>Prompt templates</h4>
         <p>
