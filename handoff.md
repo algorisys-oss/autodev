@@ -5,8 +5,13 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Rich view increment 3B(2) — **per-action tool approval (B2)** (branch
-  `feat/rich-view`, **not yet merged/shipped**). Opt-in **Approvals** mode: each tool call in a
+- **SHIPPED: v0.11.0 (2026-07-13)** — the whole Rich-view arc merged to `dev` + `main` and
+  released (tag `v0.11.0`; CI builds the installers). Rich view (Claude) + Codex driver +
+  multi-turn follow-ups + B1 tool lists + B2 per-action approval + dynamic branch footer + new
+  icon. GUI-confirmed by the user for the Rich view, follow-ups, tool-block, and B2 approval
+  card. `feat/rich-view` is merged; new work branches from `dev` again.
+- **Last task:** Rich view increment 3B(2) — **per-action tool approval (B2)** (shipped in
+  v0.11.0). Opt-in **Approvals** mode: each tool call in a
   Rich Claude session pauses and shows an Approve/Deny card; the click unblocks or blocks the
   agent. Built on Claude Code's **`PreToolUse` hook** — no MCP/SDK/socket. New `approvals.rs`
   generates a per-session `--settings` file whose hook (a shell script, matcher `*`) writes each
