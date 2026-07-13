@@ -268,6 +268,12 @@ export function PromptComposer(props: {
       setError("Add a project directory to this workspace first.");
       return;
     }
+    // Rich view is one-shot (`claude -p`): with no prompt the CLI exits immediately with
+    // "Input must be provided… when using --print". Block that rather than spawn a dead session.
+    if (rich() && supportsRich() && !text().trim()) {
+      setError("Rich view runs the agent once on your prompt — type a task before launching.");
+      return;
+    }
 
     // Analyze-on-launch (opt-in): the first Launch on a task that isn't already split and whose
     // count wasn't set by hand runs the classifier and pauses for review. A second Launch (now

@@ -17,6 +17,8 @@ Newest first. Functional changes only (LOOPS XXIV).
     `structured` capability lives in the declarative `BackendSpec`, and the normalized events are
     emitted to the frontend on a new `agent://event` channel. Parser tested against real
     `claude` 2.1.207 output.
+  - Guard: a Rich launch with an empty task box is blocked (one-shot `-p` needs a prompt, else
+    the CLI exits with "Input must be provided… when using --print").
 - **New: a purpose-drawn app icon.** Replaced the placeholder loop icon (which read like a gear
   at title-bar size) and the stock SolidJS favicon with a terminal `>_` prompt on an
   indigo→violet squircle, with a faint offset chevron for the parallel-agents motif. Regenerated

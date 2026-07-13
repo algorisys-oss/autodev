@@ -15,7 +15,9 @@ vi.mock("../lib/ipc", () => ({
   transcribeAudio: vi.fn(),
   captureScreen: vi.fn(),
   saveShot: vi.fn(),
-  backendList: vi.fn(() => Promise.resolve([{ id: "claude", label: "Claude", models: [] }])),
+  backendList: vi.fn(() =>
+    Promise.resolve([{ id: "claude", label: "Claude", models: [], structured: true }]),
+  ),
   listTemplates: vi.fn(() =>
     Promise.resolve([{ name: "refactor", body: "Refactor this for clarity." }]),
   ),
@@ -252,5 +254,56 @@ describe("PromptComposer maximize", () => {
 
     expect(container.querySelector(".composer-max-text")).toBeNull();
     expect(small().value).toBe("draft task, expanded"); // edits carried back
+  });
+});
+
+describe("PromptComposer Rich view", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Pin the setting off — clearAllMocks keeps a prior describe's persistent mockResolvedValue,
+    // which would otherwise send launch down the analyze-on-launch path instead of spawning.
+    getSettingsMock.mockResolvedValue({ autoSplitOnLaunch: false });
+  });
+
+  const hasRichToggle = (container: HTMLElement) =>
+    [...container.querySelectorAll(".composer-toggles label")].some((l) =>
+      l.textContent?.includes("Rich view"),
+    );
+  const taskBox = (container: HTMLElement) =>
+    container.querySelector(".composer-text") as HTMLTextAreaElement;
+
+  it("offers the Rich view toggle only for a structured-capable backend", async () => {
+    const { agents } = storeWithRecorder();
+    const { container } = render(() => <PromptComposer workspace={workspace} agents={agents} />);
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+  });
+
+  it("blocks a Rich launch with an empty prompt (one-shot needs input) and does not spawn", async () => {
+    const { agents, spawned } = storeWithRecorder();
+    const { container, getByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+    fireEvent.change(labelInput(container, "Rich view"), { target: { checked: true } });
+
+    fireEvent.click(getByText(/Launch \d agent/));
+
+    await waitFor(() => expect(getByText(/type a task before launching/)).toBeTruthy());
+    expect(spawned).toHaveLength(0);
+  });
+
+  it("passes rich: true through to spawn when Rich view is on and a prompt is given", async () => {
+    const { agents, spawned } = storeWithRecorder();
+    const { container, getByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+    fireEvent.change(labelInput(container, "Rich view"), { target: { checked: true } });
+    fireEvent.input(taskBox(container), { target: { value: "Read package.json" } });
+
+    fireEvent.click(getByText(/Launch \d agent/));
+
+    await waitFor(() => expect(spawned).toHaveLength(1));
+    expect(spawned[0].rich).toBe(true);
   });
 });
