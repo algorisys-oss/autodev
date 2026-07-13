@@ -12,6 +12,7 @@ export const RichPane: Component<{
   store: {
     state: { agents: AgentView[] };
     followUp: (agentId: string, text: string) => Promise<void>;
+    respondApproval: (agentId: string, requestId: string, allow: boolean) => Promise<void>;
   };
 }> = (props) => {
   const agent = () => props.store.state.agents.find((a) => a.id === props.agentId);
@@ -37,7 +38,16 @@ export const RichPane: Component<{
           when={events().length}
           fallback={<p class="rich-empty muted">Waiting for the agent’s first event…</p>}
         >
-          <For each={events()}>{(ev) => <EventCard ev={ev} />}</For>
+          <For each={events()}>
+            {(ev) => (
+              <EventCard
+                ev={ev}
+                onRespond={(requestId, allow) =>
+                  void props.store.respondApproval(props.agentId, requestId, allow)
+                }
+              />
+            )}
+          </For>
         </Show>
       </div>
       <div class="rich-followup">
@@ -69,9 +79,42 @@ export const RichPane: Component<{
   );
 };
 
-const EventCard: Component<{ ev: AgentEvent }> = (props) => {
+const EventCard: Component<{
+  ev: AgentEvent;
+  onRespond: (requestId: string, allow: boolean) => void;
+}> = (props) => {
   const ev = props.ev;
   switch (ev.kind) {
+    case "permissionRequest":
+      return (
+        <div class="rich-card rich-approval" classList={{ "rich-approval-done": !!ev.decision }}>
+          <div class="rich-approval-head">
+            <span class="rich-approval-icon" aria-hidden="true">
+              🔐
+            </span>
+            <span class="rich-tool-name">{ev.toolName}</span>
+            <span class="rich-tool-arg">{summarizeInput(ev.toolInput)}</span>
+          </div>
+          <Show
+            when={!ev.decision}
+            fallback={
+              <span
+                class="rich-approval-outcome"
+                classList={{ "rich-error": ev.decision === "deny" }}
+              >
+                {ev.decision === "allow" ? "✓ approved" : "✕ denied"}
+              </span>
+            }
+          >
+            <div class="rich-approval-actions">
+              <button class="primary" onClick={() => props.onRespond(ev.requestId, true)}>
+                Approve
+              </button>
+              <button onClick={() => props.onRespond(ev.requestId, false)}>Deny</button>
+            </div>
+          </Show>
+        </div>
+      );
     case "sessionInit":
       return (
         <div class="rich-card rich-init">

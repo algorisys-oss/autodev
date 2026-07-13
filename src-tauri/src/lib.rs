@@ -1,5 +1,6 @@
 mod agent;
 mod agent_event;
+mod approvals;
 mod backend_spec;
 mod capture;
 mod commands;
@@ -81,6 +82,7 @@ pub fn run() {
             commands::agent_kill,
             commands::agent_list,
             commands::agent_kill_all,
+            commands::respond_approval,
             commands::get_prompt_history,
             commands::add_prompt_history,
             commands::git_is_repo,

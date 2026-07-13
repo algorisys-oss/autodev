@@ -48,6 +48,8 @@ pub struct BackendInfo {
     pub structured: bool,
     /// Whether this backend supports pre-launch tool allow/deny lists (Claude `--allowedTools`).
     pub tool_permissions: bool,
+    /// Whether this backend supports interactive per-action approval (Claude `--settings` hook).
+    pub interactive_approval: bool,
 }
 
 /// List every available backend so the frontend can build its picker without hardcoding
@@ -60,6 +62,7 @@ pub fn backend_list() -> Vec<BackendInfo> {
             label: s.display_label(),
             structured: s.structured.is_some(),
             tool_permissions: s.allowed_tools_flag.is_some(),
+            interactive_approval: s.settings_flag.is_some(),
             id: s.id,
             models: s.models,
         })
@@ -214,6 +217,18 @@ pub fn agent_spawn(
     let id = manager.next_id();
     let cols = cols.unwrap_or(80);
     let rows = rows.unwrap_or(24);
+    let mut options = options;
+
+    // Interactive per-action approval (B2): wire a PreToolUse hook via `--settings` so every
+    // tool call blocks on the user's Approve/Deny. Only when asked AND the backend supports it.
+    let approval_dir: Option<std::path::PathBuf> =
+        if options.interactive_approval && backend_supports_approval(&options.backend) {
+            let setup = crate::approvals::setup(&state::data_dir()?, &id, APPROVAL_TIMEOUT_SECS)?;
+            options.settings_path = Some(setup.settings_path.to_string_lossy().to_string());
+            Some(setup.dir)
+        } else {
+            None
+        };
 
     // Append raw output to a per-agent log on disk, so scrollback survives a crash
     // and the run is auditable (LOOPS XXX). Best-effort: logging never blocks a spawn.
@@ -280,8 +295,76 @@ pub fn agent_spawn(
 
     let session =
         crate::agent::spawn_session(id.clone(), &options, cols, rows, on_output, on_exit)?;
-    manager.insert(session);
+    manager.insert(session.clone());
+
+    // Watch the approval dir for tool requests the hook writes, surfacing each as a
+    // PermissionRequest event until the session ends.
+    if let Some(dir) = approval_dir {
+        spawn_approval_watcher(app, id.clone(), dir, session);
+    }
     Ok(id)
+}
+
+/// Seconds the approval hook waits for a decision before failing safe (deny).
+const APPROVAL_TIMEOUT_SECS: u32 = 120;
+
+/// Does this backend support the interactive-approval hook (a `--settings` flag)?
+fn backend_supports_approval(backend: &crate::agent::AgentBackend) -> bool {
+    crate::backend_spec::load_specs()
+        .iter()
+        .find(|s| s.id == backend.id())
+        .map(|s| s.settings_flag.is_some())
+        .unwrap_or(false)
+}
+
+/// Poll a session's approval dir and emit each new pending tool request as a PermissionRequest
+/// event, until the session process exits.
+fn spawn_approval_watcher(
+    app: AppHandle,
+    id: String,
+    dir: std::path::PathBuf,
+    session: Arc<crate::agent::AgentSession>,
+) {
+    std::thread::spawn(move || {
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        loop {
+            for p in crate::approvals::list_pending(&dir) {
+                if seen.insert(p.id.clone()) {
+                    let _ = app.emit(
+                        "agent://event",
+                        AgentEventPayload {
+                            id: id.clone(),
+                            event: crate::agent_event::AgentEvent::PermissionRequest {
+                                request_id: p.id,
+                                tool_name: p.tool_name,
+                                tool_input: p.tool_input,
+                            },
+                        },
+                    );
+                }
+            }
+            if !session.is_running() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+    });
+}
+
+/// Answer a pending tool-approval request (Approve/Deny) from the Rich view.
+#[tauri::command]
+pub fn respond_approval(id: String, request_id: String, allow: bool) -> AppResult<()> {
+    // `id` (agent id) forms a path segment — reject any traversal before touching the fs.
+    if id.contains('/') || id.contains('\\') || id.contains("..") {
+        return Err(AppError::NotFound(format!("invalid agent id {id}")));
+    }
+    let dir = state::data_dir()?.join("approvals").join(&id);
+    let reason = if allow {
+        "Approved in AutoDev"
+    } else {
+        "Denied in AutoDev"
+    };
+    crate::approvals::respond(&dir, &request_id, allow, reason)
 }
 
 #[tauri::command]

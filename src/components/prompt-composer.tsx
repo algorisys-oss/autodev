@@ -48,6 +48,8 @@ export function PromptComposer(props: {
   // Pre-launch tool permission lists (B1), comma/space-separated. Only for capable backends.
   const [allowTools, setAllowTools] = createSignal("");
   const [denyTools, setDenyTools] = createSignal("");
+  // Interactive per-action approval (B2). Requires Rich; mutually exclusive with Bypass.
+  const [approvals, setApprovals] = createSignal(false);
   const [ultrathink, setUltrathink] = createSignal(false);
   const [isolate, setIsolate] = createSignal(false);
   const [runIn, setRunIn] = createSignal<string>("");
@@ -75,6 +77,9 @@ export function PromptComposer(props: {
   // ...and pre-launch tool allow/deny lists?
   const supportsToolPerms = () =>
     backends().find((b) => b.id === backend())?.toolPermissions ?? false;
+  // ...and interactive per-action approval?
+  const supportsApproval = () =>
+    backends().find((b) => b.id === backend())?.interactiveApproval ?? false;
   // Split a comma/space-separated tool list into names.
   const parseTools = (s: string) => s.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean);
 
@@ -319,8 +324,10 @@ export function PromptComposer(props: {
             backend: backend(),
             cwd,
             planMode: planMode(),
-            bypassPermissions: bypass(),
-            rich: rich() && supportsRich(),
+            // Approval and bypass are mutually exclusive; approval implies a Rich session.
+            bypassPermissions: bypass() && !(approvals() && supportsApproval()),
+            rich: (rich() || (approvals() && supportsApproval())) && supportsRich(),
+            interactiveApproval: approvals() && supportsApproval(),
             allowedTools: supportsToolPerms() ? parseTools(allowTools()) : undefined,
             disallowedTools: supportsToolPerms() ? parseTools(denyTools()) : undefined,
             addDirs,
@@ -568,9 +575,12 @@ export function PromptComposer(props: {
 
       <div class="composer-toggles">
         <label><input type="checkbox" checked={planMode()} onChange={(e) => setPlanMode(e.currentTarget.checked)} /> Plan mode</label>
-        <label><input type="checkbox" checked={bypass()} onChange={(e) => setBypass(e.currentTarget.checked)} /> Bypass permissions</label>
+        <label><input type="checkbox" checked={bypass()} onChange={(e) => { setBypass(e.currentTarget.checked); if (e.currentTarget.checked) setApprovals(false); }} /> Bypass permissions</label>
         <Show when={supportsRich()}>
-          <label title="Render this session as structured cards instead of a raw terminal (one-shot)"><input type="checkbox" checked={rich()} onChange={(e) => setRich(e.currentTarget.checked)} /> Rich view</label>
+          <label title="Render this session as structured cards instead of a raw terminal (one-shot)"><input type="checkbox" checked={rich() || (approvals() && supportsApproval())} disabled={approvals() && supportsApproval()} onChange={(e) => setRich(e.currentTarget.checked)} /> Rich view</label>
+        </Show>
+        <Show when={supportsApproval()}>
+          <label title="Approve or deny every tool call in the Rich view (implies Rich; disables Bypass)"><input type="checkbox" checked={approvals()} onChange={(e) => { const on = e.currentTarget.checked; setApprovals(on); if (on) { setRich(true); setBypass(false); } }} /> Approvals</label>
         </Show>
         <label><input type="checkbox" checked={ultrathink()} onChange={(e) => setUltrathink(e.currentTarget.checked)} /> Ultrathink</label>
         <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>

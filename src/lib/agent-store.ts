@@ -126,6 +126,9 @@ export interface AgentView {
    *  resumed turn can't silently regain a blocked tool (B1). */
   allowedTools?: string[];
   disallowedTools?: string[];
+  /** Whether this session gates every tool on interactive Approve/Deny (B2); carried into
+   *  follow-up turns so approval isn't silently dropped. */
+  interactiveApproval?: boolean;
 }
 
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
@@ -296,6 +299,7 @@ export function createAgentStore(deps?: {
       events: [],
       allowedTools: opts.allowedTools,
       disallowedTools: opts.disallowedTools,
+      interactiveApproval: opts.interactiveApproval,
     });
     setState("focusedId", id);
     return id;
@@ -322,9 +326,24 @@ export function createAgentStore(deps?: {
       initialPrompt: text,
       allowedTools: a.allowedTools,
       disallowedTools: a.disallowedTools,
+      interactiveApproval: a.interactiveApproval,
     });
     const coreId = await api.agentSpawn(opts);
     resumeMap.set(coreId, agentId);
+  }
+
+  /** Answer a pending tool-approval request. Optimistically marks the request's card resolved,
+   *  then tells the core to write the decision file that unblocks the agent. */
+  async function respondApproval(agentId: string, requestId: string, allow: boolean): Promise<void> {
+    const i = indexOf(agentId);
+    if (i < 0) return;
+    const events = state.agents[i].events;
+    const eIdx = events.findIndex((e) => e.kind === "permissionRequest" && e.requestId === requestId);
+    const ev = events[eIdx];
+    if (ev && ev.kind === "permissionRequest") {
+      setState("agents", i, "events", eIdx, { ...ev, decision: allow ? "allow" : "deny" });
+    }
+    await api.respondApproval(agentId, requestId, allow);
   }
 
   async function kill(id: string) {
@@ -390,6 +409,7 @@ export function createAgentStore(deps?: {
     hooks,
     spawn,
     followUp,
+    respondApproval,
     kill,
     killAll,
     close,

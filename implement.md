@@ -2,6 +2,44 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Rich view — increment 3B(2): per-action tool approval / B2 (branch `feat/rich-view`)
+
+**Context:** B2 is the true per-action approve/deny buttons deferred earlier. User chose to pursue
+it. Earlier research said it needed the SDK (Node sidecar); this increment found a Rust-native
+path.
+
+**Research (empirical, the crux):** `--permission-prompt-tool` does NOT exist in 2.1.207 and
+headless stream-json emits no inline permission events. BUT Claude Code **hooks** do: a
+`PreToolUse` hook (configured via `--settings`) **fires in headless `-p` stream-json mode**,
+receives the tool call as JSON on stdin (`tool_name`, `tool_input`, session id), and can return
+`permissionDecision: allow|deny|ask` to gate the tool. Verified live: deny blocks, allow proceeds,
+and the full file-based round-trip (hook writes request → app writes decision → tool runs)
+completes against real `claude`. Also verified matcher `*` gates *any* tool (Read), not just Bash.
+
+**Design (Rust-native, no MCP/SDK/socket):** `approvals.rs` — `setup()` creates a per-session
+approval dir + a blocking hook script (shell, `mktemp` request file, polls for `<req>.decision`,
+120s auto-deny) + a `--settings` JSON wiring the hook (matcher `*`); `list_pending()` reads
+undecided `req.*` files; `respond()` writes the decision (with path-traversal validation on the
+id). `BackendSpec.settings_flag` (Claude `--settings`) + `AgentOptions.interactive_approval` +
+internal `settings_path`; `build_args` emits `--settings <path>`. `commands.rs`: `agent_spawn`
+sets up approval + spawns a watcher thread that emits a normalized `PermissionRequest` event per
+new request; `respond_approval` command writes the decision (validates the agent id too).
+`backend_list` reports `interactive_approval`. Frontend: `ipc.ts` mirrors the event +
+`respondApproval` + `AgentOptions.interactiveApproval` + `BackendInfo.interactiveApproval`;
+`agent-store` collects the events, `respondApproval()` optimistically marks the card resolved and
+calls the core (carried into follow-ups); `rich-pane` renders the Approve/Deny card;
+composer **Approvals** toggle (implies Rich, mutually exclusive with Bypass).
+
+**Security (LOOPS XV):** filesystem transport (nothing listens on a port), user-only (0700) dir +
+hook perms, path-traversal validation on both the agent id (path segment) and request id, explicit
+opt-in never a silent default, fail-safe deny on timeout.
+
+**TDD/verify:** Rust +5 (approvals setup/list/respond/traversal + settings build_args); frontend
++2 (approval toggle → spawn, respondApproval round-trip). 129 Rust + 122 frontend green;
+clippy/rustfmt/eslint/tsc + vite build clean. End-to-end proven with AutoDev's exact generated
+config. GUI (card/buttons/toggle) not eyeballed. **Not done:** approval-dir cleanup on close;
+Windows hook; per-tool "always allow"; Codex approval.
+
 ## Rich view — increment 3B(1): pre-launch tool permissions (branch `feat/rich-view`)
 
 **Context:** User chose B1 (pre-launch tool allow/deny) after research showed true per-action

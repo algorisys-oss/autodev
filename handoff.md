@@ -5,7 +5,24 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Rich view increment 3B(1) — **pre-launch tool permissions** (branch
+- **Last task:** Rich view increment 3B(2) — **per-action tool approval (B2)** (branch
+  `feat/rich-view`, **not yet merged/shipped**). Opt-in **Approvals** mode: each tool call in a
+  Rich Claude session pauses and shows an Approve/Deny card; the click unblocks or blocks the
+  agent. Built on Claude Code's **`PreToolUse` hook** — no MCP/SDK/socket. New `approvals.rs`
+  generates a per-session `--settings` file whose hook (a shell script, matcher `*`) writes each
+  request into a user-only approval dir (`<data_dir>/approvals/<agent-id>/`) and **blocks** on a
+  decision file; the core's watcher thread emits a normalized `PermissionRequest` event per
+  request, and `respond_approval` writes the decision. Fails safe: 120s auto-deny. Mutually
+  exclusive with Bypass; implies Rich. Security (LOOPS XV): filesystem transport (no port),
+  user-only dir perms, path-traversal validation on both the agent id and request id.
+  **Proven end-to-end vs real `claude` 2.1.207** with AutoDev's exact generated config: matcher
+  `*` gates *any* tool (Read gated + denied), allow proceeds, deny blocks, timeout denies.
+  **Verify:** 129 Rust + 122 frontend tests, clippy/rustfmt/eslint/tsc + vite build clean. GUI
+  (approval card + buttons + composer toggle) unverified here. **Follow-ons:** clean up the
+  approval dir on session close; Windows hook (`.cmd`); per-tool "always allow"; Codex's own
+  approval flow (`--ask-for-approval`). **B-track is now complete** (B1 pre-launch lists + B2
+  per-action approval).
+- **Prior task:** Rich view increment 3B(1) — **pre-launch tool permissions** (branch
   `feat/rich-view`, **not yet merged/shipped**). The composer gained a **Tool permissions**
   section (shown for backends that declare the capability — Claude) to auto-allow and/or block
   tools before launch, wired to `--allowedTools`/`--disallowedTools`. Blocked tools are removed

@@ -28,6 +28,7 @@ function harness() {
     agentKill: vi.fn(async () => {}),
     agentKillAll: vi.fn(async () => 0),
     agentWrite: vi.fn(async () => {}),
+    respondApproval: vi.fn(async () => {}),
   } as unknown as typeof ipc;
   let clock = 1000;
   return { subscribe, emit, api, now: () => clock, setClock: (t: number) => (clock = t) };
@@ -331,6 +332,25 @@ describe("agent store", () => {
       await store.followUp("agent-1", "too early"); // no sessionInit yet
       expect(h.api.agentSpawn).toHaveBeenCalledTimes(1); // no second spawn
       expect(store.focused()?.events).toEqual([]);
+      dispose();
+    });
+  });
+
+  it("respondApproval marks the request's card resolved and tells the core", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p", rich: true, interactiveApproval: true }, "p");
+      h.emit("agent://event", {
+        id: "agent-1",
+        event: { kind: "permissionRequest", requestId: "req.aaa", toolName: "Bash", toolInput: { command: "ls" } },
+      });
+
+      await store.respondApproval("agent-1", "req.aaa", true);
+
+      const ev = store.focused()!.events.find((e) => e.kind === "permissionRequest");
+      expect(ev?.kind === "permissionRequest" && ev.decision).toBe("allow");
+      expect(h.api.respondApproval).toHaveBeenCalledWith("agent-1", "req.aaa", true);
       dispose();
     });
   });

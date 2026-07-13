@@ -97,6 +97,10 @@ pub struct BackendSpec {
     /// Flag for the blocked tool list (Claude `--disallowedTools`). None = unsupported.
     #[serde(default)]
     pub disallowed_tools_flag: Option<String>,
+    /// Flag to load an extra settings file (Claude `--settings`). Used to wire the per-action
+    /// approval hook (B2). None = no interactive approval support for this backend.
+    #[serde(default)]
+    pub settings_flag: Option<String>,
     /// Prepend the working directory as the first add-dir. `agy` writes into its workspace
     /// rather than its process cwd, so the cwd must be added explicitly or deliverables land
     /// in a scratch project.
@@ -159,6 +163,12 @@ impl BackendSpec {
             if !opts.disallowed_tools.is_empty() {
                 args.push(format!("{}={}", flag, opts.disallowed_tools.join(",")));
             }
+        }
+
+        // Extra settings file (Claude `--settings`), used to wire the per-action approval hook.
+        if let (Some(flag), Some(path)) = (&self.settings_flag, &opts.settings_path) {
+            args.push(flag.clone());
+            args.push(path.clone());
         }
 
         if let (Some(flag), Some(model)) = (&self.model_flag, &opts.model) {
@@ -273,6 +283,7 @@ fn claude_spec() -> BackendSpec {
         add_dir_flag: Some("--add-dir".into()),
         allowed_tools_flag: Some("--allowedTools".into()),
         disallowed_tools_flag: Some("--disallowedTools".into()),
+        settings_flag: Some("--settings".into()),
         add_cwd_to_dirs: false,
         images: screenshot_append(),
         prompt: PromptMode::Positional,
@@ -310,6 +321,7 @@ fn codex_spec() -> BackendSpec {
         add_dir_flag: None,
         allowed_tools_flag: None,
         disallowed_tools_flag: None,
+        settings_flag: None,
         add_cwd_to_dirs: false,
         images: ImageMode::Flag { flag: "-i".into() },
         prompt: PromptMode::Positional,
@@ -348,6 +360,7 @@ fn antigravity_spec() -> BackendSpec {
         add_dir_flag: Some("--add-dir".into()),
         allowed_tools_flag: None,
         disallowed_tools_flag: None,
+        settings_flag: None,
         add_cwd_to_dirs: true,
         images: screenshot_append(),
         prompt: PromptMode::Flag { flag: "-i".into() },
@@ -371,6 +384,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -543,6 +558,20 @@ mod tests {
     }
 
     #[test]
+    fn settings_path_emits_the_settings_flag_for_claude() {
+        let o = AgentOptions {
+            settings_path: Some("/tmp/s.json".into()),
+            initial_prompt: Some("go".into()),
+            ..opts()
+        };
+        let args = claude_spec().build_args(&o);
+        assert!(args.windows(2).any(|w| w == ["--settings", "/tmp/s.json"]));
+        // A backend without the flag ignores it.
+        let c = codex_spec().build_args(&o);
+        assert!(!c.contains(&"--settings".to_string()));
+    }
+
+    #[test]
     fn tool_lists_are_ignored_for_a_backend_without_the_flags() {
         // Codex declares no allow/deny flags, so the lists produce nothing.
         let o = AgentOptions {
@@ -636,6 +665,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: Some("google/gemini-2.0-flash".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec!["/other".into()],

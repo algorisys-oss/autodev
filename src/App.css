@@ -1194,6 +1194,29 @@ button.danger {
   white-space: pre-wrap;
   word-break: break-all;
 }
+.rich-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-color: rgba(217, 119, 6, 0.55);
+  background: rgba(234, 179, 8, 0.09);
+}
+.rich-approval-done {
+  opacity: 0.65;
+}
+.rich-approval-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.rich-approval-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.rich-approval-outcome {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
 .rich-error {
   border-color: rgba(220, 38, 38, 0.5);
 }
@@ -1216,6 +1239,10 @@ button.danger {
 }
 :root[data-theme="dark"] .rich-tool-name {
   color: #7cc7ff;
+}
+:root[data-theme="dark"] .rich-approval {
+  border-color: rgba(234, 179, 8, 0.5);
+  background: rgba(234, 179, 8, 0.12);
 }
 :root[data-theme="dark"] .rich-followup {
   background: #1b1b20;

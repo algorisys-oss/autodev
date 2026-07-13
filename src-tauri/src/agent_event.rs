@@ -50,6 +50,13 @@ pub enum AgentEvent {
         ok: bool,
         output: String,
     },
+    /// A tool call awaiting the user's Approve/Deny (interactive approval, B2). Emitted by the
+    /// core's approval watcher, not a driver; the frontend responds via `respond_approval`.
+    PermissionRequest {
+        request_id: String,
+        tool_name: String,
+        tool_input: Value,
+    },
     /// The session finished; `text` is its final result string.
     Done {
         ok: bool,

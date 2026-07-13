@@ -4,6 +4,15 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## Unreleased (branch `feat/rich-view`)
 
+- **New: per-action tool approval (B2) — approve/deny every tool call as it happens.** An opt-in
+  **Approvals** mode for Rich Claude sessions: each tool call pauses and surfaces an Approve/Deny
+  card in the Rich view; the agent proceeds or is blocked on your click. Built on Claude Code's
+  own `PreToolUse` hook (no MCP server, no SDK, no network port): AutoDev generates a per-session
+  `--settings` file whose hook writes each request into a user-only approval dir and blocks
+  polling for a decision file the app writes. Fails safe — a walked-away request auto-denies after
+  120s. Mutually exclusive with Bypass (and implies Rich); the mode is explicit in the UI. Proven
+  end-to-end against real `claude` 2.1.207: allow proceeds, deny blocks (any tool, matcher `*`),
+  timeout denies. *Linux/macOS for now (the hook is a shell script); Windows is a follow-on.*
 - **Fixed: the status footer's git branch is now live.** It previously only refetched when the set
   of project paths changed, so a checkout or a new agent worktree left the shown branch (and the
   ● dirty marker) stale. The footer now re-polls git status on an interval, so branch/dirty state

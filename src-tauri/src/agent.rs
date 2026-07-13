@@ -94,6 +94,14 @@ pub struct AgentOptions {
     /// Tools blocked outright (Claude `--disallowedTools`). Empty = none blocked.
     #[serde(default)]
     pub disallowed_tools: Vec<String>,
+    /// Interactive per-action approval (B2): every tool call is gated on the user's Approve/Deny
+    /// in the Rich view, via a PreToolUse hook. Requires `rich` and a backend with `settings_flag`.
+    #[serde(default)]
+    pub interactive_approval: bool,
+    /// Path to an extra `--settings` file (the approval hook config). Set by the core when
+    /// `interactive_approval` is on; not supplied by the frontend.
+    #[serde(default)]
+    pub settings_path: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
     /// Prompt to start the session with, passed as the CLI's positional prompt.
@@ -357,6 +365,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -415,6 +425,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: Some("big".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -442,6 +454,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -466,6 +480,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
@@ -503,6 +519,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: Some("gemini-3.1-pro".into()),
             initial_prompt: Some("build it".into()),
             add_dirs: vec!["/a".into()],
@@ -545,6 +563,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -569,6 +589,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec!["/work/zlog".into(), "/other".into()],
@@ -591,6 +613,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: None,
             initial_prompt: Some("look".into()),
             add_dirs: vec![],
@@ -623,6 +647,8 @@ mod tests {
             resume_session_id: None,
             allowed_tools: vec![],
             disallowed_tools: vec![],
+            interactive_approval: false,
+            settings_path: None,
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],

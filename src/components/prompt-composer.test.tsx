@@ -17,7 +17,14 @@ vi.mock("../lib/ipc", () => ({
   saveShot: vi.fn(),
   backendList: vi.fn(() =>
     Promise.resolve([
-      { id: "claude", label: "Claude", models: [], structured: true, toolPermissions: true },
+      {
+        id: "claude",
+        label: "Claude",
+        models: [],
+        structured: true,
+        toolPermissions: true,
+        interactiveApproval: true,
+      },
     ]),
   ),
   listTemplates: vi.fn(() =>
@@ -309,6 +316,25 @@ describe("PromptComposer Rich view", () => {
     await waitFor(() => expect(spawned).toHaveLength(1));
     expect(spawned[0].allowedTools).toEqual(["Read", "Grep"]);
     expect(spawned[0].disallowedTools).toEqual(["Bash"]);
+  });
+
+  it("the Approvals toggle forces Rich, disables Bypass, and passes interactiveApproval", async () => {
+    const { agents, spawned } = storeWithRecorder();
+    const { container, getByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+    // Turn on Bypass first, then Approvals — Approvals must win (mutually exclusive).
+    fireEvent.change(labelInput(container, "Bypass permissions"), { target: { checked: true } });
+    fireEvent.change(labelInput(container, "Approvals"), { target: { checked: true } });
+    fireEvent.input(taskBox(container), { target: { value: "do it" } });
+
+    fireEvent.click(getByText(/Launch \d agent/));
+
+    await waitFor(() => expect(spawned).toHaveLength(1));
+    expect(spawned[0].interactiveApproval).toBe(true);
+    expect(spawned[0].rich).toBe(true);
+    expect(spawned[0].bypassPermissions).toBe(false);
   });
 
   it("passes rich: true through to spawn when Rich view is on and a prompt is given", async () => {

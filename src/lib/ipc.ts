@@ -103,6 +103,8 @@ export interface BackendInfo {
   structured: boolean;
   /** Whether this backend supports pre-launch tool allow/deny lists (Claude `--allowedTools`). */
   toolPermissions: boolean;
+  /** Whether this backend supports interactive per-action approval (Claude `--settings` hook). */
+  interactiveApproval: boolean;
 }
 
 /** List available backends (bundled + disk-registered). `mock` is excluded. */
@@ -156,6 +158,9 @@ export interface AgentOptions {
   allowedTools?: string[];
   /** Tools blocked outright (Claude `--disallowedTools`). */
   disallowedTools?: string[];
+  /** Interactive per-action approval (B2): gate every tool on the user's Approve/Deny. Requires
+   *  a Rich session on a backend whose `BackendInfo.interactiveApproval` is true. */
+  interactiveApproval?: boolean;
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];
@@ -172,8 +177,21 @@ export type AgentEvent =
   | { kind: "thinking"; text: string }
   | { kind: "toolCall"; id: string; name: string; input: unknown }
   | { kind: "toolResult"; toolUseId: string; ok: boolean; output: string }
+  | {
+      kind: "permissionRequest";
+      requestId: string;
+      toolName: string;
+      toolInput: unknown;
+      /** Set locally once the user answers, so the card shows the outcome and hides its buttons. */
+      decision?: "allow" | "deny";
+    }
   | { kind: "done"; ok: boolean; text: string; costUsd?: number; durationMs?: number }
   | { kind: "raw"; text: string };
+
+/** Answer a pending tool-approval request (Approve/Deny) for an interactive Rich session. */
+export function respondApproval(id: string, requestId: string, allow: boolean): Promise<void> {
+  return invoke<void>("respond_approval", { id, requestId, allow });
+}
 
 export interface AgentInfo {
   id: string;
