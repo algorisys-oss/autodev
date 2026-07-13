@@ -22,7 +22,8 @@ import { extensionCommands } from "../lib/extensions";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { analyzeTask } from "../lib/task-split";
-import { selectPrompts, withUltrathink, promptsDiffer } from "../lib/agent-prompts";
+import { selectPrompts, composeAgentPrompt, promptsDiffer } from "../lib/agent-prompts";
+import type { Annotation } from "../lib/annotate";
 import { resolveMentions } from "../lib/mentions";
 import { Annotator } from "./annotator";
 import { BrowserHandoff } from "./browser-handoff";
@@ -50,7 +51,9 @@ export function PromptComposer(props: {
   const [recorder, setRecorder] = createSignal<Recorder | null>(null);
   const [transcribing, setTranscribing] = createSignal(false);
   const [captured, setCaptured] = createSignal<string | null>(null);
-  const [images, setImages] = createSignal<string[]>([]);
+  // Structured annotations (annotated screenshot + text notes). Captured once, dispatched to
+  // every agent in a launch — notes as prompt text (any backend), the image where supported.
+  const [annotations, setAnnotations] = createSignal<Annotation[]>([]);
   const [showHandoff, setShowHandoff] = createSignal(false);
   // Maximize the task editor into a large full-window overlay (same bound text).
   const [maximized, setMaximized] = createSignal(false);
@@ -201,11 +204,11 @@ export function PromptComposer(props: {
     }
   }
 
-  async function onAnnotated(pngBase64: string) {
+  async function onAnnotated(pngBase64: string, notes: string[]) {
     setCaptured(null);
     try {
       const path = await saveShot(pngBase64);
-      setImages((imgs) => [...imgs, path]);
+      setAnnotations((a) => [...a, { image: path, notes }]);
     } catch (e) {
       setError(String(e));
     }
@@ -283,7 +286,7 @@ export function PromptComposer(props: {
         const addDirs = resolveMentions(bases[i], ws.projects)
           .resolved.map((p) => p.path)
           .filter((path) => path !== cwdProject.path);
-        const prompt = withUltrathink(bases[i].trim(), ultrathink(), backend());
+        const prompt = composeAgentPrompt(bases[i].trim(), annotations(), ultrathink(), backend());
 
         let cwd = cwdProject.path;
         let worktree: WorktreeInfo | undefined;
@@ -300,7 +303,7 @@ export function PromptComposer(props: {
             planMode: planMode(),
             bypassPermissions: bypass(),
             addDirs,
-            images: images(),
+            images: annotations().map((a) => a.image),
             initialPrompt: prompt || null,
           },
           n > 1 ? `${cwdProject.name} #${i + 1}` : cwdProject.name,
@@ -318,7 +321,7 @@ export function PromptComposer(props: {
       }
       setText("");
       setPrompts([]);
-      setImages([]);
+      setAnnotations([]);
       setPlan(null);
       setCountTouched(false);
     } catch (e) {
@@ -415,15 +418,18 @@ export function PromptComposer(props: {
       </Show>
 
 
-      <Show when={images().length}>
+      <Show when={annotations().length}>
         <div class="mention-row">
-          <For each={images()}>
-            {(path, i) => (
-              <span class="chip ok" title={path}>
-                📎 shot{" "}
+          <For each={annotations()}>
+            {(a, i) => (
+              <span
+                class="chip ok"
+                title={a.notes.length ? `${a.image}\n${a.notes.join("\n")}` : a.image}
+              >
+                📎 shot{a.notes.length ? ` +${a.notes.length} note${a.notes.length > 1 ? "s" : ""}` : ""}{" "}
                 <button
                   class="chip-x"
-                  onClick={() => setImages((imgs) => imgs.filter((_, j) => j !== i()))}
+                  onClick={() => setAnnotations((arr) => arr.filter((_, j) => j !== i()))}
                 >
                   ×
                 </button>

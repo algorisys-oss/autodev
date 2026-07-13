@@ -4,6 +4,24 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Cross-agent structured annotation (P9 — the differentiator)
+- The screenshot/annotate flow now captures **structured notes** (one per line) alongside the
+  drawing. A capture is now an *annotation artifact* — image + notes — and **fans out to every
+  agent in a launch**: the notes go into each agent's prompt as text, so they reach *any* backend
+  (Claude, Codex, Antigravity, **Pi**) even ones that ignore image attachments; the image
+  attaches where supported. Capture the visual feedback once, dispatch it to the whole fleet —
+  something a single-harness tool like Pi structurally can't do.
+- Pure, tested: `annotate.ts` (`Annotation`, `annotationBlock`) and `agent-prompts.ts`
+  (`composeAgentPrompt`) build the per-agent prompt; the composer reuses the existing image
+  fan-out path. 97 Rust + frontend green.
+- **Scope:** this is the orchestrator-layer half of P9 — structured, cross-agent, cross-backend
+  dispatch. The richer *live-DOM* capture (a browser element picker producing selectors/box-model/
+  a11y like pi-annotate) needs a browser extension + native-host bridge and is a documented
+  follow-on; it plugs into the same artifact.
+- **P7 (embed Pi via RPC) deferred** by decision: Pi + its extensions already run in the Pi
+  terminal cell (from the M1 backend), and a full RPC integration is a large, Pi-only build that
+  overlaps this P9 differentiator. Recorded in `PI-PARITY-PLAN.md`.
+
 ### Pi as a backend (M1 spike → verified)
 - Ran the M1 spike: installed Pi (`@earendil-works/pi-coding-agent` v0.80.6), read its real CLI,
   and produced a **verified** backend spec — `examples/backends/pi.json` (also installed to

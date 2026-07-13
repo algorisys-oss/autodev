@@ -8,12 +8,15 @@ const COLORS = ["#ff3b30", "#ffcc00", "#34c759", "#0a84ff", "#ffffff"];
  *  PNG the same way. */
 export function Annotator(props: {
   imageBase64: string;
-  onAttach: (pngBase64: string) => void;
+  onAttach: (pngBase64: string, notes: string[]) => void;
   onCancel: () => void;
 }) {
   let canvas!: HTMLCanvasElement;
   const [tool, setTool] = createSignal<Tool>("arrow");
   const [color, setColor] = createSignal(COLORS[0]);
+  // Structured notes (one per line) captured alongside the drawing. Unlike the image, these
+  // travel to every agent as prompt text — so even image-blind backends get the feedback.
+  const [notesText, setNotesText] = createSignal("");
   const shapes: Shape[] = [];
   let img: HTMLImageElement;
   let drawing: Shape | null = null;
@@ -105,7 +108,11 @@ export function Annotator(props: {
 
   function attach() {
     const data = canvas.toDataURL("image/png").split(",")[1];
-    props.onAttach(data);
+    const notes = notesText()
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    props.onAttach(data, notes);
   }
 
   return (
@@ -146,6 +153,13 @@ export function Annotator(props: {
             onPointerUp={onUp}
           />
         </div>
+        <textarea
+          class="annotator-notes"
+          value={notesText()}
+          onInput={(e) => setNotesText(e.currentTarget.value)}
+          placeholder="Notes (one per line) — sent to every agent as text, on any backend"
+          rows={2}
+        />
       </div>
     </div>
   );

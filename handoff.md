@@ -5,7 +5,18 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Pi as a backend (M1 spike, on `dev`). Installed Pi (v0.80.6), verified its CLI
+- **Last task:** Cross-agent structured annotation (P9, on `dev`). The screenshot/annotate flow
+  now captures **notes** (one per line) with the drawing; a capture is an `Annotation { image,
+  notes }` that **fans out to every agent in a launch** — notes as prompt text (so they reach any
+  backend incl. Pi), image where supported. Pure `annotate.ts` (`annotationBlock`) +
+  `agent-prompts.ts` (`composeAgentPrompt`) build each prompt; composer reuses the image fan-out.
+  **Verify:** `./dev.sh verify` green (97 Rust + 17 frontend). GUI-only: the annotator notes UI
+  round-trip (logic is unit-tested). **Scope:** orchestrator-layer half done; the live-DOM element
+  picker (pi-annotate-style selectors/box-model) needs a browser+native-host bridge — documented
+  follow-on feeding the same artifact. **P7 (RPC embed) deferred** — Pi + its extensions already
+  run in the Pi cell; full RPC is large/Pi-only/overlaps P9. **Remaining roadmap:** P9 live-DOM
+  capture (needs browser), optional P6/P7/P8.
+- **Prior task:** Pi as a backend (M1 spike, on `dev`). Installed Pi (v0.80.6), verified its CLI
   flags, and shipped a working backend spec: `examples/backends/pi.json` (+ installed to
   `~/.autodev/backends/pi.json`). AutoDev launches **Pi** as an interactive cell via P1 — model→
   `--model`, bypass→`--approve`, one-shot→`-p`, positional prompt; a Rust test (`include_str!`)

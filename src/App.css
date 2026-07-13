@@ -1275,3 +1275,18 @@ button.danger {
   color: #f6f6f6;
   border-color: rgba(255, 255, 255, 0.15);
 }
+
+/* Annotation notes field (structured feedback sent to every agent). */
+.annotator-notes {
+  width: 100%;
+  resize: vertical;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5rem;
+  font: inherit;
+  background: #1f1f1f;
+  color: #f6f6f6;
+}
+.annotator-notes::placeholder {
+  color: #9a9a9a;
+}

@@ -58,6 +58,38 @@ Not exercised: writing into the user's real `~/.autodev` (avoided on purpose —
 cover the disk logic). Design note: the skills-dir feature is the proof that P3's frontend TS
 bus was the right call — a product feature slotted onto it with a one-line `onSpawn`.
 
+## Cross-agent structured annotation (P9) + P7 deferral — branch `dev`
+
+**P7 decision (asked the user): defer the RPC embedding; do P9 instead.** Confirmed from Pi's own
+docs that a Pi terminal cell already loads Pi's extensions (auto-discovery from
+`~/.pi/agent/extensions/` + installed packages) — so "inherit Pi's ecosystem in the cell" was
+already delivered by the M1 backend, with zero AutoDev code. A full `pi --mode rpc` integration
+(a new non-PTY, structured-event rendering path) is large, Pi-only, unverifiable headless (its
+pi-annotate payoff needs a browser), and overlaps P9. User chose P9.
+
+**P9 approach — structured artifact + reuse the existing fan-out.** AutoDev already fanned an
+annotated *image* to all N agents (`images` in the launch loop). P9 upgrades the artifact to
+`Annotation { image, notes }` and dispatches the **notes as prompt text** so they reach every
+backend (Pi included — it ignores image attachments), keeping the image where supported.
+
+- `src/lib/annotate.ts`: `Annotation` + `annotationBlock(annotations)` — pure markdown builder.
+- `src/lib/agent-prompts.ts`: `composeAgentPrompt(base, annotations, ultrathink, backend)` =
+  base + annotation notes + ultrathink; the composer calls it per agent.
+- `annotator.tsx`: a notes textarea (one note per line); `onAttach(png, notes)`.
+- `prompt-composer.tsx`: `images` signal → `annotations`; chips show note counts; launch maps
+  `images: annotations().map(a => a.image)` and builds each prompt via `composeAgentPrompt`.
+
+**Scope (honest):** this is the orchestrator-layer half — structured, cross-agent, cross-backend.
+The *live-DOM* capture (browser element picker → selectors/box-model/a11y, pi-annotate-style)
+needs a Chrome extension + native-host bridge; it can't be built/verified headless and is a
+documented follow-on that feeds the same `Annotation` artifact (the notes could carry structured
+DOM text).
+
+**Verification:** `./dev.sh verify` green (97 Rust + 17 frontend files). Pure logic unit-tested
+(`annotate.test.ts`, `composer.test.ts`). GUI-only: the annotator's notes UI round-trip (no
+component test — the annotator has none; logic is covered by the pure `composeAgentPrompt`/
+`annotationBlock` tests).
+
 ## Executable extensions (P5 — extensibility track) — COMPLETE (branch `dev`)
 
 **Context:** The code-level extension surface. P1 (backends) and P4 (templates/skills) are

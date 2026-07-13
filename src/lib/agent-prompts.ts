@@ -1,4 +1,5 @@
 import type { AgentBackend } from "./ipc";
+import { annotationBlock, type Annotation } from "./annotate";
 
 /** Choose the effective (pre-suffix) prompt text for each of `count` agents. In per-agent
  *  mode a non-blank override wins; a blank override — or single-prompt mode — falls back to
@@ -29,4 +30,17 @@ export function withUltrathink(
 /** True when the selected prompts are not all identical — used to warn/auto-isolate. */
 export function promptsDiffer(selected: string[]): boolean {
   return selected.some((p) => p !== selected[0]);
+}
+
+/** The full initial prompt for one agent: the base task, plus any structured annotation notes
+ *  (so they reach every backend as text), plus the ultrathink hint. Reused across all agents in
+ *  a launch, giving one captured annotation a cross-agent, cross-backend dispatch. */
+export function composeAgentPrompt(
+  base: string,
+  annotations: Annotation[],
+  ultrathink: boolean,
+  backend: AgentBackend,
+): string {
+  const withNotes = (base + annotationBlock(annotations)).trim();
+  return withUltrathink(withNotes, ultrathink, backend);
 }

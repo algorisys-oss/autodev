@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { suggestForDifficulty } from "./difficulty";
 import { parseMentions, resolveMentions } from "./mentions";
-import { selectPrompts, withUltrathink, promptsDiffer } from "./agent-prompts";
+import {
+  selectPrompts,
+  withUltrathink,
+  promptsDiffer,
+  composeAgentPrompt,
+} from "./agent-prompts";
 import type { Project } from "./ipc";
 
 describe("suggestForDifficulty", () => {
@@ -83,6 +88,26 @@ describe("withUltrathink", () => {
   it("does nothing for non-claude backends", () => {
     expect(withUltrathink("do it", true, "codex")).toBe("do it");
     expect(withUltrathink("do it", true, "antigravity")).toBe("do it");
+  });
+});
+
+describe("composeAgentPrompt", () => {
+  const annots = [{ image: "/s.png", notes: ["nav is misaligned"] }];
+
+  it("appends annotation notes as text so they reach any backend", () => {
+    expect(composeAgentPrompt("fix the header", annots, false, "codex")).toBe(
+      "fix the header\n\n## Annotations\n### Screenshot 1 (/s.png)\n1. nav is misaligned",
+    );
+  });
+
+  it("adds the ultrathink hint after the notes for claude", () => {
+    expect(composeAgentPrompt("fix it", annots, true, "claude")).toBe(
+      "fix it\n\n## Annotations\n### Screenshot 1 (/s.png)\n1. nav is misaligned ultrathink",
+    );
+  });
+
+  it("is just the base (trimmed) when there are no annotations", () => {
+    expect(composeAgentPrompt("do it", [], false, "codex")).toBe("do it");
   });
 });
 

@@ -199,11 +199,16 @@ A separate roadmap, `PI-PARITY-PLAN.md`, plans making AutoDev as extensible as t
 (pluggable backends, a public hook lifecycle, prompt templates, extension loading, headless
 mode, cross-agent structured annotation). It runs alongside the product phases here.
 
-- **P1 — pluggable backends via declarative `BackendSpec` — DONE (2026-07-13).** Backend launch
-  is data, not a `match`; a new CLI is a `~/.autodev/backends/<id>.json` file. This delivers the
-  "add a backend = change nothing else" promise this plan's Phase 2 first made.
-- **Next:** M1 Pi spike, then P3 (hooks) → P4 (templates) → P9 (cross-agent annotation). See
-  `PI-PARITY-PLAN.md` for the full sequence and open decisions.
+Status (all 2026-07-13, on `dev`/`main`):
+- **P1 — pluggable backends via `BackendSpec` — DONE.** A new CLI is a `~/.autodev/backends/*.json`.
+- **P3 — public hook lifecycle — DONE.** `onSpawn`/`onOutput`/`onIdle`/`onWaiting`/`onExit`.
+- **P4 — prompt templates + skills — DONE.** `~/.autodev/templates/*.md`, `~/.autodev/skills/`.
+- **P5 — executable extensions — DONE.** `~/.autodev/extensions/*.js` (trusted, surfaced).
+- **M1 — Pi backend — DONE (verified).** `examples/backends/pi.json`; Pi runs as an interactive cell.
+- **P9 — cross-agent structured annotation — orchestrator half DONE.** Notes + image fan out to
+  every agent on any backend. Follow-on: live-DOM element-picker capture (needs a browser bridge).
+- **Deferred:** P7 (embed Pi via RPC — large, Pi-only, overlaps P9). Optional: P6, P8.
+- See `PI-PARITY-PLAN.md` for the full sequence and open decisions.
 
 ---
 

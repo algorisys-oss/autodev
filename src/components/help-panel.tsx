@@ -88,7 +88,7 @@ const SECTIONS: Section[] = [
         <p>The three tools beside the box:</p>
         <ul>
           <li>🎤 <strong>Voice</strong> — record a spoken prompt; it is transcribed into the box.</li>
-          <li>📷 <strong>Screenshot</strong> — capture the screen, annotate it, and attach it as visual context (cuts hallucinations).</li>
+          <li>📷 <strong>Screenshot</strong> — capture the screen, draw on it, and add <strong>notes</strong> (one per line). Both the image and the notes attach to <em>every</em> agent you launch — the notes travel as prompt text, so they reach any backend even if it can’t take images. Capture the feedback once; it fans out to the whole fleet.</li>
           <li>🌐 <strong>Browser handoff</strong> — generate a prompt for a browser AI to execute.</li>
         </ul>
         <p>
