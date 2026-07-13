@@ -5,7 +5,20 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Pluggable agent backends via declarative specs (on `dev`) — the first step
+- **Last task:** Public agent-lifecycle hook bus (on `dev`) — P3 of `PI-PARITY-PLAN.md`,
+  increment 1. New `src/lib/hooks.ts` is a typed hook bus: `spawn` (a transform that rewrites
+  `AgentOptions` before launch) + `output`/`idle`/`waiting`/`exit` observers, error-isolated,
+  exposed as `store.hooks`. The agent store emits through it (spawn transform before
+  `agentSpawn`; output/exit on `agent://*`; idle/waiting from `tick`). Dogfooded: the onboarding
+  auto-accept moved from `pushOutput` into a built-in `output` hook (behavior unchanged).
+  **Architecture decision (with the user):** frontend TS bus (matches where orchestration lives
+  + Pi's TS extensions). **Verify:** `./dev.sh verify` green (89 Rust + 79 frontend). **Deferred:**
+  migrate the loop's auto-advance onto an `exit` hook (it's a reactive effect in `loop-panel.tsx`
+  today — a clean follow-up, kept out to protect the loop feature); loading hooks from
+  config/extensions is P5. **Next per roadmap:** P4 (prompt templates + skills — a spawn hook is
+  the natural injection point) or M1 (Pi spike — needs a hands-on browser session, can't be
+  verified headless).
+- **Prior task:** Pluggable agent backends via declarative specs (on `dev`) — the first step
   (M0/P1) of the new extensibility roadmap `PI-PARITY-PLAN.md`. Backend launch is now data, not
   a hardcoded `match`: each backend is a `BackendSpec` (program + flag mappings) built by one
   canonical `build_args` (`src-tauri/src/backend_spec.rs`). **Add a backend by dropping

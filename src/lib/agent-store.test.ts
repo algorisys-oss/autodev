@@ -217,6 +217,53 @@ describe("agent store", () => {
     });
   });
 
+  it("spawn hooks rewrite launch options before the agent starts", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      store.hooks.onSpawn((o) => ({ ...o, addDirs: [...(o.addDirs ?? []), "/skills"] }));
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      expect(h.api.agentSpawn).toHaveBeenCalledWith(
+        expect.objectContaining({ addDirs: ["/skills"] }),
+      );
+      dispose();
+    });
+  });
+
+  it("emits output and exit through the hook bus", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const outputs: string[] = [];
+      const exits: Array<[string, number | null]> = [];
+      store.hooks.onOutput((id, tail) => outputs.push(`${id}:${tail}`));
+      store.hooks.onExit((id, code) => exits.push([id, code]));
+
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      h.emit("agent://output", { id: "agent-1", data: btoa("hi") });
+      h.emit("agent://exit", { id: "agent-1", code: 0 });
+
+      expect(outputs).toEqual(["agent-1:hi"]);
+      expect(exits).toEqual([["agent-1", 0]]);
+      dispose();
+    });
+  });
+
+  it("emits waiting through the hook bus when an agent parks on a prompt", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const waited: string[] = [];
+      store.hooks.onWaiting((id) => waited.push(id));
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      h.emit("agent://output", { id: "agent-1", data: b64("Continue? (y/n)") });
+      h.setClock(1000 + 2000);
+      store.tick();
+      expect(waited).toEqual(["agent-1"]);
+      dispose();
+    });
+  });
+
   it("close removes an agent and reselects", async () => {
     await createRoot(async (dispose) => {
       const h = harness();

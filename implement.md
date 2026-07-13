@@ -2,6 +2,42 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Public hook lifecycle (P3 — extensibility track) — INCREMENT 1 COMPLETE (branch `dev`)
+
+**Context:** Second step of `PI-PARITY-PLAN.md` (Track A spine). The plan's event stream
+(`agent://output`/`exit`) was informal; P3 turns it into a public, typed hook API that
+extensions and built-ins can hook into — the prerequisite for P9 (cross-agent annotation) and
+P5 (extension loading).
+
+**Decision (asked the user):** where does the hook seam live? Chose **frontend TS bus** over a
+Rust-core registry or declarative config, because (a) the two behaviors the plan wants to
+migrate — loop auto-advance and onboarding auto-accept — already live in the frontend, (b) Pi's
+extensions are TS, so P5 extension-loading lands there anyway, (c) shortest path to the Done
+bar. Trade-off accepted: orchestration logic stays frontend-side (as onboarding already was);
+the Rust core stays pure process/PTY.
+
+**Approach:** `src/lib/hooks.ts` — `createHookBus()` returns a `HookBus` with `onSpawn`
+(transform, composed via reduce) + `onOutput`/`onIdle`/`onWaiting`/`onExit` (observers), each
+returning an unregister fn, all error-isolated (a throwing hook degrades to a no-op).
+`agent-store.ts` creates a per-store bus, emits through it (spawn transform before
+`agentSpawn`; output/exit on the `agent://*` handlers; idle/waiting from `tick` on status
+change), and exposes it as `store.hooks`.
+
+**Dogfooding (proof the seam carries real work):** the onboarding auto-accept block moved out
+of `pushOutput` into a registered built-in `output` hook. Behavior identical — the existing
+`auto-onboard…` and `does not touch input…` tests pass unchanged.
+
+**Files:** `src/lib/hooks.ts` (new) + `hooks.test.ts` (new, 6 tests); `agent-store.ts`
+(bus + emission + onboarding-as-hook), `agent-store.test.ts` (+3 tests: spawn rewrite,
+output/exit emit, waiting emit).
+
+**Verification:** `./dev.sh verify` green (89 Rust + 79 frontend, lint clean). The Done bar is
+substantially met — a registered hook rewrites launch flags and reacts to exit (tests prove
+it), and one built-in runs through the API. **Deferred (honest scope):** (1) migrating the
+loop's auto-advance — it's a reactive `createEffect` on status in `loop-panel.tsx`, not a
+direct exit subscription, so moving it risks the loop feature; it's a clean follow-up (register
+an `exit` hook). (2) Loading hooks from config/disk is P5, not P3.
+
 ## Pluggable backends via `BackendSpec` (P1 — extensibility track) — COMPLETE (branch `dev`)
 
 **Context:** A new extensibility roadmap (`PI-PARITY-PLAN.md`) was agreed with the user after

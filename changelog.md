@@ -4,6 +4,25 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Public agent-lifecycle hook bus (P3 — extensibility track)
+- Adds `src/lib/hooks.ts`, a typed hook bus so built-in behaviors and (later) extensions can
+  participate in an agent's life. Five lifecycle points: `spawn` (a *transform* that may
+  rewrite `AgentOptions` before launch — the analog of Pi's `before_provider_headers`),
+  `output`, `idle`, `waiting`, and `exit` (observers). A throwing hook is contained — it can't
+  break a launch or the other hooks.
+- The agent store now emits through the bus: `spawn` applies the transform before
+  `agentSpawn`; `output`/`exit` fire on the `agent://*` events; `idle`/`waiting` fire from
+  `tick` on a real status change. The bus is exposed as `store.hooks` for registration.
+- **Dogfooded:** the onboarding auto-accept (auto-answer the trust-folder prompt on unattended
+  runs) moved out of `pushOutput` into a built-in `output` hook — the first consumer of the
+  seam, proving it carries real side-effecting work. Behavior unchanged (existing onboarding
+  tests pass as-is).
+- Tests: `hooks.test.ts` (compose transforms, error isolation, unregister, per-event routing);
+  `agent-store.test.ts` (spawn hook rewrites options, output/exit/waiting emitted). Chosen
+  architecture: frontend TS bus (where orchestration already lives; matches Pi's TS
+  extensions). Follow-ups: migrate the loop's auto-advance onto an `exit` hook (2nd built-in);
+  loading hooks from config/extensions is P5.
+
 ### Pluggable agent backends via declarative specs (P1 — extensibility track)
 - First step (M0/P1) of `PI-PARITY-PLAN.md`: making the backend adapter real. Backends are
   no longer a hardcoded `match` in `command_line` — each is a declarative `BackendSpec`

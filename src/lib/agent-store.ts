@@ -1,6 +1,7 @@
 import { createStore } from "solid-js/store";
 import * as ipc from "./ipc";
 import { base64ToBytes } from "./bytes";
+import { createHookBus } from "./hooks";
 
 export type AgentStatus = "running" | "idle" | "waiting" | "exited" | "error";
 
@@ -154,6 +155,10 @@ export function createAgentStore(deps?: {
   const onboardSent = new Set<string>(); // debounce: a reply is in flight for this agent's gate
   const decoder = new TextDecoder();
 
+  // Public agent-lifecycle hook bus (P3). The store emits spawn/output/idle/waiting/exit
+  // through it; built-in behaviors and extensions register as consumers.
+  const hooks = createHookBus();
+
   const indexOf = (id: string) => state.agents.findIndex((a) => a.id === id);
 
   function setStatus(id: string, status: AgentStatus) {
@@ -179,18 +184,23 @@ export function createAgentStore(deps?: {
     // the agent acts again. Whether it is *now* waiting on a prompt is decided in tick(), once
     // it goes quiet — so the prompt-text lingering in the tail can't keep it stuck on waiting.
     if (i >= 0 && !isTerminal(state.agents[i].status)) setStatus(id, "running");
-    // Unattended runs: auto-accept a known onboarding gate once, so the agent doesn't stall.
-    if (autoOnboard.has(id) && i >= 0 && !isTerminal(state.agents[i].status)) {
-      const reply = onboardingReply(tail);
-      if (reply && !onboardSent.has(id)) {
-        onboardSent.add(id);
-        void Promise.resolve(api.agentWrite(id, reply)).catch(() => {});
-      } else if (!reply) {
-        onboardSent.delete(id); // gate cleared — ready for the next one
-      }
-    }
+    hooks.emitOutput(id, tail);
     subscribers.get(id)?.(bytes);
   }
+
+  // Built-in output hook: on unattended runs, auto-accept a known onboarding gate once so the
+  // agent doesn't stall. The first consumer of the hook bus — proof the seam carries real work.
+  hooks.onOutput((id, tail) => {
+    const i = indexOf(id);
+    if (i < 0 || isTerminal(state.agents[i].status) || !autoOnboard.has(id)) return;
+    const reply = onboardingReply(tail);
+    if (reply && !onboardSent.has(id)) {
+      onboardSent.add(id);
+      void Promise.resolve(api.agentWrite(id, reply)).catch(() => {});
+    } else if (!reply) {
+      onboardSent.delete(id); // gate cleared — ready for the next one
+    }
+  });
 
   const unlistens: Promise<() => void>[] = [
     subscribe<{ id: string; data: string }>("agent://output", (p) =>
@@ -202,6 +212,7 @@ export function createAgentStore(deps?: {
         setState("agents", i, "exitCode", p.code);
         // A non-zero code is a crash/failure; a clean or signalled (killed) exit is "exited".
         setStatus(p.id, p.code && p.code !== 0 ? "error" : "exited");
+        hooks.emitExit(p.id, p.code);
       }
     }),
   ];
@@ -214,7 +225,12 @@ export function createAgentStore(deps?: {
     for (const a of state.agents) {
       if (isTerminal(a.status)) continue;
       if (t - (lastActivity.get(a.id) ?? 0) > IDLE_AFTER_MS) {
-        setStatus(a.id, detectWaiting(tails.get(a.id) ?? "") ? "waiting" : "idle");
+        const next = detectWaiting(tails.get(a.id) ?? "") ? "waiting" : "idle";
+        if (a.status !== next) {
+          setStatus(a.id, next);
+          if (next === "waiting") hooks.emitWaiting(a.id);
+          else hooks.emitIdle(a.id);
+        }
       }
     }
   }
@@ -233,15 +249,17 @@ export function createAgentStore(deps?: {
     label: string,
     worktree?: ipc.WorktreeInfo,
   ): Promise<string> {
-    const id = await api.agentSpawn(options);
+    // Let spawn hooks rewrite the launch options (e.g. inject a context dir) before launch.
+    const opts = hooks.applySpawn(options);
+    const id = await api.agentSpawn(opts);
     buffers.set(id, []);
     bufferBytes.set(id, 0);
     lastActivity.set(id, now());
     setState("agents", state.agents.length, {
       id,
       label,
-      backend: options.backend,
-      cwd: options.cwd,
+      backend: opts.backend,
+      cwd: opts.cwd,
       status: "running",
       exitCode: null,
       worktree,
@@ -309,6 +327,7 @@ export function createAgentStore(deps?: {
   return {
     state,
     focused,
+    hooks,
     spawn,
     kill,
     killAll,
