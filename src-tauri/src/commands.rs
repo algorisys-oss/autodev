@@ -44,6 +44,8 @@ pub struct BackendInfo {
     pub id: String,
     pub label: String,
     pub models: Vec<String>,
+    /// Whether this backend can emit a structured event stream (offers the Rich view).
+    pub structured: bool,
 }
 
 /// List every available backend so the frontend can build its picker without hardcoding
@@ -54,6 +56,7 @@ pub fn backend_list() -> Vec<BackendInfo> {
         .into_iter()
         .map(|s| BackendInfo {
             label: s.display_label(),
+            structured: s.structured.is_some(),
             id: s.id,
             models: s.models,
         })
@@ -174,6 +177,29 @@ struct ExitEvent {
     code: Option<i32>,
 }
 
+/// One normalized event from a Rich (structured) session, carried on `agent://event`.
+#[derive(Clone, Serialize)]
+struct AgentEventPayload {
+    id: String,
+    event: crate::agent_event::AgentEvent,
+}
+
+/// If `opts` requests Rich mode and its backend declares a `structured` driver, build that
+/// driver; otherwise `None` (the session streams only raw terminal bytes).
+fn rich_driver_for(opts: &AgentOptions) -> Option<Box<dyn crate::agent_event::StructuredDriver>> {
+    if !opts.rich {
+        return None;
+    }
+    let id = opts.backend.id();
+    let specs = crate::backend_spec::load_specs();
+    let name = specs
+        .iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.structured.as_ref())
+        .map(|m| m.driver.clone())?;
+    crate::agent_event::driver_for(&name)
+}
+
 #[tauri::command]
 pub fn agent_spawn(
     app: AppHandle,
@@ -198,12 +224,33 @@ pub fn agent_spawn(
             .map(|f| Arc::new(Mutex::new(f)))
     });
 
+    // In Rich mode the raw stdout is a structured event stream; a driver parses it into
+    // normalized `agent://event`s. The raw bytes are still emitted + logged (so the disk log
+    // and a raw/debug terminal view keep working). `None` for a plain terminal session.
+    let driver: Option<Arc<Mutex<Box<dyn crate::agent_event::StructuredDriver>>>> =
+        rich_driver_for(&options).map(|d| Arc::new(Mutex::new(d)));
+
     let out_app = app.clone();
     let out_id = id.clone();
     let on_output = move |bytes: Vec<u8>| {
         if let Some(log) = &log {
             if let Ok(mut f) = log.lock() {
                 let _ = f.write_all(&bytes);
+            }
+        }
+        if let Some(driver) = &driver {
+            let events = driver
+                .lock()
+                .map(|mut d| d.feed(&bytes))
+                .unwrap_or_default();
+            for event in events {
+                let _ = out_app.emit(
+                    "agent://event",
+                    AgentEventPayload {
+                        id: out_id.clone(),
+                        event,
+                    },
+                );
             }
         }
         let data = base64::engine::general_purpose::STANDARD.encode(&bytes);

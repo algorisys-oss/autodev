@@ -35,6 +35,19 @@ pub enum PromptMode {
     Flag { flag: String },
 }
 
+/// How a backend is switched into machine-readable event output for the Rich view. A backend
+/// without this can't be rendered as structured cards — the Rich toggle is simply not offered.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructuredMode {
+    /// Extra CLI flags that turn on the structured event stream (Claude: `-p --output-format
+    /// stream-json --verbose`). Emitted in place of the normal print/plan flags, since the
+    /// structured stream is inherently one-shot.
+    pub flags: Vec<String>,
+    /// Names the built-in driver that parses this backend's stream (see `agent_event::driver_for`).
+    pub driver: String,
+}
+
 fn default_image_mode() -> ImageMode {
     ImageMode::None
 }
@@ -83,6 +96,9 @@ pub struct BackendSpec {
     /// How the prompt is passed.
     #[serde(default = "default_prompt_mode")]
     pub prompt: PromptMode,
+    /// If set, the backend can emit a structured event stream (Rich view). Absent = terminal only.
+    #[serde(default)]
+    pub structured: Option<StructuredMode>,
 }
 
 impl BackendSpec {
@@ -96,8 +112,13 @@ impl BackendSpec {
     pub fn build_args(&self, opts: &AgentOptions) -> Vec<String> {
         let mut args: Vec<String> = Vec::new();
 
-        // Print (one-shot) takes precedence over plan mode.
-        if opts.print_mode && !self.print_flag.is_empty() {
+        // Rich (structured event stream) is itself one-shot, so its flags stand in for the
+        // print/plan flags. It only applies when the caller asked AND this backend supports it.
+        let structured = opts.rich.then_some(self.structured.as_ref()).flatten();
+        if let Some(s) = structured {
+            args.extend(s.flags.iter().cloned());
+        } else if opts.print_mode && !self.print_flag.is_empty() {
+            // Print (one-shot) takes precedence over plan mode.
             args.extend(self.print_flag.iter().cloned());
         } else if opts.plan_mode && !self.plan_flag.is_empty() {
             args.extend(self.plan_flag.iter().cloned());
@@ -220,6 +241,15 @@ fn claude_spec() -> BackendSpec {
         add_cwd_to_dirs: false,
         images: screenshot_append(),
         prompt: PromptMode::Positional,
+        structured: Some(StructuredMode {
+            flags: vec![
+                "-p".into(),
+                "--output-format".into(),
+                "stream-json".into(),
+                "--verbose".into(),
+            ],
+            driver: "claudeStreamJson".into(),
+        }),
     }
 }
 
@@ -237,6 +267,7 @@ fn codex_spec() -> BackendSpec {
         add_cwd_to_dirs: false,
         images: ImageMode::Flag { flag: "-i".into() },
         prompt: PromptMode::Positional,
+        structured: None,
     }
 }
 
@@ -255,6 +286,7 @@ fn antigravity_spec() -> BackendSpec {
         add_cwd_to_dirs: true,
         images: screenshot_append(),
         prompt: PromptMode::Flag { flag: "-i".into() },
+        structured: None,
     }
 }
 
@@ -270,6 +302,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
+            rich: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -318,6 +351,51 @@ mod tests {
     #[test]
     fn empty_prompt_is_not_emitted() {
         assert!(claude_spec().build_args(&opts()).is_empty());
+    }
+
+    #[test]
+    fn rich_mode_emits_structured_flags_before_positional_prompt() {
+        let o = AgentOptions {
+            rich: true,
+            initial_prompt: Some("hi".into()),
+            ..opts()
+        };
+        assert_eq!(
+            claude_spec().build_args(&o),
+            ["-p", "--output-format", "stream-json", "--verbose", "hi"]
+        );
+    }
+
+    #[test]
+    fn rich_replaces_print_and_plan_flags_no_duplication() {
+        // Rich is one-shot, so it stands in for print/plan — no leaked `--permission-mode`
+        // and no second `-p` even when both toggles are also on.
+        let o = AgentOptions {
+            rich: true,
+            print_mode: true,
+            plan_mode: true,
+            ..opts()
+        };
+        let args = claude_spec().build_args(&o);
+        assert_eq!(args.iter().filter(|a| *a == "-p").count(), 1);
+        assert!(!args.iter().any(|a| a == "--permission-mode"));
+        assert!(args.contains(&"stream-json".to_string()));
+    }
+
+    #[test]
+    fn rich_is_ignored_for_backend_without_structured_capability() {
+        // Codex has no `structured` spec, so asking for rich changes nothing.
+        let o = AgentOptions {
+            rich: true,
+            ..opts()
+        };
+        assert_eq!(
+            codex_spec().build_args(&o),
+            codex_spec().build_args(&opts())
+        );
+        assert!(!codex_spec()
+            .build_args(&o)
+            .contains(&"stream-json".to_string()));
     }
 
     fn temp_data_dir(tag: &str) -> std::path::PathBuf {
@@ -383,6 +461,7 @@ mod tests {
             plan_mode: true,
             bypass_permissions: true,
             print_mode: false,
+            rich: false,
             model: Some("google/gemini-2.0-flash".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec!["/other".into()],

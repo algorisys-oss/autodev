@@ -43,6 +43,8 @@ export function PromptComposer(props: {
   const [prompts, setPrompts] = createSignal<string[]>([]);
   const [planMode, setPlanMode] = createSignal(false);
   const [bypass, setBypass] = createSignal(false);
+  // Rich (structured card) view. Only offered for backends that can emit a structured stream.
+  const [rich, setRich] = createSignal(false);
   const [ultrathink, setUltrathink] = createSignal(false);
   const [isolate, setIsolate] = createSignal(false);
   const [runIn, setRunIn] = createSignal<string>("");
@@ -65,6 +67,8 @@ export function PromptComposer(props: {
   const [backends, setBackends] = createSignal<BackendInfo[]>([]);
   // Prompt templates (`~/.autodev/templates/*.md`): typing `/name` expands to the body.
   const [templates, setTemplates] = createSignal<PromptTemplate[]>([]);
+  // Does the currently-selected backend support the Rich (structured) view?
+  const supportsRich = () => backends().find((b) => b.id === backend())?.structured ?? false;
 
   onMount(async () => {
     try {
@@ -302,6 +306,7 @@ export function PromptComposer(props: {
             cwd,
             planMode: planMode(),
             bypassPermissions: bypass(),
+            rich: rich() && supportsRich(),
             addDirs,
             images: annotations().map((a) => a.image),
             initialPrompt: prompt || null,
@@ -548,6 +553,9 @@ export function PromptComposer(props: {
       <div class="composer-toggles">
         <label><input type="checkbox" checked={planMode()} onChange={(e) => setPlanMode(e.currentTarget.checked)} /> Plan mode</label>
         <label><input type="checkbox" checked={bypass()} onChange={(e) => setBypass(e.currentTarget.checked)} /> Bypass permissions</label>
+        <Show when={supportsRich()}>
+          <label title="Render this session as structured cards instead of a raw terminal (one-shot)"><input type="checkbox" checked={rich()} onChange={(e) => setRich(e.currentTarget.checked)} /> Rich view</label>
+        </Show>
         <label><input type="checkbox" checked={ultrathink()} onChange={(e) => setUltrathink(e.currentTarget.checked)} /> Ultrathink</label>
         <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>
         <label><input type="checkbox" checked={perAgent()} onChange={(e) => setPerAgent(e.currentTarget.checked)} /> Per-agent prompts</label>

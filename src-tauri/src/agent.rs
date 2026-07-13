@@ -79,6 +79,11 @@ pub struct AgentOptions {
     /// exit, and an interactive agent never exits.
     #[serde(default)]
     pub print_mode: bool,
+    /// Launch in Rich mode: the backend emits a structured event stream (rendered as cards)
+    /// instead of a raw terminal. Only honored for backends whose spec has a `structured`
+    /// capability; ignored otherwise. Like print mode, this runs one-shot.
+    #[serde(default)]
+    pub rich: bool,
     #[serde(default)]
     pub model: Option<String>,
     /// Prompt to start the session with, passed as the CLI's positional prompt.
@@ -338,6 +343,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
+            rich: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -392,6 +398,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: true,
             print_mode: false,
+            rich: false,
             model: Some("big".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -415,6 +422,7 @@ mod tests {
             plan_mode: true, // ignored in print mode
             bypass_permissions: false,
             print_mode: true,
+            rich: false,
             model: None,
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -435,6 +443,7 @@ mod tests {
             plan_mode: true,
             bypass_permissions: true,
             print_mode: false,
+            rich: false,
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
@@ -468,6 +477,7 @@ mod tests {
             plan_mode: true, // no agy plan flag → must be ignored, not emitted
             bypass_permissions: true,
             print_mode: false,
+            rich: false,
             model: Some("gemini-3.1-pro".into()),
             initial_prompt: Some("build it".into()),
             add_dirs: vec!["/a".into()],
@@ -506,6 +516,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
+            rich: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -526,6 +537,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
+            rich: false,
             model: None,
             initial_prompt: None,
             add_dirs: vec!["/work/zlog".into(), "/other".into()],
@@ -544,6 +556,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: false,
             print_mode: false,
+            rich: false,
             model: None,
             initial_prompt: Some("look".into()),
             add_dirs: vec![],
@@ -572,6 +585,7 @@ mod tests {
             plan_mode: false,
             bypass_permissions: true,
             print_mode: false,
+            rich: false,
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],

@@ -41,6 +41,14 @@ body {
   font-size: 1.2rem;
 }
 
+.app-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  align-self: center;
+  flex: 0 0 auto;
+}
+
 .app-body {
   flex: 1 1 auto;
   display: flex;
@@ -984,6 +992,127 @@ button.danger {
   background: #5f5f5f;
 }
 
+/* Rich (structured) session view: normalized events rendered as cards. */
+.rich-pane {
+  flex: 1 1 auto;
+  min-height: 200px;
+  overflow-y: auto;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fbfbfd;
+}
+.rich-empty {
+  margin: 0.5rem;
+}
+.rich-card {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+}
+.rich-init {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  border-style: dashed;
+  background: transparent;
+}
+.rich-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+}
+.rich-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rich-assistant {
+  white-space: pre-wrap;
+  border-left: 3px solid #7c3aed;
+}
+.rich-thinking > summary,
+.rich-result > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.rich-thinking > div {
+  margin-top: 0.4rem;
+  white-space: pre-wrap;
+  font-style: italic;
+  opacity: 0.85;
+}
+.rich-tool {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.03);
+}
+.rich-tool-name {
+  font-weight: 600;
+  color: #2563eb;
+}
+.rich-tool-arg {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rich-result > pre {
+  margin: 0.4rem 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+}
+.rich-done {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.rich-done-text {
+  white-space: pre-wrap;
+}
+.rich-raw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.rich-error {
+  border-color: rgba(220, 38, 38, 0.5);
+}
+.rich-error .rich-chip {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
+}
+:root[data-theme="dark"] .rich-pane {
+  background: #16161a;
+}
+:root[data-theme="dark"] .rich-card {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+:root[data-theme="dark"] .rich-tool {
+  background: rgba(255, 255, 255, 0.04);
+}
+:root[data-theme="dark"] .rich-chip {
+  background: rgba(139, 92, 246, 0.22);
+  color: #c4b5fd;
+}
+:root[data-theme="dark"] .rich-tool-name {
+  color: #7cc7ff;
+}
+
 :root[data-theme="dark"] .agent-session {
   border-color: rgba(255, 255, 255, 0.15);
 }
@@ -1398,8 +1527,10 @@ button.danger {
   gap: 0.8rem;
 }
 .about-logo {
-  font-size: 2rem;
-  color: #3b82f6;
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+  flex: 0 0 auto;
 }
 .about-name {
   font-size: 1.2rem;

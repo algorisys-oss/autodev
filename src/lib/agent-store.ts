@@ -115,6 +115,10 @@ export interface AgentView {
   exitCode: number | null;
   /** Set when the agent runs in an isolated git worktree (Phase 5). */
   worktree?: ipc.WorktreeInfo;
+  /** Launched in Rich mode: renders as structured cards from `events` rather than a terminal. */
+  rich: boolean;
+  /** Normalized structured events for a Rich session, in arrival order (empty for terminal ones). */
+  events: ipc.AgentEvent[];
 }
 
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
@@ -215,6 +219,11 @@ export function createAgentStore(deps?: {
         hooks.emitExit(p.id, p.code);
       }
     }),
+    // Rich sessions also emit normalized structured events; append them for the card view.
+    subscribe<{ id: string; event: ipc.AgentEvent }>("agent://event", (p) => {
+      const i = indexOf(p.id);
+      if (i >= 0) setState("agents", i, "events", state.agents[i].events.length, p.event);
+    }),
   ];
 
   /** Once an agent goes quiet, classify the silence: a trailing prompt in its output means it
@@ -263,6 +272,8 @@ export function createAgentStore(deps?: {
       status: "running",
       exitCode: null,
       worktree,
+      rich: !!opts.rich,
+      events: [],
     });
     setState("focusedId", id);
     return id;

@@ -1,4 +1,5 @@
 mod agent;
+mod agent_event;
 mod backend_spec;
 mod capture;
 mod commands;

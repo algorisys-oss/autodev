@@ -5,7 +5,32 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Agent-terminal visibility fixes (v0.10.1, on `dev`). Two CSS-only fixes in
+- **Last task:** Rich view — structured card-based agent sessions, increment 1 (branch
+  `feat/rich-view`, **not yet merged/shipped**). An opt-in alternative to the raw xterm pane:
+  a session renders as native cards (assistant text, thinking, tool calls, tool results, a done
+  chip with cost/duration) driven by a normalized `agent_event::AgentEvent` stream. **Scope of
+  increment 1: read-only + one-shot, Claude only** — because `claude --output-format stream-json`
+  is one-shot (`-p`); interactive approvals/follow-ups are a later increment (needs the
+  bidirectional `--input-format stream-json` contract, confirmed present on `claude` 2.1.207).
+  - **Architecture (decided with user): Rust-direct + normalized event model, NOT the Anthropic
+    SDK** — so Codex/others plug in behind the same UI later. New Rust `agent_event.rs`
+    (`AgentEvent` enum + `StructuredDriver` trait + `ClaudeStreamJsonDriver`, 11 tests over real
+    `claude` 2.1.207 output); `BackendSpec` gained a declarative `structured` capability (Claude
+    only); `AgentOptions.rich`; `build_args` routes rich→stream-json flags (3 tests); `commands.rs`
+    runs the driver and emits normalized events on a new **`agent://event`** channel (raw NDJSON
+    still emitted + logged for the Raw-stream toggle). Frontend: `ipc.ts` mirrors `AgentEvent` +
+    `BackendInfo.structured`; `agent-store` collects `events[]` per rich agent (2 tests); new
+    `rich-pane.tsx` renders the cards; composer **Rich view** toggle (backend-gated); `App.tsx`
+    swaps RichPane⇄TerminalPane with a per-session **Raw stream** toggle.
+  - **Verify:** `./dev.sh verify`-equivalent all green — 112 Rust + 113 frontend tests, eslint +
+    tsc + clippy + rustfmt clean, `vite build` clean. **GUI still unproven here:** the live
+    card-rendering path (composer toggle → spawn → `agent://event` → cards) needs an eyeball. To
+    try it: `./dev.sh dev`, pick **Claude**, check **Rich view**, optionally **Bypass
+    permissions** (so tools run and produce tool cards), type a prompt, **Launch** — the focused
+    session shows cards; **Raw stream** flips to the NDJSON.
+  - **Next increment:** adapter capability flag polish + a second backend driver (Codex), then
+    the interactive path (approvals/follow-ups over `--input-format stream-json`).
+- **Prior task:** Agent-terminal visibility fixes (v0.10.1, on `dev`). Two CSS-only fixes in
   `src/App.css`. (1) The focused terminal could be squeezed too short to show a full-screen agent
   menu: `.main-scroll`'s flex-grow shrank `.agent-session` (which had `min-height: 0`) to a few
   rows, so the highlighted selection in Claude Code's MCP-onboarding prompt rendered off-screen and

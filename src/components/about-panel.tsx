@@ -1,4 +1,5 @@
 import { openExternal } from "../lib/ipc";
+import logoUrl from "../assets/logo.svg";
 
 /** About AutoDev — a small modal reached from Help → About AutoDev. Self-contained; the
  *  version is passed in from the running core. */
@@ -21,7 +22,7 @@ export function AboutPanel(props: { version: string; onClose: () => void }) {
 
         <div class="about-body">
           <div class="about-hero">
-            <div class="about-logo">◆</div>
+            <img class="about-logo" src={logoUrl} alt="" width="48" height="48" />
             <div>
               <div class="about-name">
                 AutoDev <span class="about-version">v{props.version || "—"}</span>

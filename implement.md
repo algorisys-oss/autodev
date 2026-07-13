@@ -2,6 +2,53 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Rich view — increment 1 (branch `feat/rich-view`) — SPIKE COMPLETE, GUI unverified
+
+**Context:** User asked for an opt-in "richer way to interact with agents" than the raw xterm
+terminal — structured display (diffs/tool-cards) and, eventually, interaction (approve with
+buttons). End goal is **multi-backend**.
+
+**Research (before coding):** A claude-code-guide agent + a live capture from installed
+`claude` 2.1.207 established: `--output-format stream-json` is one-shot (`-p`), aborts on an
+unapproved tool; interactive approvals need the bidirectional `--input-format stream-json`
+(present in 2.1.207 but under-documented) or the Anthropic SDK. Captured real NDJSON: envelope is
+`system/init` → `rate_limit_event` → `assistant{content:[text|thinking|tool_use]}` →
+`user{content:[tool_result]}` → `result`.
+
+**Decisions (with user):**
+- **Read-only, one-shot spike first** — the shared prefix for any later interactive model; proves
+  the normalized-event pipeline against real output at low risk.
+- **Rust-direct + a normalized event model, NOT the Anthropic SDK** — the SDK is Claude-only and
+  TS/Python (doesn't fit the Rust-owns-processes boundary; a Node sidecar would be a stack
+  change). Rust-direct forces the normalized model, which is exactly what lets Codex/others plug
+  in behind the same UI. Confirmed multi-backend matters, so the event model is designed up front.
+
+**Approach:**
+- **Rust core:** `agent_event.rs` — `AgentEvent` (serde `kind`-tagged, camelCase; the wire
+  contract mirrored in TS) + `StructuredDriver` trait + `ClaudeStreamJsonDriver` (byte-buffered
+  NDJSON → events, so multibyte UTF-8 split across PTY chunks isn't corrupted). `BackendSpec`
+  gained a declarative `structured: Option<StructuredMode>` (flags + driver name); Claude declares
+  it, Codex/agy don't → Rich toggle simply isn't offered. `AgentOptions.rich` routes `build_args`
+  to the stream-json flags in place of print/plan (rich is itself one-shot). `commands.rs` builds
+  the driver when rich, feeds `on_output` bytes through it, and emits normalized events on a new
+  `agent://event` channel — raw bytes still emitted + disk-logged so the Raw-stream toggle and
+  audit log keep working. `backend_list` now reports `structured`.
+- **Frontend:** `ipc.ts` mirrors `AgentEvent` + `BackendInfo.structured` + `AgentOptions.rich`;
+  `agent-store` subscribes to `agent://event` and appends to a per-agent `events[]` (with `rich`
+  flag); `rich-pane.tsx` renders the cards (tool-arg summarizer picks the common path/command
+  keys); composer **Rich view** toggle (gated on `supportsRich()`); `App.tsx` swaps
+  RichPane⇄TerminalPane with a per-session **Raw stream** toggle.
+
+**TDD/verify:** driver 11 tests over real captured shapes (text/tool/thinking turns, partial-line
+buffering, multibyte split, error results, `kind`-tag serialization); spec 3 tests (rich flags,
+rich-replaces-print/plan, ignored-without-capability); store 2 tests (event collection order,
+non-rich ignores strays). All 112 Rust + 113 frontend green; eslint/tsc/clippy/rustfmt clean;
+`vite build` clean. **GUI card-rendering path is not yet proven live** — needs an eyeball
+(`./dev.sh dev` → Claude + Rich view + a prompt).
+
+**Scope:** no changes to existing terminal/loop/backend behavior; new channel + fields are
+additive and default-off.
+
 ## Agent-terminal visibility fixes (v0.10.1) — COMPLETE (branch `dev`)
 
 **Context:** User opened an existing workspace's `yappy · agent-1 · claude` terminal, which was

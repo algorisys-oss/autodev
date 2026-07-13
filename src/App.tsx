@@ -8,12 +8,14 @@ import { getThemePref, setThemePref, resolveTheme, watchSystemTheme } from "./li
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
+import { RichPane } from "./components/rich-pane";
 import { PromptComposer } from "./components/prompt-composer";
 import { LoopPanel } from "./components/loop-panel";
 import { SettingsPanel } from "./components/settings-panel";
 import { HelpPanel } from "./components/help-panel";
 import { AboutPanel } from "./components/about-panel";
 import { StatusFooter } from "./components/status-footer";
+import logoUrl from "./assets/logo.svg";
 import "./App.css";
 
 function App() {
@@ -23,6 +25,8 @@ function App() {
   const [showHelp, setShowHelp] = createSignal(false);
   const [showAbout, setShowAbout] = createSignal(false);
   const [helpMenuOpen, setHelpMenuOpen] = createSignal(false);
+  // For a Rich session, flip to the raw NDJSON terminal (debugging). Off = the card view.
+  const [rawView, setRawView] = createSignal(false);
   // Effective (rendered) theme, for the toggle icon. The attribute is set pre-paint in
   // index.html; here we mirror it and keep "system" in sync with the OS.
   const [theme, setTheme] = createSignal<"light" | "dark">(resolveTheme(getThemePref()));
@@ -85,6 +89,7 @@ function App() {
   return (
     <div class="app">
       <header class="app-header">
+        <img class="app-logo" src={logoUrl} alt="" width="24" height="24" />
         <h1>AutoDev</h1>
         <Show when={info()} fallback={<span class="muted">connecting…</span>}>
           {(i) => <span class="muted">v{i().version}</span>}
@@ -207,6 +212,14 @@ function App() {
                   </span>
                   <span class="spacer" />
                   <Show when={editorMsg()}>{(m) => <span class="error">{m()}</span>}</Show>
+                  <Show when={a.rich}>
+                    <button
+                      title="Toggle between the structured card view and the raw event stream"
+                      onClick={() => setRawView((v) => !v)}
+                    >
+                      {rawView() ? "Rich view" : "Raw stream"}
+                    </button>
+                  </Show>
                   <button
                     title="Open this agent's working directory in your editor"
                     onClick={() => openIn(a.worktree?.path ?? a.cwd)}
@@ -228,10 +241,21 @@ function App() {
                     </div>
                   )}
                 </Show>
-                <div class="terminal-hint muted">
-                  This is {a.label}'s own terminal — type here to reply to this agent.
-                </div>
-                <TerminalPane agentId={a.id} store={agents} />
+                <Show
+                  when={a.rich && !rawView()}
+                  fallback={
+                    <>
+                      <div class="terminal-hint muted">
+                        {a.rich
+                          ? "Raw event stream (NDJSON) — the source behind the card view."
+                          : `This is ${a.label}'s own terminal — type here to reply to this agent.`}
+                      </div>
+                      <TerminalPane agentId={a.id} store={agents} />
+                    </>
+                  }
+                >
+                  <RichPane agentId={a.id} store={agents} />
+                </Show>
               </section>
             )}
           </Show>

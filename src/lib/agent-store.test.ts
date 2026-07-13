@@ -264,6 +264,44 @@ describe("agent store", () => {
     });
   });
 
+  it("collects agent://event into a rich session's events, in order", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p");
+      expect(store.focused()?.rich).toBe(true);
+      expect(store.focused()?.events).toEqual([]);
+
+      h.emit("agent://event", {
+        id: "agent-1",
+        event: { kind: "assistantText", text: "hi" },
+      });
+      h.emit("agent://event", {
+        id: "agent-1",
+        event: { kind: "toolCall", id: "t1", name: "Read", input: { file_path: "/x" } },
+      });
+
+      expect(store.focused()?.events).toEqual([
+        { kind: "assistantText", text: "hi" },
+        { kind: "toolCall", id: "t1", name: "Read", input: { file_path: "/x" } },
+      ]);
+      dispose();
+    });
+  });
+
+  it("a non-rich agent is not rich and ignores stray events for unknown ids", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      expect(store.focused()?.rich).toBe(false);
+      // event for a non-existent id must not throw or add anything
+      h.emit("agent://event", { id: "ghost", event: { kind: "assistantText", text: "x" } });
+      expect(store.focused()?.events).toEqual([]);
+      dispose();
+    });
+  });
+
   it("close removes an agent and reselects", async () => {
     await createRoot(async (dispose) => {
       const h = harness();

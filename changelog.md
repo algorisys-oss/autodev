@@ -2,6 +2,27 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## Unreleased (branch `feat/rich-view`)
+
+- **New (spike): Rich view — an opt-in, structured, card-based agent session.** As an
+  alternative to the raw terminal, a session can render the agent's activity as native cards —
+  assistant text, thinking, tool calls (with a summarized argument), tool results, and a final
+  done chip with cost/duration. Launched via a **Rich view** toggle in the composer, shown only
+  for backends that can emit a structured stream. Increment 1 is **read-only and one-shot**
+  (Claude only): the agent runs one prompt and the cards render as it works; a per-session
+  **Raw stream** toggle flips to the underlying NDJSON in the terminal.
+  - Built on a **normalized, backend-agnostic event model** (`agent_event::AgentEvent`) so
+    Codex/others can plug in later behind the same UI — the multi-backend seam. Claude's driver
+    (`ClaudeStreamJsonDriver`) parses `claude -p --output-format stream-json --verbose`; the
+    `structured` capability lives in the declarative `BackendSpec`, and the normalized events are
+    emitted to the frontend on a new `agent://event` channel. Parser tested against real
+    `claude` 2.1.207 output.
+- **New: a purpose-drawn app icon.** Replaced the placeholder loop icon (which read like a gear
+  at title-bar size) and the stock SolidJS favicon with a terminal `>_` prompt on an
+  indigo→violet squircle, with a faint offset chevron for the parallel-agents motif. Regenerated
+  the full platform icon set, the webview favicon, and added the mark to the header and the
+  About panel.
+
 ## v0.10.1 — 2026-07-13
 
 - **Fixed: the focused agent's terminal was too short to show interactive menus.** On shorter

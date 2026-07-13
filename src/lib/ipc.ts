@@ -99,6 +99,8 @@ export interface BackendInfo {
   id: string;
   label: string;
   models: string[];
+  /** Whether this backend can emit a structured event stream (offers the Rich view). */
+  structured: boolean;
 }
 
 /** List available backends (bundled + disk-registered). `mock` is excluded. */
@@ -143,12 +145,26 @@ export interface AgentOptions {
   /** One-shot mode (`claude -p`): run once, print, and exit. The loop needs this — auto-advance
    *  fires on agent exit, and interactive agents never exit. */
   printMode?: boolean;
+  /** Launch in Rich mode: a structured event stream rendered as cards instead of a raw
+   *  terminal. Only honored for backends whose `BackendInfo.structured` is true; one-shot. */
+  rich?: boolean;
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];
   images?: string[];
   mockCommand?: string[] | null;
 }
+
+/** A normalized agent event from a Rich session (mirrors Rust `agent_event::AgentEvent`).
+ *  Discriminated on `kind`; arrives on the `agent://event` channel. */
+export type AgentEvent =
+  | { kind: "sessionInit"; model: string; cwd: string; permissionMode: string }
+  | { kind: "assistantText"; text: string }
+  | { kind: "thinking"; text: string }
+  | { kind: "toolCall"; id: string; name: string; input: unknown }
+  | { kind: "toolResult"; toolUseId: string; ok: boolean; output: string }
+  | { kind: "done"; ok: boolean; text: string; costUsd?: number; durationMs?: number }
+  | { kind: "raw"; text: string };
 
 export interface AgentInfo {
   id: string;
