@@ -4,6 +4,13 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Loop auto-advance on the hook bus (P3 complete)
+- The autonomous loop's auto-advance now reacts to the public `exit` hook instead of a reactive
+  `createEffect` polling agent status — the **second** built-in on the P3 bus, alongside
+  onboarding auto-accept. A non-zero (error) exit still does not auto-advance (manual controls
+  take over); a new loop-panel test locks that guard. This closes P3's Done bar: both built-in
+  behaviors run through the hook API. (Config/extension-loaded hooks remain P5.)
+
 ### In-app Help & documentation
 - Added a self-contained **Help panel** (the **?** button in the header) so end users never need
   external docs. A table-of-contents sidebar + full guide covering: what AutoDev is, workspaces

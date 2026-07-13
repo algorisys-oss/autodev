@@ -91,6 +91,26 @@ describe("loop panel auto-advance", () => {
     expect(mocked.loopReadyToEvaluate).not.toHaveBeenCalled();
   });
 
+  it("does not auto-advance when the role agent exits with an error (non-zero code)", async () => {
+    mocked.loopList.mockResolvedValue([loop()]);
+    mocked.loopCurrentPrompt.mockResolvedValue({ role: "planner", prompt: "PLAN" });
+    mocked.loopApplyPlanner.mockResolvedValue(loop({ phase: "generating" }));
+
+    const { store, emit } = agentHarness();
+    const { getByText, findByText } = render(() => (
+      <LoopPanel agents={store} defaultProjectDir="/proj" />
+    ));
+
+    await findByText(/Run planner/);
+    fireEvent.click(getByText(/Run planner/));
+    await waitFor(() => expect(store.state.agents).toHaveLength(1));
+
+    // The planner crashes (non-zero exit) → the exit hook must NOT advance; manual controls take over.
+    emit("agent://exit", { id: "agent-1", code: 1 });
+    await Promise.resolve();
+    expect(mocked.loopApplyPlanner).not.toHaveBeenCalled();
+  });
+
   it("grades via the evaluator when its agent exits", async () => {
     mocked.loopList.mockResolvedValue([
       loop({ phase: "evaluating", contract: [{ text: "has tests", met: null }] }),

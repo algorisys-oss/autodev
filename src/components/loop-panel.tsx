@@ -1,4 +1,4 @@
-import { createSignal, createEffect, onMount, Show, For } from "solid-js";
+import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
 import {
   loopCreate,
   loopList,
@@ -55,16 +55,20 @@ export function LoopPanel(props: {
     phase === "generating" ||
     phase === "evaluating";
 
-  // Auto-advance: when the tracked role agent exits, parse what it printed and move the loop
-  // on (planner → contract, generator → evaluating, evaluator → graded). On a parse failure
-  // the phase is left where it was so the manual controls below act as the fallback.
-  createEffect(() => {
-    const ra = roleAgent();
-    if (!ra) return;
-    const agent = props.agents.state.agents.find((a) => a.id === ra.agentId);
-    if (!agent || agent.status !== "exited") return;
-    setRoleAgent(null);
-    void autoAdvance(ra);
+  // Auto-advance: when the tracked role agent exits cleanly, parse what it printed and move the
+  // loop on (planner → contract, generator → evaluating, evaluator → graded). This is the second
+  // built-in on the P3 hook bus (alongside onboarding auto-accept): it reacts to the public
+  // `exit` hook rather than polling agent status. A non-zero exit (error) does not auto-advance —
+  // the manual controls take over; a parse failure leaves the phase put as a fallback.
+  onMount(() => {
+    const off = props.agents.hooks.onExit((id, code) => {
+      const ra = roleAgent();
+      if (ra && ra.agentId === id && !code) {
+        setRoleAgent(null);
+        void autoAdvance(ra);
+      }
+    });
+    onCleanup(off);
   });
 
   async function autoAdvance(ra: { loopId: string; agentId: string; role: Role }) {

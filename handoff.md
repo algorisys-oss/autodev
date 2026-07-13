@@ -5,7 +5,14 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** In-app Help & documentation (on `dev`). A self-contained **Help panel** (the
+- **Last task:** P3 close-out — loop auto-advance on the hook bus (on `dev`). The autonomous
+  loop's auto-advance now reacts to the public `exit` hook (`loop-panel.tsx`) instead of a
+  reactive status-polling `createEffect` — the second built-in on the P3 bus. A non-zero (error)
+  exit does not auto-advance (guard `!code`, locked by a new test). **P3 Done bar is now fully
+  met** (both built-ins run through the hook API). **Verify:** `./dev.sh verify` green (92 Rust +
+  15 frontend files). **Remaining roadmap:** P5 (extension/config-loaded hooks — trust model
+  decision), P9 (cross-agent annotation — browser bridge), M1 (Pi spike — hands-on browser).
+- **Prior task:** In-app Help & documentation (on `dev`). A self-contained **Help panel** (the
   **?** header button, `help-panel.tsx`) with a ToC sidebar + full guide covering every feature —
   workspaces, tasks, backends, difficulty/modes, Auto-split, agent statuses, worktrees, loops,
   settings, **Extending AutoDev** (custom backends w/ example spec, templates, skills), the

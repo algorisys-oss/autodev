@@ -58,7 +58,19 @@ Not exercised: writing into the user's real `~/.autodev` (avoided on purpose —
 cover the disk logic). Design note: the skills-dir feature is the proof that P3's frontend TS
 bus was the right call — a product feature slotted onto it with a one-line `onSpawn`.
 
-## Public hook lifecycle (P3 — extensibility track) — INCREMENT 1 COMPLETE (branch `dev`)
+## Public hook lifecycle (P3 — extensibility track) — COMPLETE (branch `dev`)
+
+**Close-out (loop auto-advance = 2nd built-in):** replaced the `createEffect` in `loop-panel.tsx`
+that polled the tracked role agent's status with an `onExit` hook registered on mount
+(`onCleanup` unregisters). The guard `!code` preserves the old "advance only on a clean exit"
+behavior — a non-zero (error) exit does not auto-advance; a new test
+(`does not auto-advance when the role agent exits with an error`) locks it. Existing loop tests
+pass unchanged because they emit `agent://exit` through the real store, which now calls
+`hooks.emitExit`. Both built-ins (onboarding auto-accept + loop auto-advance) now run through the
+hook API — P3's Done bar met. Remaining P3-adjacent work (loading hooks from config/extensions)
+is P5.
+
+### Increment 1 (original)
 
 **Context:** Second step of `PI-PARITY-PLAN.md` (Track A spine). The plan's event stream
 (`agent://output`/`exit`) was informal; P3 turns it into a public, typed hook API that
