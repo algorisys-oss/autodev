@@ -1012,3 +1012,132 @@ button.danger {
     border-color: rgba(255, 255, 255, 0.08);
   }
 }
+
+/* --- Help & documentation panel --- */
+.help-modal {
+  width: min(940px, 95vw);
+  max-height: 88vh;
+  overflow: hidden;
+}
+
+.help-body {
+  display: flex;
+  gap: 1rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.help-toc {
+  flex: 0 0 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  overflow-y: auto;
+  border-right: 1px solid #e3e3e3;
+  padding-right: 0.4rem;
+}
+
+.help-toc-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #333;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.help-toc-item:hover {
+  background: #f0f0f0;
+  color: #0a63c6;
+}
+
+.help-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.help-section {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.9rem;
+}
+.help-section:last-child {
+  border-bottom: none;
+}
+.help-section h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.help-section h4 {
+  margin: 0.9rem 0 0.3rem;
+  font-size: 0.92rem;
+}
+.help-section p {
+  margin: 0.4rem 0;
+  line-height: 1.5;
+}
+.help-section ul {
+  margin: 0.4rem 0;
+  padding-left: 1.1rem;
+}
+.help-section li {
+  margin: 0.25rem 0;
+  line-height: 1.45;
+}
+.help-section code {
+  background: #f2f2f2;
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.help-code {
+  background: #f6f6f6;
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre;
+}
+
+.help-callout {
+  background: #eef6ff;
+  border-left: 3px solid #0a84ff;
+  padding: 0.5rem 0.7rem;
+  border-radius: 4px;
+}
+
+.help-muted {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.help-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: #9a9a9a;
+}
+.help-dot.running { background: #2ea043; }
+.help-dot.idle { background: #d9a406; }
+.help-dot.waiting { background: #2f81f7; }
+.help-dot.exited { background: #8a8a8a; }
+.help-dot.error { background: #d1242f; }
+
+@media (max-width: 640px) {
+  .help-body { flex-direction: column; }
+  .help-toc {
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 1px solid #e3e3e3;
+    padding-bottom: 0.4rem;
+  }
+}

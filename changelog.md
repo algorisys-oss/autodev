@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### In-app Help & documentation
+- Added a self-contained **Help panel** (the **?** button in the header) so end users never need
+  external docs. A table-of-contents sidebar + full guide covering: what AutoDev is, workspaces
+  & projects, starting a task (backends, difficulty, modes, per-agent prompts, voice/screenshot/
+  handoff), Auto-split, agents & terminal statuses, git worktree isolation, autonomous loops,
+  settings, **Extending AutoDev** (custom backends with an example `BackendSpec`, prompt
+  templates, skills — all file-based under `~/.autodev/`), the on-disk data layout, and
+  tips/troubleshooting. New `help-panel.tsx` (content as a section array so the ToC can't drift)
+  + styles; tests cover rendering the extensibility docs and closing.
+
 ### Prompt templates + skills dir (P4 — extensibility track)
 - **Prompt templates:** drop `*.md` files in `~/.autodev/templates/`; in the composer, type
   `/name` and a suggestion row appears — click it or press **Tab** to expand the template into

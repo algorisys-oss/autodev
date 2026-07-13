@@ -9,12 +9,14 @@ import { TerminalPane } from "./components/terminal-pane";
 import { PromptComposer } from "./components/prompt-composer";
 import { LoopPanel } from "./components/loop-panel";
 import { SettingsPanel } from "./components/settings-panel";
+import { HelpPanel } from "./components/help-panel";
 import "./App.css";
 
 function App() {
   const [info, setInfo] = createSignal<AppInfo | null>(null);
   const [view, setView] = createSignal<"workspace" | "loops">("workspace");
   const [showSettings, setShowSettings] = createSignal(false);
+  const [showHelp, setShowHelp] = createSignal(false);
   const workspaces = createWorkspaceStore();
   const agents = createAgentStore();
 
@@ -79,11 +81,18 @@ function App() {
           <button classList={{ active: view() === "loops" }} onClick={() => setView("loops")}>
             Loops
           </button>
+          <button class="icon help-btn" title="Help & documentation" onClick={() => setShowHelp(true)}>
+            ?
+          </button>
           <button class="icon settings-btn" title="Settings" onClick={() => setShowSettings(true)}>
             ⚙
           </button>
         </nav>
       </header>
+
+      <Show when={showHelp()}>
+        <HelpPanel onClose={() => setShowHelp(false)} />
+      </Show>
 
       <Show when={showSettings()}>
         <SettingsPanel onClose={() => setShowSettings(false)} />

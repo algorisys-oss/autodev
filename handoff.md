@@ -5,7 +5,14 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Prompt templates + skills dir (on `dev`) — P4 of `PI-PARITY-PLAN.md`. Two
+- **Last task:** In-app Help & documentation (on `dev`). A self-contained **Help panel** (the
+  **?** header button, `help-panel.tsx`) with a ToC sidebar + full guide covering every feature —
+  workspaces, tasks, backends, difficulty/modes, Auto-split, agent statuses, worktrees, loops,
+  settings, **Extending AutoDev** (custom backends w/ example spec, templates, skills), the
+  `~/.autodev/` data layout, and troubleshooting. Content is a section array so the ToC can't
+  drift. **Verify:** `./dev.sh verify` green (92 Rust + 15 frontend files). So end users need no
+  external docs.
+- **Prior task:** Prompt templates + skills dir (on `dev`) — P4 of `PI-PARITY-PLAN.md`. Two
   file-backed features: (1) **templates** — `*.md` files in `~/.autodev/templates/`; typing
   `/name` in the composer shows a suggestion row, click or **Tab** expands it into the task box
   (Rust `templates.rs` lists them; pure `templates.ts` expands). (2) **skills dir** — if

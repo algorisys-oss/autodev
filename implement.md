@@ -2,6 +2,30 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## In-app Help & documentation — COMPLETE (branch `dev`)
+
+**Context:** User asked for detailed documentation *inside the web app* so end users need no
+external help — landed after the extensibility milestone (P1/P3/P4) as a natural point to
+document the whole app.
+
+**Approach:** `src/components/help-panel.tsx` — a modal reusing the app's `annotator-backdrop`/
+`handoff-modal` idiom, with a two-pane layout: a table-of-contents sidebar and a scrollable
+guide. Content is a `SECTIONS` array (`{id, title, body}`) so the ToC and content are generated
+from one source and can't drift; clicking a ToC item scrolls to the section by id. Wired into
+`App.tsx` with a `?` header button next to Settings. Styles appended to `App.css`
+(`.help-*`), reusing the status-dot colors so the "agent statuses" legend matches the grid.
+
+**Coverage:** overview; workspaces & projects; starting a task (backend picker, difficulty,
+modes, per-agent prompts, voice/screenshot/handoff); Auto-split; agents & terminal statuses;
+worktree isolation; autonomous loops; settings; **Extending AutoDev** (custom backends with a
+full example spec, prompt templates, skills — the file-based `~/.autodev/` surface from P1/P4);
+on-disk data layout; tips/troubleshooting.
+
+**Files:** `help-panel.tsx` (new) + `help-panel.test.tsx`; `App.tsx` (button + panel);
+`App.css` (help styles). **Verification:** `./dev.sh verify` green (92 Rust + 15 frontend
+files). Component test asserts the extensibility docs render and Close fires. Not exercised: the
+literal GUI open (jsdom render + tsc/eslint cover the component).
+
 ## Prompt templates + skills dir (P4 — extensibility track) — COMPLETE (branch `dev`)
 
 **Context:** Third step of `PI-PARITY-PLAN.md` (Track A). Cheap, high-ROI, and it exercises the
