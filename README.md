@@ -92,11 +92,17 @@ Install one for your desktop, or set `screenshotCommand` yourself:
 | Linux — Sway / Hyprland (wlroots Wayland) | `sudo apt install grim` | `grim {file}` |
 | Linux — generic X11 | `sudo apt install scrot` (or `maim`) | `scrot {file}` |
 | macOS | built in | `screencapture -x {file}` (auto-detected) |
-| Windows | no built-in CLI — use a tool that writes a PNG to a path, or a PowerShell one-liner | `<your-tool> {file}` |
+| Windows | built in (PowerShell) — see the one-liner below | `powershell -c "…{file}"` |
 
-> Note: `grim` only works on **wlroots** compositors; on **GNOME/KDE Wayland** use
-> `gnome-screenshot` / `spectacle`. X11 tools (`scrot`, `maim`, ImageMagick `import`) capture a
-> black frame under a Wayland session.
+> **Notes.**
+> - `grim` only works on **wlroots** compositors; on **GNOME/KDE Wayland** use `gnome-screenshot`
+>   / `spectacle`. X11 tools (`scrot`, `maim`, ImageMagick `import`) capture a black frame under a
+>   Wayland session.
+> - **Windows** has no dedicated screenshot CLI, but PowerShell can grab the screen — set this as
+>   `screenshotCommand` (it uses `.NET`, no install):
+>   ```
+>   powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $m=New-Object Drawing.Bitmap $b.Width,$b.Height; ([Drawing.Graphics]::FromImage($m)).CopyFromScreen(0,0,0,0,$m.Size); $m.Save('{file}')"
+>   ```
 
 **Voice-to-text (🎤).** Any command that transcribes an audio `{file}` to stdout. Example with
 [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`brew install whisper-cpp` on macOS, or
