@@ -91,7 +91,8 @@ release)
   git commit -m "Release v$ver"
   git tag "v$ver"
   git push origin HEAD "v$ver"
-  echo "Pushed v$ver. Watch the Release workflow, then publish the draft release on GitHub."
+  echo "Pushed v$ver. The Release workflow builds every OS and publishes the release at"
+  echo "https://github.com/algorisys-oss/autodev/releases (a few minutes)."
   ;;
 help | -h | --help)
   usage
