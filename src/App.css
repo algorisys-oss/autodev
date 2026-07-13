@@ -730,6 +730,12 @@ button.mic.recording {
   gap: 0.3rem;
 }
 
+.perm-mode select {
+  font: inherit;
+  padding: 0.1rem 0.35rem;
+  border-radius: 5px;
+}
+
 .composer-tools {
   font-size: 0.9em;
 }

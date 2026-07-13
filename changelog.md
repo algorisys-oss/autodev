@@ -10,7 +10,8 @@ Newest first. Functional changes only (LOOPS XXIV).
   own `PreToolUse` hook (no MCP server, no SDK, no network port): AutoDev generates a per-session
   `--settings` file whose hook writes each request into a user-only approval dir and blocks
   polling for a decision file the app writes. Fails safe — a walked-away request auto-denies after
-  120s. Mutually exclusive with Bypass (and implies Rich); the mode is explicit in the UI. Proven
+  120s. Chosen via a single **Permissions** mode selector (Normal / Ask each tool / Bypass) — one
+  posture at a time, so modes can't silently unset one another; "Ask each tool" implies Rich. Proven
   end-to-end against real `claude` 2.1.207: allow proceeds, deny blocks (any tool, matcher `*`),
   timeout denies. *Linux/macOS for now (the hook is a shell script); Windows is a follow-on.*
 - **Fixed: the status footer's git branch is now live.** It previously only refetched when the set

@@ -42,14 +42,17 @@ export function PromptComposer(props: {
   const [perAgent, setPerAgent] = createSignal(false);
   const [prompts, setPrompts] = createSignal<string[]>([]);
   const [planMode, setPlanMode] = createSignal(false);
-  const [bypass, setBypass] = createSignal(false);
+  // Session permission posture — one mode at a time (a select, not overlapping checkboxes, so
+  // Bypass and Approvals can't silently unset each other). "ask" is interactive per-action
+  // approval (B2, implies Rich); "bypass" skips all checks; "normal" leaves the CLI default.
+  const [permMode, setPermMode] = createSignal<"normal" | "ask" | "bypass">("normal");
+  const bypass = () => permMode() === "bypass";
+  const approvals = () => permMode() === "ask";
   // Rich (structured card) view. Only offered for backends that can emit a structured stream.
   const [rich, setRich] = createSignal(false);
   // Pre-launch tool permission lists (B1), comma/space-separated. Only for capable backends.
   const [allowTools, setAllowTools] = createSignal("");
   const [denyTools, setDenyTools] = createSignal("");
-  // Interactive per-action approval (B2). Requires Rich; mutually exclusive with Bypass.
-  const [approvals, setApprovals] = createSignal(false);
   const [ultrathink, setUltrathink] = createSignal(false);
   const [isolate, setIsolate] = createSignal(false);
   const [runIn, setRunIn] = createSignal<string>("");
@@ -575,12 +578,25 @@ export function PromptComposer(props: {
 
       <div class="composer-toggles">
         <label><input type="checkbox" checked={planMode()} onChange={(e) => setPlanMode(e.currentTarget.checked)} /> Plan mode</label>
-        <label><input type="checkbox" checked={bypass()} onChange={(e) => { setBypass(e.currentTarget.checked); if (e.currentTarget.checked) setApprovals(false); }} /> Bypass permissions</label>
+        <label class="perm-mode" title="How tool calls are permitted this session">
+          Permissions
+          <select
+            value={permMode()}
+            onChange={(e) => {
+              const m = e.currentTarget.value as "normal" | "ask" | "bypass";
+              setPermMode(m);
+              if (m === "ask") setRich(true); // interactive approval needs the card view
+            }}
+          >
+            <option value="normal">Normal</option>
+            <Show when={supportsApproval()}>
+              <option value="ask">Ask each tool</option>
+            </Show>
+            <option value="bypass">Bypass (skip checks)</option>
+          </select>
+        </label>
         <Show when={supportsRich()}>
           <label title="Render this session as structured cards instead of a raw terminal (one-shot)"><input type="checkbox" checked={rich() || (approvals() && supportsApproval())} disabled={approvals() && supportsApproval()} onChange={(e) => setRich(e.currentTarget.checked)} /> Rich view</label>
-        </Show>
-        <Show when={supportsApproval()}>
-          <label title="Approve or deny every tool call in the Rich view (implies Rich; disables Bypass)"><input type="checkbox" checked={approvals()} onChange={(e) => { const on = e.currentTarget.checked; setApprovals(on); if (on) { setRich(true); setBypass(false); } }} /> Approvals</label>
         </Show>
         <label><input type="checkbox" checked={ultrathink()} onChange={(e) => setUltrathink(e.currentTarget.checked)} /> Ultrathink</label>
         <label><input type="checkbox" checked={isolate()} onChange={(e) => setIsolate(e.currentTarget.checked)} /> Isolate (worktree)</label>

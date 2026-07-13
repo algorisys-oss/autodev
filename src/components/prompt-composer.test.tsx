@@ -318,15 +318,16 @@ describe("PromptComposer Rich view", () => {
     expect(spawned[0].disallowedTools).toEqual(["Bash"]);
   });
 
-  it("the Approvals toggle forces Rich, disables Bypass, and passes interactiveApproval", async () => {
+  const permSelect = (container: HTMLElement) =>
+    container.querySelector(".perm-mode select") as HTMLSelectElement;
+
+  it("Permissions='Ask each tool' forces Rich and passes interactiveApproval, not bypass", async () => {
     const { agents, spawned } = storeWithRecorder();
     const { container, getByText } = render(() => (
       <PromptComposer workspace={workspace} agents={agents} />
     ));
     await waitFor(() => expect(hasRichToggle(container)).toBe(true));
-    // Turn on Bypass first, then Approvals — Approvals must win (mutually exclusive).
-    fireEvent.change(labelInput(container, "Bypass permissions"), { target: { checked: true } });
-    fireEvent.change(labelInput(container, "Approvals"), { target: { checked: true } });
+    fireEvent.change(permSelect(container), { target: { value: "ask" } });
     fireEvent.input(taskBox(container), { target: { value: "do it" } });
 
     fireEvent.click(getByText(/Launch \d agent/));
@@ -335,6 +336,22 @@ describe("PromptComposer Rich view", () => {
     expect(spawned[0].interactiveApproval).toBe(true);
     expect(spawned[0].rich).toBe(true);
     expect(spawned[0].bypassPermissions).toBe(false);
+  });
+
+  it("Permissions='Bypass' passes bypassPermissions and never interactiveApproval", async () => {
+    const { agents, spawned } = storeWithRecorder();
+    const { container, getByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    await waitFor(() => expect(hasRichToggle(container)).toBe(true));
+    fireEvent.change(permSelect(container), { target: { value: "bypass" } });
+    fireEvent.input(taskBox(container), { target: { value: "do it" } });
+
+    fireEvent.click(getByText(/Launch \d agent/));
+
+    await waitFor(() => expect(spawned).toHaveLength(1));
+    expect(spawned[0].bypassPermissions).toBe(true);
+    expect(spawned[0].interactiveApproval).toBe(false);
   });
 
   it("passes rich: true through to spawn when Rich view is on and a prompt is given", async () => {
