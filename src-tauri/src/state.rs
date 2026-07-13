@@ -9,8 +9,11 @@ use crate::error::{AppError, AppResult};
 ///
 /// This is the whole on-disk state for Phase 0. Later phases add sibling files
 /// (workspaces, agent sessions) under the same data directory.
+// `default` at the container level fills any missing field from `Default`, so a settings.json
+// written by an older version — or hand-edited to drop a key — still loads instead of failing
+// the whole read (which would break screenshots, editor, etc.).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     /// UI theme: "system" | "light" | "dark".
     pub theme: String,
@@ -19,24 +22,19 @@ pub struct AppSettings {
     /// Shell command template used to transcribe a recording. `{file}` is replaced with
     /// the audio path. Empty/absent means voice input is not configured. Example:
     /// `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`.
-    #[serde(default)]
     pub transcribe_command: Option<String>,
     /// Shell command template used to capture a screenshot to `{file}` (a PNG path).
     /// Example: `grim {file}` (Wayland), `scrot {file}` (X11), `screencapture {file}` (macOS).
-    #[serde(default)]
     pub screenshot_command: Option<String>,
     /// Shell command template to execute a browser handoff. `{file}` is replaced with a
     /// path to a file holding the handoff prompt. Example: a Playwright runner script.
-    #[serde(default)]
     pub browser_command: Option<String>,
     /// Editor command used by "Open in editor". Split on whitespace, the target path appended
     /// as the final arg (e.g. `code`, `code -n`, `cursor`, `subl`). Absent/empty ⇒ `code`.
-    #[serde(default)]
     pub editor_command: Option<String>,
     /// When on, the composer's Launch first runs the auto-split classifier (unless the task is
     /// already split or the agent count was set by hand), so the user reviews the proposed
     /// parallel split before the actual fan-out. Off by default — Launch fans out immediately.
-    #[serde(default)]
     pub auto_split_on_launch: bool,
 }
 
@@ -155,6 +153,26 @@ mod tests {
         let dir = temp_dir("defaults");
         let s = load_settings_from(&dir).unwrap();
         assert_eq!(s, AppSettings::default());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn partial_settings_json_fills_missing_fields_from_defaults() {
+        // A hand-edited or older settings.json missing keys must still load (not fail the whole
+        // read, which previously broke screenshots via load_settings).
+        let dir = temp_dir("partial");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("settings.json"),
+            r#"{ "theme": "dark", "screenshotCommand": "grim {file}" }"#,
+        )
+        .unwrap();
+        let s = load_settings_from(&dir).unwrap();
+        assert_eq!(s.theme, "dark");
+        assert_eq!(s.screenshot_command.as_deref(), Some("grim {file}"));
+        // Missing fields fall back to Default rather than erroring.
+        assert_eq!(s.default_effort, AppSettings::default().default_effort);
+        assert!(!s.auto_split_on_launch);
         let _ = fs::remove_dir_all(&dir);
     }
 
