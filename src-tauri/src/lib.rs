@@ -17,12 +17,39 @@ mod workspace;
 
 use tauri::{Manager, WindowEvent};
 
+/// On Linux, WebKitGTK disables the media-stream feature and denies `getUserMedia` by default,
+/// so the voice recorder fails with a permission error. Enable media-stream and grant permission
+/// requests on the main webview. Safe here because the webview only ever loads AutoDev's own
+/// bundled UI — there is no untrusted remote page that could abuse mic/camera access.
+#[cfg(target_os = "linux")]
+fn allow_media_capture(app: &tauri::App) {
+    use webkit2gtk::{PermissionRequestExt, SettingsExt, WebViewExt};
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.with_webview(|platform| {
+        let webview = platform.inner();
+        if let Some(settings) = WebViewExt::settings(&webview) {
+            settings.set_enable_media_stream(true);
+        }
+        webview.connect_permission_request(|_wv, req| {
+            req.allow();
+            true
+        });
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(agent::AgentManager::default())
+        .setup(|app| {
+            #[cfg(target_os = "linux")]
+            allow_media_capture(app);
+            Ok(())
+        })
         .on_window_event(|window, event| {
             // Kill every live agent when the window closes, so no PTY child is orphaned.
             if let WindowEvent::CloseRequested { .. } = event {

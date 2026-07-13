@@ -24,3 +24,9 @@ thiserror = "2"
 dirs = "6"
 portable-pty = "0.9"
 base64 = "0.22"
+
+# Linux only: grant the WebKitGTK webview microphone/camera permission so voice input works.
+# Pinned to the version wry uses — the `WebView` type crosses the `with_webview` boundary, so a
+# mismatch would be a type error. Bump this in lockstep if Tauri's webkit2gtk changes.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "=2.0.2"

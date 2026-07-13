@@ -4,6 +4,14 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Fix: microphone (voice input) on Linux
+- Voice recording failed on Linux with `NotAllowedError` because WebKitGTK disables the
+  media-stream feature and denies `getUserMedia` by default. The Tauri core now, on Linux,
+  enables media-stream on the main webview and grants its permission requests (safe — the
+  webview only loads AutoDev's own bundled UI, no untrusted page). Adds a Linux-only
+  `webkit2gtk` dependency, pinned to the version wry uses. Needs a live mic to confirm end to
+  end; verified to compile against the real WebKit API and pass CI.
+
 ### Cross-agent structured annotation (P9 — the differentiator)
 - The screenshot/annotate flow now captures **structured notes** (one per line) alongside the
   drawing. A capture is now an *annotation artifact* — image + notes — and **fans out to every
