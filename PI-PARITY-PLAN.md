@@ -193,10 +193,14 @@ not a smuggled task. Decide the trust/security model first (LOOPS XV).
 → **Done:** a third-party folder adds a backend + hook + composer command with no edits to
 the AutoDev source tree.
 
-### P6 — Headless / RPC mode *(Track A; turns app into platform)*
+### P6 — Headless / RPC mode *(Track A; turns app into platform)* — ✅ DONE (v0.11.1-dev)
 Expose the orchestrator over JSONL (stdin/stdout or a local socket) — Pi's RPC/SDK
 equivalent.
 → **Done:** drive a full spawn → prompt → observe → kill cycle from a shell script, no GUI.
+Shipped as the `autodev-headless` binary (`src-tauri/src/headless.rs`, `./dev.sh headless`):
+JSONL commands (`spawn`/`write`/`kill`/`list`) in, JSONL events (`spawned`/`output`/`exit`/
+`list`/`error`) out, over stdin/stdout. Reuses `agent::spawn_session`; stdin EOF kills all.
+Verified end-to-end against real `claude`.
 
 ### P7 — Embed Pi as a backend *(Track B; gated on M1 pass)*
 Promote the M1 spike to a real Pi `BackendSpec`. AutoDev inherits Pi's extension ecosystem

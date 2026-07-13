@@ -2,6 +2,31 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Headless / RPC mode — P6 (branch `feat/headless-rpc`)
+
+**Context:** User picked P6 after v0.11.0 shipped. Spec (`PI-PARITY-PLAN.md`): expose the
+orchestrator over JSONL (stdin/stdout or socket); Done = drive a full spawn→prompt→observe→kill
+cycle from a shell script, no GUI.
+
+**Design decision:** JSONL over **stdin/stdout** (the spec's primary option, most scriptable) via
+a **second binary** in the crate — the lib is an `rlib`, and `agent::spawn_session` is already
+Tauri-independent and callback-based, so headless just maps on_output/on_exit to JSONL events
+instead of Tauri events. No socket, no daemon protocol for v1.
+
+**Approach:** `src-tauri/src/headless.rs` — `Command` (serde `cmd`-tagged: spawn/write/kill/list)
++ `Event` (serde `event`-tagged: spawned/output(base64)/exit/list/error) + `run()` (reads stdin
+lines, `dispatch()`es, `kill_all` on EOF) + `dispatch()` (parse → act → emit). `Emit =
+Arc<dyn Fn(&Event)+Send+Sync>` so the per-agent reader thread emits through it (`println` is
+line-atomic; run() locks+flushes stdout). `lib.rs` exposes `pub mod headless`;
+`src/bin/autodev-headless.rs` calls it; `dev.sh headless` builds+runs it.
+
+**TDD/verify:** 4 tests via `dispatch` + the Mock backend (bad-command→error, spawn→output→exit,
+write→echo + list, write-to-missing→error). Then **proven end-to-end from a shell script**: Mock
+cycle (spawn→output stream→list→exit) and a **real `claude`** print-mode cycle (returned
+HEADLESS-OK, exit 0). `./dev.sh verify` green (133 Rust tests). **Not done:** structured-event
+variant (server-side Rich parsing), local-socket transport, resize/backend-list commands.
+
+
 ## Rich view — increment 3B(2): per-action tool approval / B2 (branch `feat/rich-view`)
 
 **Context:** B2 is the true per-action approve/deny buttons deferred earlier. User chose to pursue

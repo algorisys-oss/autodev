@@ -5,6 +5,17 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
+- **Last task:** Headless / RPC mode — **P6** (branch `feat/headless-rpc`, off `dev`, **not yet
+  merged/shipped**). New `autodev-headless` binary + `./dev.sh headless` drive the orchestrator
+  over **JSONL on stdin/stdout**, no GUI: `{"cmd":"spawn"|"write"|"kill"|"list"}` in →
+  `{"event":"spawned"|"output"|"exit"|"list"|"error"}` out. `src-tauri/src/headless.rs` (`run()` +
+  `dispatch()`) reuses `agent::spawn_session` — the on_output/on_exit callbacks emit JSONL instead
+  of Tauri events; stdin EOF → `kill_all`. `lib.rs` exposes `pub mod headless`;
+  `src/bin/autodev-headless.rs` is the entry. **Verify:** `./dev.sh verify` green (133 Rust tests,
+  +4 headless); **proven end-to-end from a shell script against real `claude`** (spawn → observe →
+  exit) and Mock. This is the P6 "turns the app into a platform" seam — and it lets flows be
+  verified from a script without the GUI. **Follow-ons:** a structured-event variant (parse Rich
+  events server-side), a local-socket transport, resize/backend-list commands.
 - **SHIPPED: v0.11.0 (2026-07-13)** — the whole Rich-view arc merged to `dev` + `main` and
   released (tag `v0.11.0`; CI builds the installers). Rich view (Claude) + Codex driver +
   multi-turn follow-ups + B1 tool lists + B2 per-action approval + dynamic branch footer + new

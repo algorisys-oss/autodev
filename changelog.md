@@ -2,6 +2,17 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## Unreleased (branch `feat/headless-rpc`)
+
+- **New: headless / RPC mode (P6) — drive the orchestrator with no GUI.** A new
+  `autodev-headless` binary (and `./dev.sh headless`) speaks **JSONL over stdin/stdout**: pipe
+  `{"cmd":"spawn"|"write"|"kill"|"list"}` lines in, read `{"event":"spawned"|"output"|"exit"|…}`
+  lines out. It reuses the same Tauri-independent core the GUI drives — the on_output/on_exit
+  callbacks feed JSONL instead of Tauri events — so a shell script can run a full
+  spawn→prompt→observe→kill cycle. Closing stdin kills every child (owned lifetimes). Verified
+  end-to-end against a real `claude` session. This is the automatable-platform seam from
+  `PI-PARITY-PLAN.md`.
+
 ## v0.11.0 — 2026-07-13
 
 The **Rich view**: an opt-in, structured, card-based way to run agents — with multi-turn

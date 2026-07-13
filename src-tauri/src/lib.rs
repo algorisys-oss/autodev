@@ -9,6 +9,7 @@ mod error;
 mod extensions;
 mod git;
 mod handoff;
+pub mod headless;
 mod loop_engine;
 mod state;
 mod task_split;

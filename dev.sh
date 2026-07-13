@@ -4,6 +4,7 @@
 # Usage:
 #   ./dev.sh setup     Install all dependencies (npm + cargo fetch)
 #   ./dev.sh dev        Run the app in development (hot reload)
+#   ./dev.sh headless   Drive the orchestrator over JSONL (stdin/stdout, no GUI)
 #   ./dev.sh build      Produce a production build + bundle
 #   ./dev.sh run        Launch the built release binary (snap-env scrubbed)
 #   ./dev.sh test       Run all tests (frontend Vitest + Rust cargo test)
@@ -24,7 +25,7 @@ scrub_snap_env() {
     GSETTINGS_SCHEMA_DIR GIO_MODULE_DIR LOCPATH 2>/dev/null || true
 }
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-dev}"
 case "$cmd" in
@@ -36,6 +37,12 @@ setup)
 dev)
   scrub_snap_env
   exec npm run tauri dev
+  ;;
+headless)
+  # Drive the orchestrator over JSONL (P6), no GUI. Pipe `{"cmd":…}` lines in, read
+  # `{"event":…}` lines out — e.g.  echo '{"cmd":"list"}' | ./dev.sh headless
+  (cd src-tauri && cargo build --quiet --bin autodev-headless)
+  exec src-tauri/target/debug/autodev-headless
   ;;
 build)
   scrub_snap_env
