@@ -4,6 +4,10 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## Unreleased (branch `feat/rich-view`)
 
+- **Fixed: the status footer's git branch is now live.** It previously only refetched when the set
+  of project paths changed, so a checkout or a new agent worktree left the shown branch (and the
+  ● dirty marker) stale. The footer now re-polls git status on an interval, so branch/dirty state
+  reflect changes as they happen.
 - **New: pre-launch tool permissions (B1).** For backends that support it (Claude), the composer
   has a **Tool permissions** section to auto-allow specific tools and/or block others before
   launch — wired to `--allowedTools`/`--disallowedTools`. Blocked tools are removed from the

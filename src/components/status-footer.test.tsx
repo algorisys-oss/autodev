@@ -45,4 +45,16 @@ describe("StatusFooter", () => {
     const { getByText } = render(() => <StatusFooter workspace={null} />);
     expect(getByText("No workspace selected")).toBeTruthy();
   });
+
+  it("polls and reflects a branch change without a workspace change", async () => {
+    // Same project path throughout — only the branch changes (a checkout). The footer must
+    // pick it up on its next poll, not stay pinned to the branch it first loaded.
+    gitWorktreeStatus.mockResolvedValueOnce({ branch: "dev", dirty: false });
+    gitWorktreeStatus.mockResolvedValue({ branch: "feat/rich-view", dirty: false });
+    const { findByText } = render(() => (
+      <StatusFooter workspace={ws([{ name: "y", path: "/p" }])} pollMs={30} />
+    ));
+    expect(await findByText("dev")).toBeTruthy();
+    expect(await findByText("feat/rich-view")).toBeTruthy();
+  });
 });

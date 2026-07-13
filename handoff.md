@@ -38,8 +38,9 @@ Updated as the final step of every task (LOOPS XXVI).
   **Next: increment 3B — approval buttons** (per-action approve/deny), which needs an MCP
   permission-prompt server (no `--permission-prompt-tool` flag in 2.1.207; `-p` stream-json has no
   inline permission events) — bigger + security-sensitive, scope separately.
-- **Backlog (queued, unrelated to Rich view):** the status footer's git branch should update
-  **dynamically** — reflect the current branch live as it changes, rather than only at load.
+- **Side task (DONE):** the status footer's git branch is now **live** — it re-polls git status
+  on an interval (`StatusFooter` `pollMs`, default 3s) instead of refetching only when project
+  paths change, so a checkout / new worktree updates the branch + ● dirty marker as it happens.
 - **Prior task:** Rich view increment 2 — **Codex driver (multi-backend seam proven)** (branch
   `feat/rich-view`, **not yet merged/shipped**). A second `StructuredDriver`
   (`CodexJsonlDriver`, `codex exec --json`) maps Codex's `item.started`/`item.completed`/
