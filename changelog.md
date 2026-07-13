@@ -2,6 +2,23 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.9.1 — 2026-07-13
+
+First published release. Highlights:
+
+- **Extensibility track** — pluggable agent backends (drop a `~/.autodev/backends/*.json`), a
+  public agent-lifecycle hook bus, prompt templates (`/name`) and skills, and trusted JS
+  extensions (`~/.autodev/extensions/*.js`).
+- **Pi as a backend** — verified spec in `examples/backends/pi.json`.
+- **Cross-agent structured annotation** — capture a screenshot, add notes, and fan the annotation
+  to every agent on any backend (notes travel as prompt text).
+- **In-app Help** — a `?` menu with **Documentation** and **About AutoDev**.
+- **Light/dark theme toggle** with a full contrast pass; **screenshots** auto-detect a platform
+  tool; **voice input** fixed on Linux (WebKitGTK media permission).
+- Full per-platform dependency docs in the README.
+
+See the dated notes below for the detail behind each item.
+
 ## [2026-07-13]
 
 ### Demo: re-recorded as a real build → screenshot → annotate → fix loop
