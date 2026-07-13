@@ -5,7 +5,17 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Cross-agent structured annotation (P9, on `dev`). The screenshot/annotate flow
+- **Last task:** Focused-terminal viewport fix + status footer (on `dev`). The focused agent's
+  reply prompt could fall off-screen — `.terminal-pane` was a fixed 420px at the bottom of a
+  scrolling panel. `.main-panel` is now a flex column: upper content scrolls in `.main-scroll`,
+  the focused `.agent-session` is pinned (`max-height:62vh`) with the terminal on `flex:1`, so the
+  input always sits within the viewport. New `StatusFooter` (`src/components/status-footer.tsx`)
+  is a persistent bottom bar showing each active-workspace project folder + its git branch
+  (● = dirty), via the existing `gitWorktreeStatus` command (no core change). **Verify:**
+  `./dev.sh verify` green (98 Rust + 111 frontend); lint + `vite build` clean; changes
+  hot-reloaded into the running dev server. **GUI-only:** eyeball that the prompt is visible and
+  the footer branch is correct. **Scope:** CSS + one new component + App wiring; no Rust touched.
+- **Prior task:** Cross-agent structured annotation (P9, on `dev`). The screenshot/annotate flow
   now captures **notes** (one per line) with the drawing; a capture is an `Annotation { image,
   notes }` that **fans out to every agent in a launch** — notes as prompt text (so they reach any
   backend incl. Pi), image where supported. Pure `annotate.ts` (`annotationBlock`) +

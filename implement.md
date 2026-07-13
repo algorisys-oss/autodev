@@ -2,6 +2,34 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Terminal-in-viewport fix + status footer — COMPLETE (branch `dev`)
+
+**Context:** User (on Ubuntu) reported the agent's reply prompt was not visible "at the bottom",
+and asked for a standard footer that surfaces the git branch when a workspace folder is a repo.
+
+**Diagnosis:** `.terminal-pane` had a fixed `height: 420px` inside a scrolling `.main-panel`.
+Stacked below the project list, composer, history and agent grid, the terminal's bottom rows
+(Claude Code's `>` input) landed off-screen; a maximized window put them behind the OS bottom
+panel. xterm also captures the wheel, so the page couldn't be scrolled to reach the input.
+
+**Approach:**
+- **Layout** — `.main-panel` becomes `display:flex; flex-direction:column`. The upper content is
+  wrapped in a scrollable `.main-scroll`; the focused `.agent-session` is a pinned flex child
+  (`max-height:62vh`, `flex-direction:column`) and `.terminal-pane` switches from a fixed height
+  to `flex:1; min-height:200px`. xterm's existing `ResizeObserver`→`FitAddon` re-fits to the new
+  flexible height, so rows/cols track the pane. The input now stays within the viewport.
+- **Footer** — new `src/components/status-footer.tsx` (`StatusFooter`), rendered once in `App`
+  below `.app-body`. For the selected workspace it maps each project through the existing
+  `gitWorktreeStatus(path)` command and shows `folder ⎇ branch ●`; a non-repo folder is labelled
+  "not a git repo". No Rust change — `git::status` already returns `{ branch, dirty }`. Refetch is
+  keyed on the joined project-path list so it updates on workspace switch / +dir / remove.
+
+**Tests:** `status-footer.test.tsx` (branch shown, dirty marker present/absent, non-repo label,
+no-workspace placeholder). Full suite green: 111 frontend + 98 Rust. Lint + `vite build` clean.
+
+**Verify:** changes hot-reloaded into the running dev server (vite on :1420). GUI-visual: confirm
+the reply prompt is on-screen and the footer shows the branch.
+
 ## In-app Help & documentation — COMPLETE (branch `dev`)
 
 **Context:** User asked for detailed documentation *inside the web app* so end users need no

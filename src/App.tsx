@@ -13,6 +13,7 @@ import { LoopPanel } from "./components/loop-panel";
 import { SettingsPanel } from "./components/settings-panel";
 import { HelpPanel } from "./components/help-panel";
 import { AboutPanel } from "./components/about-panel";
+import { StatusFooter } from "./components/status-footer";
 import "./App.css";
 
 function App() {
@@ -158,42 +159,44 @@ function App() {
         <WorkspaceSidebar store={workspaces} />
 
         <main class="main-panel">
-          <Show when={view() === "loops"}>
-            <LoopPanel agents={agents} defaultProjectDir={selected()?.projects[0]?.path ?? null} />
-          </Show>
+          <div class="main-scroll">
+            <Show when={view() === "loops"}>
+              <LoopPanel agents={agents} defaultProjectDir={selected()?.projects[0]?.path ?? null} />
+            </Show>
 
-          <Show when={view() === "workspace" && selected()}
-            fallback={
-              <Show when={view() === "workspace"}>
-                <p class="muted">Create a workspace and add project directories to begin.</p>
-              </Show>
-            }
-          >
-            {(ws) => (
-              <div class="workspace-detail">
-                <h2>{ws().name}</h2>
-                <Show
-                  when={ws().projects.length}
-                  fallback={<p class="muted">No projects yet. Use “+dir” in the sidebar.</p>}
-                >
-                  <ul class="detail-projects">
-                    <For each={ws().projects}>
-                      {(p) => (
-                        <li>
-                          <span class="project-name">{p.name}</span>
-                          <code class="project-path">{p.path}</code>
-                        </li>
-                      )}
-                    </For>
-                  </ul>
+            <Show when={view() === "workspace" && selected()}
+              fallback={
+                <Show when={view() === "workspace"}>
+                  <p class="muted">Create a workspace and add project directories to begin.</p>
                 </Show>
+              }
+            >
+              {(ws) => (
+                <div class="workspace-detail">
+                  <h2>{ws().name}</h2>
+                  <Show
+                    when={ws().projects.length}
+                    fallback={<p class="muted">No projects yet. Use “+dir” in the sidebar.</p>}
+                  >
+                    <ul class="detail-projects">
+                      <For each={ws().projects}>
+                        {(p) => (
+                          <li>
+                            <span class="project-name">{p.name}</span>
+                            <code class="project-path">{p.path}</code>
+                          </li>
+                        )}
+                      </For>
+                    </ul>
+                  </Show>
 
-                <PromptComposer workspace={ws()} agents={agents} />
-              </div>
-            )}
-          </Show>
+                  <PromptComposer workspace={ws()} agents={agents} />
+                </div>
+              )}
+            </Show>
 
-          <AgentGrid store={agents} />
+            <AgentGrid store={agents} />
+          </div>
 
           <Show when={agents.focused()} keyed>
             {(a) => (
@@ -234,6 +237,8 @@ function App() {
           </Show>
         </main>
       </div>
+
+      <StatusFooter workspace={selected()} />
     </div>
   );
 }

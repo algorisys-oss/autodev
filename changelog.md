@@ -2,6 +2,18 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.10.0 — 2026-07-13
+
+- **Fixed: the focused agent's prompt could sit off-screen.** The terminal had a fixed
+  `height: 420px` at the bottom of a scrolling `.main-panel`, so on shorter windows its last
+  rows — Claude Code's `>` input — fell below the fold (and behind the OS panel on a maximized
+  window). `.main-panel` is now a flex column: the projects/composer/agent-grid scroll in an
+  upper `.main-scroll` region while the focused `.agent-session` is pinned below, capped at
+  `62vh`, with the terminal flexing to fill it. The input is always in view without page-scroll.
+- **New: a standard status footer.** A persistent bottom bar (`StatusFooter`) lists the active
+  workspace's project folders and, when a folder is a git work tree, its checked-out branch
+  (● marks uncommitted changes). Reuses the existing `git_worktree_status` command — no new core.
+
 ## v0.9.1 — 2026-07-13
 
 First published release. Highlights:
