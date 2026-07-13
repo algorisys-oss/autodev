@@ -4,6 +4,11 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Maximize the task editor
+- The New-task box now has a **⛶ maximize** button that opens a large full-window editor for
+  writing longer prompts, bound to the same text (edits carry back on minimize). Close with
+  Minimize, Esc, or clicking outside. `/command` expansion and Tab work in it too.
+
 ### Executable extensions (P5 — extensibility track)
 - Drop a self-contained JS module in `~/.autodev/extensions/`; its default export receives an
   `autodev` API to register lifecycle hooks (the P3 bus: `onSpawn`/`onOutput`/`onIdle`/

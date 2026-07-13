@@ -52,6 +52,8 @@ export function PromptComposer(props: {
   const [captured, setCaptured] = createSignal<string | null>(null);
   const [images, setImages] = createSignal<string[]>([]);
   const [showHandoff, setShowHandoff] = createSignal(false);
+  // Maximize the task editor into a large full-window overlay (same bound text).
+  const [maximized, setMaximized] = createSignal(false);
   const [analyzing, setAnalyzing] = createSignal(false);
   const [plan, setPlan] = createSignal<TaskPlan | null>(null);
   // True once the user sets the agent count by hand — analyze-on-launch then defers to them.
@@ -357,7 +359,39 @@ export function PromptComposer(props: {
         <button class="mic" title="Browser handoff" onClick={() => setShowHandoff(true)}>
           🌐
         </button>
+        <button class="mic" title="Maximize editor" onClick={() => setMaximized(true)}>
+          ⛶
+        </button>
       </div>
+
+      <Show when={maximized()}>
+        <div
+          class="annotator-backdrop"
+          onClick={(e) => e.target === e.currentTarget && setMaximized(false)}
+        >
+          <div class="composer-max">
+            <div class="composer-max-head">
+              <strong>New task</strong>
+              <span class="muted">@mention a project, or /command to expand a template</span>
+              <span class="spacer" />
+              <button title="Minimize editor" onClick={() => setMaximized(false)}>
+                ⤡ Minimize
+              </button>
+            </div>
+            <textarea
+              class="composer-max-text"
+              value={text()}
+              onInput={(e) => setText(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                onComposerKeyDown(e);
+                if (e.key === "Escape") setMaximized(false);
+              }}
+              placeholder="Describe the task to start…"
+              autofocus
+            />
+          </div>
+        </div>
+      </Show>
 
       <Show when={templateSuggest().length}>
         <div class="mention-row">

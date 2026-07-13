@@ -230,3 +230,27 @@ describe("PromptComposer templates", () => {
     await waitFor(() => expect(textarea().value).toBe("Refactor this for clarity."));
   });
 });
+
+describe("PromptComposer maximize", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("maximizes into an overlay editor sharing the same text, and minimizes", async () => {
+    const { agents } = storeWithRecorder();
+    const { container, getByTitle } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    const small = () => container.querySelector(".composer-text") as HTMLTextAreaElement;
+    fireEvent.input(small(), { target: { value: "draft task" } });
+
+    fireEvent.click(getByTitle("Maximize editor"));
+    const big = container.querySelector(".composer-max-text") as HTMLTextAreaElement;
+    expect(big).toBeTruthy();
+    expect(big.value).toBe("draft task"); // same bound text
+
+    fireEvent.input(big, { target: { value: "draft task, expanded" } });
+    fireEvent.click(getByTitle("Minimize editor"));
+
+    expect(container.querySelector(".composer-max-text")).toBeNull();
+    expect(small().value).toBe("draft task, expanded"); // edits carried back
+  });
+});

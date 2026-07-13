@@ -1236,3 +1236,42 @@ button.danger {
 :root[data-theme="dark"] .ext-list li.ext-bad .ext-mark {
   color: #ff7b72;
 }
+
+/* Maximized task editor (composer "⛶"). */
+.composer-max {
+  background: #fff;
+  color: #0f0f0f;
+  border-radius: 8px;
+  padding: 0.9rem;
+  width: min(1000px, 92vw);
+  height: min(80vh, 900px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.composer-max-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.composer-max-text {
+  flex: 1 1 auto;
+  width: 100%;
+  resize: none;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0.7rem;
+  font: inherit;
+  line-height: 1.5;
+  background: #fff;
+  color: inherit;
+}
+:root[data-theme="dark"] .composer-max {
+  background: #2a2a2a;
+  color: #f6f6f6;
+}
+:root[data-theme="dark"] .composer-max-text {
+  background: #1f1f1f;
+  color: #f6f6f6;
+  border-color: rgba(255, 255, 255, 0.15);
+}
