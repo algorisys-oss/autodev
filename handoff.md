@@ -5,7 +5,18 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Public agent-lifecycle hook bus (on `dev`) — P3 of `PI-PARITY-PLAN.md`,
+- **Last task:** Prompt templates + skills dir (on `dev`) — P4 of `PI-PARITY-PLAN.md`. Two
+  file-backed features: (1) **templates** — `*.md` files in `~/.autodev/templates/`; typing
+  `/name` in the composer shows a suggestion row, click or **Tab** expands it into the task box
+  (Rust `templates.rs` lists them; pure `templates.ts` expands). (2) **skills dir** — if
+  `~/.autodev/skills/` has content it's added to every agent's `--add-dir` via a **P3 spawn
+  hook** (`skills.ts` `installSkillsHook`, installed in `App.tsx`) — the first product feature
+  riding the hook bus. **Verify:** `./dev.sh verify` green (92 Rust + frontend). To try it: drop
+  `~/.autodev/templates/refactor.md` (any text) and type `/refactor`; drop a file in
+  `~/.autodev/skills/` and launch an agent — the dir is on its context path. **Next per roadmap:**
+  P9 (cross-agent structured annotation — the differentiator, bigger, wants a browser bridge),
+  the deferred P3 loop-advance migration, or M1 (Pi spike, needs a hands-on browser session).
+- **Prior task:** Public agent-lifecycle hook bus (on `dev`) — P3 of `PI-PARITY-PLAN.md`,
   increment 1. New `src/lib/hooks.ts` is a typed hook bus: `spawn` (a transform that rewrites
   `AgentOptions` before launch) + `output`/`idle`/`waiting`/`exit` observers, error-isolated,
   exposed as `store.hooks`. The agent store emits through it (spawn transform before

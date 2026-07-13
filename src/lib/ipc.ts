@@ -100,6 +100,23 @@ export function backendList(): Promise<BackendInfo[]> {
   return invoke<BackendInfo[]>("backend_list");
 }
 
+/** A reusable prompt template (P4): typing `/name` in the composer expands to `body`. */
+export interface PromptTemplate {
+  name: string;
+  body: string;
+}
+
+/** Prompt templates from `~/.autodev/templates/*.md`. */
+export function listTemplates(): Promise<PromptTemplate[]> {
+  return invoke<PromptTemplate[]>("list_templates");
+}
+
+/** The skills directory (`~/.autodev/skills`) if it exists and has content, else null.
+ *  When present it is added to every agent's context via a spawn hook. */
+export function skillsDir(): Promise<string | null> {
+  return invoke<string | null>("skills_dir");
+}
+
 export interface AgentOptions {
   backend: AgentBackend;
   cwd: string;

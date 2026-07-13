@@ -4,6 +4,20 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## [2026-07-13]
 
+### Prompt templates + skills dir (P4 — extensibility track)
+- **Prompt templates:** drop `*.md` files in `~/.autodev/templates/`; in the composer, type
+  `/name` and a suggestion row appears — click it or press **Tab** to expand the template into
+  the task box (any text typed after `/name` is kept). Rust `templates.rs` reads the dir
+  (`list_templates`); pure frontend `templates.ts` (`expandTemplate`/`templateMatches`) drives
+  the UX. No code to add a template — it's a file.
+- **Skills dir:** if `~/.autodev/skills/` exists and has content, it is added to *every* agent's
+  context via a `--add-dir` — on every backend — through a **P3 spawn hook** (`skills.ts`
+  `installSkillsHook`, wired in `App.tsx`). The first real feature built on the hook bus:
+  skills reach agents through the same seam as `@`-mentions, with no per-launch wiring.
+- Tests: `templates.rs` (list/sort/ignore-non-md, skills-dir present-only-when-non-empty);
+  `templates.ts` + `skills.ts` (expansion, prefix-match, dir injection + dedup, hook install);
+  composer (`/ref` → click suggestion → body expands). 92 Rust + frontend green.
+
 ### Public agent-lifecycle hook bus (P3 — extensibility track)
 - Adds `src/lib/hooks.ts`, a typed hook bus so built-in behaviors and (later) extensions can
   participate in an agent's life. Five lifecycle points: `spawn` (a *transform* that may

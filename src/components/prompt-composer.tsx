@@ -9,12 +9,15 @@ import {
   captureScreen,
   saveShot,
   backendList,
+  listTemplates,
   type AgentBackend,
   type BackendInfo,
+  type PromptTemplate,
   type Workspace,
   type WorktreeInfo,
   type TaskPlan,
 } from "../lib/ipc";
+import { expandTemplate, templateMatches } from "../lib/templates";
 import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { analyzeTask } from "../lib/task-split";
@@ -54,6 +57,8 @@ export function PromptComposer(props: {
   const [countTouched, setCountTouched] = createSignal(false);
   // Backends offered in the picker: bundled + any disk-registered (`~/.autodev/backends`).
   const [backends, setBackends] = createSignal<BackendInfo[]>([]);
+  // Prompt templates (`~/.autodev/templates/*.md`): typing `/name` expands to the body.
+  const [templates, setTemplates] = createSignal<PromptTemplate[]>([]);
 
   onMount(async () => {
     try {
@@ -69,7 +74,32 @@ export function PromptComposer(props: {
     } catch {
       /* keep the hardcoded default if the list can't be fetched */
     }
+    try {
+      setTemplates(await listTemplates());
+    } catch {
+      /* no templates configured */
+    }
   });
+
+  // Templates matching the `/command` being typed (for the suggestion row).
+  const templateSuggest = createMemo(() => templateMatches(text(), templates()));
+
+  // Tab expands a `/name` slash-command: to the sole matching template while still typing the
+  // name, or — once past the name — to its body with any trailing text kept.
+  function onComposerKeyDown(e: KeyboardEvent) {
+    if (e.key !== "Tab") return;
+    const suggest = templateSuggest();
+    if (suggest.length >= 1) {
+      e.preventDefault();
+      setText(suggest[0].body);
+      return;
+    }
+    const expanded = expandTemplate(text(), templates());
+    if (expanded !== null) {
+      e.preventDefault();
+      setText(expanded);
+    }
+  }
 
   // Moving the difficulty slider re-applies the suggested count and modes.
   createEffect(
@@ -305,7 +335,8 @@ export function PromptComposer(props: {
           class="composer-text"
           value={text()}
           onInput={(e) => setText(e.currentTarget.value)}
-          placeholder="Describe the task to start. @mention a project to add it as context…"
+          onKeyDown={onComposerKeyDown}
+          placeholder="Describe the task to start. @mention a project, or /command to expand a template…"
           rows={3}
         />
         <button
@@ -324,6 +355,23 @@ export function PromptComposer(props: {
           🌐
         </button>
       </div>
+
+      <Show when={templateSuggest().length}>
+        <div class="mention-row">
+          <For each={templateSuggest()}>
+            {(t) => (
+              <button
+                class="chip template-suggest"
+                title={t.body}
+                onClick={() => setText(t.body)}
+              >
+                /{t.name}
+              </button>
+            )}
+          </For>
+          <span class="muted">Tab or click to expand</span>
+        </div>
+      </Show>
 
       <Show when={showHandoff()}>
         <BrowserHandoff onClose={() => setShowHandoff(false)} />

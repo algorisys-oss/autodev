@@ -15,6 +15,10 @@ vi.mock("../lib/ipc", () => ({
   transcribeAudio: vi.fn(),
   captureScreen: vi.fn(),
   saveShot: vi.fn(),
+  backendList: vi.fn(() => Promise.resolve([{ id: "claude", label: "Claude", models: [] }])),
+  listTemplates: vi.fn(() =>
+    Promise.resolve([{ name: "refactor", body: "Refactor this for clarity." }]),
+  ),
 }));
 
 // Auto-split calls the classifier controller; stub it so the composer's apply logic is what's
@@ -89,7 +93,7 @@ describe("PromptComposer per-agent prompts", () => {
       target: { value: "2" },
     });
     fireEvent.change(labelInput(container, "Per-agent prompts"), { target: { checked: true } });
-    fireEvent.input(getByPlaceholderText("Describe the task to start. @mention a project to add it as context…"), {
+    fireEvent.input(getByPlaceholderText("Describe the task to start. @mention a project, or /command to expand a template…"), {
       target: { value: "shared task" },
     });
 
@@ -112,7 +116,7 @@ describe("PromptComposer auto-split", () => {
 
   const typeTask = (getByPlaceholderText: (t: string) => HTMLElement) => {
     fireEvent.input(
-      getByPlaceholderText("Describe the task to start. @mention a project to add it as context…"),
+      getByPlaceholderText("Describe the task to start. @mention a project, or /command to expand a template…"),
       { target: { value: "transcode every video in ./media" } },
     );
   };
@@ -208,5 +212,21 @@ describe("PromptComposer auto-split", () => {
       expect((container.querySelector('input[type="number"]') as HTMLInputElement).value).toBe("1"),
     );
     expect(getByText(/Best as a single agent/)).toBeTruthy();
+  });
+});
+
+describe("PromptComposer templates", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("expands a /template to its body when the suggestion is clicked", async () => {
+    const { agents } = storeWithRecorder();
+    const { container, findByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+    const textarea = () => container.querySelector(".composer-text") as HTMLTextAreaElement;
+    fireEvent.input(textarea(), { target: { value: "/ref" } });
+    // Once templates load, the matching suggestion appears; clicking it expands to the body.
+    fireEvent.click(await findByText("/refactor"));
+    await waitFor(() => expect(textarea().value).toBe("Refactor this for clarity."));
   });
 });

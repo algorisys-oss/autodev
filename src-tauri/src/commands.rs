@@ -60,6 +60,20 @@ pub fn backend_list() -> Vec<BackendInfo> {
         .collect()
 }
 
+/// Reusable prompt templates from `~/.autodev/templates/*.md`, for the composer's `/name`
+/// expansion.
+#[tauri::command]
+pub fn list_templates() -> AppResult<Vec<crate::templates::PromptTemplate>> {
+    crate::templates::list_templates()
+}
+
+/// The skills directory (`~/.autodev/skills`) if it exists and has content, so the frontend
+/// can add it to every agent's context via a spawn hook. `None` otherwise.
+#[tauri::command]
+pub fn skills_dir() -> AppResult<Option<String>> {
+    crate::templates::skills_dir()
+}
+
 #[tauri::command]
 pub fn get_settings() -> AppResult<AppSettings> {
     state::load_settings()

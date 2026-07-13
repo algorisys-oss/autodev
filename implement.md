@@ -2,6 +2,38 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Prompt templates + skills dir (P4 — extensibility track) — COMPLETE (branch `dev`)
+
+**Context:** Third step of `PI-PARITY-PLAN.md` (Track A). Cheap, high-ROI, and it exercises the
+P3 hook bus end to end — the skills-dir feature *is* a spawn hook, proving the seam carries a
+real product feature (not just the migrated onboarding built-in).
+
+**Approach — both halves are file-backed (code-free), like backend specs:**
+
+- **Rust `templates.rs`** (new, hermetic + tested): `list_templates_from(dir)` reads
+  `templates/*.md` (name = filename stem, body = contents, trailing newline trimmed), sorted;
+  `skills_dir_from(dir)` returns the abs path of `skills/` only when it exists and has ≥1 entry
+  (an empty dir is nothing worth adding). Commands `list_templates`/`skills_dir`.
+- **Templates UX (frontend):** pure `templates.ts` — `expandTemplate(text, tpls)` turns a
+  leading `/name` into the body (keeping trailing text), `templateMatches` prefix-matches while
+  the command is still being typed. The composer fetches templates on mount, shows a suggestion
+  row when typing `/…`, and expands on click or **Tab**.
+- **Skills injection (frontend):** `skills.ts` — `withSkillsDir(opts, path)` appends the dir
+  (dedup); `installSkillsHook(bus)` fetches the skills dir and, if present, registers a P3
+  `spawn` hook. `App.tsx` installs it on mount. Skills therefore reach every backend through the
+  existing `--add-dir` path with zero per-launch code.
+
+**Files:** `src-tauri/src/templates.rs` (new) + `commands.rs`/`lib.rs` registration;
+`src/lib/templates.ts` + `skills.ts` (new, + tests); `src/lib/ipc.ts` (`PromptTemplate`,
+`listTemplates`, `skillsDir`); `src/components/prompt-composer.tsx` (suggestion row + Tab
+expand, placeholder copy); `src/App.tsx` (install hook).
+
+**Verification:** `./dev.sh verify` green (92 Rust + frontend, 14 files). Pure logic unit-tested
+both sides; the composer test drives the real UI (`/ref` → click suggestion → body expands).
+Not exercised: writing into the user's real `~/.autodev` (avoided on purpose — hermetic tests
+cover the disk logic). Design note: the skills-dir feature is the proof that P3's frontend TS
+bus was the right call — a product feature slotted onto it with a one-line `onSpawn`.
+
 ## Public hook lifecycle (P3 — extensibility track) — INCREMENT 1 COMPLETE (branch `dev`)
 
 **Context:** Second step of `PI-PARITY-PLAN.md` (Track A spine). The plan's event stream

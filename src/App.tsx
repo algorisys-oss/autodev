@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
 import { appInfo, gitMergeWorktree, gitRemoveWorktree, openInEditor, type AppInfo } from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore, isTerminal } from "./lib/agent-store";
+import { installSkillsHook } from "./lib/skills";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
 import { TerminalPane } from "./components/terminal-pane";
@@ -24,6 +25,8 @@ function App() {
       /* header shows "connecting…" if the core is unreachable */
     }
     await workspaces.refresh();
+    // Add the skills dir (if any) to every agent's context via a spawn hook (P4).
+    await installSkillsHook(agents.hooks);
     agents.start();
   });
   onCleanup(() => agents.dispose());

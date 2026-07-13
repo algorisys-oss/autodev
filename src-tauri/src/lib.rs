@@ -9,6 +9,7 @@ mod handoff;
 mod loop_engine;
 mod state;
 mod task_split;
+mod templates;
 mod transcribe;
 mod verify;
 mod workspace;
@@ -33,6 +34,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::backend_list,
+            commands::list_templates,
+            commands::skills_dir,
             commands::get_settings,
             commands::set_settings,
             commands::open_in_editor,
