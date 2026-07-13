@@ -23,12 +23,17 @@ use serde_json::Value;
     rename_all_fields = "camelCase"
 )]
 pub enum AgentEvent {
-    /// Session metadata, emitted once at start.
+    /// Session metadata, emitted once at start. `session_id` is the backend's own conversation
+    /// id, used to resume the session for a Rich follow-up turn.
     SessionInit {
+        session_id: String,
         model: String,
         cwd: String,
         permission_mode: String,
     },
+    /// A user turn in the conversation (a Rich follow-up). Synthesized by the frontend when the
+    /// user sends a follow-up; part of the model so it renders in the same stream.
+    UserMessage { text: String },
     /// A block of assistant-visible prose.
     AssistantText { text: String },
     /// The agent's internal reasoning (extended thinking), when the backend exposes it.
@@ -131,6 +136,7 @@ fn parse_claude_line(line: &str) -> Vec<AgentEvent> {
     match v.get("type").and_then(Value::as_str) {
         Some("system") if v.get("subtype").and_then(Value::as_str) == Some("init") => {
             vec![AgentEvent::SessionInit {
+                session_id: str_field(&v, "session_id"),
                 model: str_field(&v, "model"),
                 cwd: str_field(&v, "cwd"),
                 permission_mode: str_field(&v, "permissionMode"),
@@ -225,6 +231,13 @@ fn parse_codex_line(line: &str) -> Vec<AgentEvent> {
         }];
     };
     match v.get("type").and_then(Value::as_str) {
+        // Codex has no model/cwd in thread.started, but its `thread_id` is the resume key.
+        Some("thread.started") => vec![AgentEvent::SessionInit {
+            session_id: str_field(&v, "thread_id"),
+            model: String::new(),
+            cwd: String::new(),
+            permission_mode: String::new(),
+        }],
         Some("item.started") => parse_codex_item(v.get("item"), true),
         Some("item.completed") => parse_codex_item(v.get("item"), false),
         Some("turn.completed") => vec![AgentEvent::Done {
@@ -294,6 +307,7 @@ mod tests {
             evs,
             vec![
                 AgentEvent::SessionInit {
+                    session_id: "s1".into(),
                     model: "claude-opus-4-8[1m]".into(),
                     cwd: "/proj".into(),
                     permission_mode: "bypassPermissions".into(),
@@ -471,6 +485,12 @@ mod tests {
         assert_eq!(
             evs,
             vec![
+                AgentEvent::SessionInit {
+                    session_id: "019f5c13".into(),
+                    model: String::new(),
+                    cwd: String::new(),
+                    permission_mode: String::new(),
+                },
                 AgentEvent::AssistantText {
                     text: "hello from codex".into()
                 },
@@ -519,13 +539,36 @@ mod tests {
 
     #[test]
     fn codex_envelope_only_lines_produce_no_events_and_bad_json_is_raw() {
-        assert!(feed_codex(&[CX_THREAD, CX_TURN_STARTED]).is_empty());
+        // thread.started carries the resume id, so it maps to SessionInit; turn.started is noise.
+        assert!(feed_codex(&[CX_TURN_STARTED]).is_empty());
+        assert_eq!(
+            feed_codex(&[CX_THREAD]),
+            vec![AgentEvent::SessionInit {
+                session_id: "019f5c13".into(),
+                model: String::new(),
+                cwd: String::new(),
+                permission_mode: String::new(),
+            }]
+        );
         assert_eq!(
             feed_codex(&["not json"]),
             vec![AgentEvent::Raw {
                 text: "not json".into()
             }]
         );
+    }
+
+    #[test]
+    fn session_init_carries_session_id_in_camelcase_for_resume() {
+        let json = serde_json::to_value(AgentEvent::SessionInit {
+            session_id: "sid-9".into(),
+            model: "m".into(),
+            cwd: "/c".into(),
+            permission_mode: "default".into(),
+        })
+        .unwrap();
+        assert_eq!(json["kind"], "sessionInit");
+        assert_eq!(json["sessionId"], "sid-9");
     }
 
     #[test]

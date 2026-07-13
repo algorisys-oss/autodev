@@ -46,6 +46,11 @@ pub struct StructuredMode {
     pub flags: Vec<String>,
     /// Names the built-in driver that parses this backend's stream (see `agent_event::driver_for`).
     pub driver: String,
+    /// The base flags to use *instead of* `flags` when resuming a prior session (Rich follow-ups).
+    /// The literal `{id}` is replaced with the session id. Structurally per-backend: Claude adds a
+    /// `--resume <id>` flag; Codex switches to the `exec resume <id>` subcommand. Empty = no resume.
+    #[serde(default)]
+    pub resume_flags: Vec<String>,
 }
 
 fn default_image_mode() -> ImageMode {
@@ -116,7 +121,14 @@ impl BackendSpec {
         // print/plan flags. It only applies when the caller asked AND this backend supports it.
         let structured = opts.rich.then_some(self.structured.as_ref()).flatten();
         if let Some(s) = structured {
-            args.extend(s.flags.iter().cloned());
+            // A Rich follow-up resumes a prior session: use the resume base (with `{id}`
+            // substituted) instead of the fresh-session flags, when the backend supports it.
+            match &opts.resume_session_id {
+                Some(id) if !s.resume_flags.is_empty() => {
+                    args.extend(s.resume_flags.iter().map(|f| f.replace("{id}", id)));
+                }
+                _ => args.extend(s.flags.iter().cloned()),
+            }
         } else if opts.print_mode && !self.print_flag.is_empty() {
             // Print (one-shot) takes precedence over plan mode.
             args.extend(self.print_flag.iter().cloned());
@@ -249,6 +261,15 @@ fn claude_spec() -> BackendSpec {
                 "--verbose".into(),
             ],
             driver: "claudeStreamJson".into(),
+            // Resume adds a `--resume <id>` flag to the same one-shot stream-json invocation.
+            resume_flags: vec![
+                "-p".into(),
+                "--output-format".into(),
+                "stream-json".into(),
+                "--verbose".into(),
+                "--resume".into(),
+                "{id}".into(),
+            ],
         }),
     }
 }
@@ -276,6 +297,14 @@ fn codex_spec() -> BackendSpec {
                 "--skip-git-repo-check".into(),
             ],
             driver: "codexJsonl".into(),
+            // Resume switches to the `exec resume <id>` subcommand.
+            resume_flags: vec![
+                "exec".into(),
+                "resume".into(),
+                "{id}".into(),
+                "--json".into(),
+                "--skip-git-repo-check".into(),
+            ],
         }),
     }
 }
@@ -312,6 +341,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -414,6 +444,60 @@ mod tests {
     }
 
     #[test]
+    fn rich_claude_resume_adds_the_resume_flag() {
+        let o = AgentOptions {
+            rich: true,
+            resume_session_id: Some("sid-1".into()),
+            initial_prompt: Some("go on".into()),
+            ..opts()
+        };
+        assert_eq!(
+            claude_spec().build_args(&o),
+            [
+                "-p",
+                "--output-format",
+                "stream-json",
+                "--verbose",
+                "--resume",
+                "sid-1",
+                "go on",
+            ]
+        );
+    }
+
+    #[test]
+    fn rich_codex_resume_switches_to_the_exec_resume_subcommand() {
+        let o = AgentOptions {
+            rich: true,
+            resume_session_id: Some("sid-2".into()),
+            initial_prompt: Some("more".into()),
+            ..opts()
+        };
+        assert_eq!(
+            codex_spec().build_args(&o),
+            [
+                "exec",
+                "resume",
+                "sid-2",
+                "--json",
+                "--skip-git-repo-check",
+                "more",
+            ]
+        );
+    }
+
+    #[test]
+    fn resume_id_is_ignored_without_rich() {
+        // A stray resume id on a non-rich launch must not leak `--resume` into a plain run.
+        let o = AgentOptions {
+            resume_session_id: Some("sid-3".into()),
+            initial_prompt: Some("hi".into()),
+            ..opts()
+        };
+        assert_eq!(claude_spec().build_args(&o), ["hi"]);
+    }
+
+    #[test]
     fn rich_is_ignored_for_backend_without_structured_capability() {
         // Antigravity has no `structured` spec, so asking for rich changes nothing.
         let o = AgentOptions {
@@ -493,6 +577,7 @@ mod tests {
             bypass_permissions: true,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: Some("google/gemini-2.0-flash".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec!["/other".into()],

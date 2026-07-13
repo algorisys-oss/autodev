@@ -1,25 +1,70 @@
-import { For, Show, type Component } from "solid-js";
+import { For, Show, createSignal, type Component } from "solid-js";
 import type { AgentEvent } from "../lib/ipc";
 import type { AgentView } from "../lib/agent-store";
+import { isTerminal } from "../lib/agent-store";
 
 /** Renders a Rich (structured) agent session as a stream of cards, driven by the normalized
- *  `AgentEvent`s the store collects from `agent://event`. The read-only counterpart to
- *  TerminalPane: no keystrokes go back — a Rich session is one-shot (increment 1). */
+ *  `AgentEvent`s the store collects from `agent://event`. Each turn is one-shot; a follow-up
+ *  composer at the bottom continues the same conversation via `--resume` (store.followUp), and
+ *  the new turn's cards append to this same stream. */
 export const RichPane: Component<{
   agentId: string;
-  store: { state: { agents: AgentView[] } };
+  store: {
+    state: { agents: AgentView[] };
+    followUp: (agentId: string, text: string) => Promise<void>;
+  };
 }> = (props) => {
   const agent = () => props.store.state.agents.find((a) => a.id === props.agentId);
   const events = () => agent()?.events ?? [];
+  // A follow-up can be sent once the conversation has a session id and the current turn is done.
+  const canFollowUp = () => {
+    const a = agent();
+    return !!a?.sessionId && isTerminal(a.status);
+  };
+
+  const [draft, setDraft] = createSignal("");
+  async function send() {
+    const text = draft().trim();
+    if (!text || !canFollowUp()) return;
+    setDraft("");
+    await props.store.followUp(props.agentId, text);
+  }
 
   return (
-    <div class="rich-pane">
-      <Show
-        when={events().length}
-        fallback={<p class="rich-empty muted">Waiting for the agent’s first event…</p>}
-      >
-        <For each={events()}>{(ev) => <EventCard ev={ev} />}</For>
-      </Show>
+    <div class="rich-session">
+      <div class="rich-pane">
+        <Show
+          when={events().length}
+          fallback={<p class="rich-empty muted">Waiting for the agent’s first event…</p>}
+        >
+          <For each={events()}>{(ev) => <EventCard ev={ev} />}</For>
+        </Show>
+      </div>
+      <div class="rich-followup">
+        <textarea
+          class="rich-followup-text"
+          rows={1}
+          placeholder={
+            agent()?.sessionId
+              ? isTerminal(agent()!.status)
+                ? "Reply to continue this conversation… (Enter to send)"
+                : "Working… follow-up enabled when the turn finishes"
+              : "Follow-up available once the session starts"
+          }
+          value={draft()}
+          onInput={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void send();
+            }
+          }}
+          disabled={!canFollowUp()}
+        />
+        <button class="primary" onClick={() => void send()} disabled={!canFollowUp() || !draft().trim()}>
+          Send
+        </button>
+      </div>
     </div>
   );
 };
@@ -30,11 +75,19 @@ const EventCard: Component<{ ev: AgentEvent }> = (props) => {
     case "sessionInit":
       return (
         <div class="rich-card rich-init">
-          <span class="rich-chip">{ev.model || "session"}</span>
-          <span class="rich-chip">{ev.permissionMode}</span>
-          <span class="rich-path muted">{ev.cwd}</span>
+          <Show when={ev.model}>
+            <span class="rich-chip">{ev.model}</span>
+          </Show>
+          <Show when={ev.permissionMode}>
+            <span class="rich-chip">{ev.permissionMode}</span>
+          </Show>
+          <Show when={ev.cwd}>
+            <span class="rich-path muted">{ev.cwd}</span>
+          </Show>
         </div>
       );
+    case "userMessage":
+      return <div class="rich-card rich-user">{ev.text}</div>;
     case "assistantText":
       return <div class="rich-card rich-assistant">{ev.text}</div>;
     case "thinking":

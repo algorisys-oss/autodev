@@ -5,7 +5,26 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Rich view increment 2 — **Codex driver (multi-backend seam proven)** (branch
+- **Last task:** Rich view increment 3A — **interactive multi-turn follow-ups** (branch
+  `feat/rich-view`, **not yet merged/shipped**). After a Rich turn finishes, a composer in the
+  card view sends a follow-up that runs as a fresh one-shot turn `--resume`ing the same backend
+  session; its cards append to the **same** conversation card. Stays in the PTY model — each turn
+  is one-shot (no pipe transport). Design: `StructuredMode.resume_flags` (with `{id}`) expresses
+  each backend's resume form (Claude `--resume <id>`, Codex `exec resume <id>`);
+  `AgentOptions.resume_session_id`; session id captured from the normalized `SessionInit` event
+  (now carries `session_id`; Codex's `thread.started` maps to it too). Frontend: the store keeps a
+  `resumeMap` (follow-up process id → conversation agent id) so a follow-up's output/events/exit
+  route onto the original card; `store.followUp(id, text)`; a `userMessage` event renders the
+  user's turn; `rich-pane` gained the follow-up composer. **Verify:** end-to-end at the CLI level
+  the exact resume arg order recalls prior context (`claude` 2.1.207); 122 Rust + 118 frontend
+  tests, clippy/rustfmt/eslint/tsc + vite build clean. **GUI unverified here** — try: launch a
+  Claude Rich session (Bypass on), let it finish, type a follow-up, Send → new cards append.
+  **Next: increment 3B — approval buttons** (per-action approve/deny), which needs an MCP
+  permission-prompt server (no `--permission-prompt-tool` flag in 2.1.207; `-p` stream-json has no
+  inline permission events) — bigger + security-sensitive, scope separately.
+- **Backlog (queued, unrelated to Rich view):** the status footer's git branch should update
+  **dynamically** — reflect the current branch live as it changes, rather than only at load.
+- **Prior task:** Rich view increment 2 — **Codex driver (multi-backend seam proven)** (branch
   `feat/rich-view`, **not yet merged/shipped**). A second `StructuredDriver`
   (`CodexJsonlDriver`, `codex exec --json`) maps Codex's `item.started`/`item.completed`/
   `turn.completed` JSONL (agent_message → AssistantText; command_execution → ToolCall+ToolResult;

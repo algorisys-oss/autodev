@@ -2,6 +2,41 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Rich view — increment 3A: interactive multi-turn follow-ups (branch `feat/rich-view`)
+
+**Context:** Increments 1–2 were read-only/one-shot. User chose the interactive path, follow-ups
+first (approval buttons deferred).
+
+**Research (empirical, real CLI):** (1) `claude -p --input-format stream-json` is a persistent
+multi-turn session over a **pipe** (two messages → two results) but **fails over a PTY** ("Input
+must be provided…" — it only reads stream-json when stdin isn't a tty). AutoDev is PTY-everywhere,
+so a pipe transport would be a real rewrite. (2) Instead, `--resume <session_id>` continues a
+conversation across separate one-shot processes, session id is **stable** across resumes, and it
+works over the existing PTY model. (3) Approvals: no `--permission-prompt-tool` in 2.1.207 and
+`-p` stream-json surfaces no inline permission events → deferred to 3B (needs an MCP tool).
+
+**Decision:** resume-based follow-ups — each turn is a one-shot Rich process, chained by
+`--resume`. Stays in the PTY model, reuses the whole driver/event pipeline. No transport change.
+
+**Approach:**
+- Rust: `StructuredMode.resume_flags` (with `{id}` placeholder) *replaces* the base flags when
+  resuming — expresses each backend's form declaratively (Claude adds `--resume {id}`; Codex
+  switches to `exec resume {id}`). `AgentOptions.resume_session_id` routes `build_args`.
+  `SessionInit` gained `session_id` (Claude from `system/init`; Codex's `thread.started` now maps
+  to SessionInit carrying its `thread_id`). Added a `UserMessage` event variant.
+- Frontend: the store keeps `resumeMap` (follow-up core id → conversation agent id); a `conv(id)`
+  resolver routes the follow-up process's output/events/exit onto the original card so the
+  conversation is one continuous stream. `store.followUp(id, text)` spawns the resume turn,
+  appends a synthetic `userMessage`, flips status back to running. `sessionId` captured from
+  `SessionInit`. `rich-pane` renders `userMessage` cards + a follow-up composer (enabled once a
+  session id exists and the turn is done). `close()` cleans `resumeMap`.
+
+**TDD/verify:** Rust +4 (claude/codex resume build_args, resume-ignored-without-rich,
+session_id serialization); frontend +2 (sessionId capture + follow-up redirect end-to-end, no-op
+without sessionId). The exact resume arg order AutoDev builds recalls prior context against real
+`claude` 2.1.207 (ZEBRA7). 122 Rust + 118 frontend green; clippy/rustfmt/eslint/tsc + vite build
+clean. GUI follow-up flow not eyeballed. Codex resume is arg-tested but not live-verified.
+
 ## Rich view — increment 2: Codex driver (branch `feat/rich-view`) — multi-backend seam proven
 
 **Context:** Increment 1 built the normalized event model justified by "so Codex/others plug in

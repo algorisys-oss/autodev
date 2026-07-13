@@ -148,6 +148,8 @@ export interface AgentOptions {
   /** Launch in Rich mode: a structured event stream rendered as cards instead of a raw
    *  terminal. Only honored for backends whose `BackendInfo.structured` is true; one-shot. */
   rich?: boolean;
+  /** Resume a prior Rich session by its backend session id (a follow-up turn). Only with `rich`. */
+  resumeSessionId?: string | null;
   model?: string | null;
   initialPrompt?: string | null;
   addDirs?: string[];
@@ -158,7 +160,8 @@ export interface AgentOptions {
 /** A normalized agent event from a Rich session (mirrors Rust `agent_event::AgentEvent`).
  *  Discriminated on `kind`; arrives on the `agent://event` channel. */
 export type AgentEvent =
-  | { kind: "sessionInit"; model: string; cwd: string; permissionMode: string }
+  | { kind: "sessionInit"; sessionId: string; model: string; cwd: string; permissionMode: string }
+  | { kind: "userMessage"; text: string }
   | { kind: "assistantText"; text: string }
   | { kind: "thinking"; text: string }
   | { kind: "toolCall"; id: string; name: string; input: unknown }

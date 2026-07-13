@@ -119,6 +119,9 @@ export interface AgentView {
   rich: boolean;
   /** Normalized structured events for a Rich session, in arrival order (empty for terminal ones). */
   events: ipc.AgentEvent[];
+  /** The backend's conversation id (from a Rich session's SessionInit), used to resume for a
+   *  follow-up turn. Undefined until the first SessionInit arrives. */
+  sessionId?: string;
 }
 
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
@@ -158,6 +161,11 @@ export function createAgentStore(deps?: {
   const autoOnboard = new Set<string>(); // agents allowed to auto-clear onboarding gates
   const onboardSent = new Set<string>(); // debounce: a reply is in flight for this agent's gate
   const decoder = new TextDecoder();
+  // A Rich follow-up runs as a fresh one-shot backend process (a new core id) that `--resume`s
+  // the same conversation. This maps that follow-up process's id back to the conversation agent
+  // so its output/events/exit land on the original card, keeping one continuous stream.
+  const resumeMap = new Map<string, string>();
+  const conv = (coreId: string) => resumeMap.get(coreId) ?? coreId;
 
   // Public agent-lifecycle hook bus (P3). The store emits spawn/output/idle/waiting/exit
   // through it; built-in behaviors and extensions register as consumers.
@@ -170,7 +178,8 @@ export function createAgentStore(deps?: {
     if (i >= 0 && state.agents[i].status !== status) setState("agents", i, "status", status);
   }
 
-  function pushOutput(id: string, bytes: Uint8Array) {
+  function pushOutput(rawId: string, bytes: Uint8Array) {
+    const id = conv(rawId); // route a follow-up process's output onto its conversation card
     const arr = buffers.get(id);
     if (arr) {
       arr.push(bytes);
@@ -211,18 +220,25 @@ export function createAgentStore(deps?: {
       pushOutput(p.id, base64ToBytes(p.data)),
     ),
     subscribe<{ id: string; code: number | null }>("agent://exit", (p) => {
-      const i = indexOf(p.id);
+      const id = conv(p.id);
+      resumeMap.delete(p.id); // a follow-up turn's process is done
+      const i = indexOf(id);
       if (i >= 0) {
         setState("agents", i, "exitCode", p.code);
         // A non-zero code is a crash/failure; a clean or signalled (killed) exit is "exited".
-        setStatus(p.id, p.code && p.code !== 0 ? "error" : "exited");
-        hooks.emitExit(p.id, p.code);
+        setStatus(id, p.code && p.code !== 0 ? "error" : "exited");
+        hooks.emitExit(id, p.code);
       }
     }),
     // Rich sessions also emit normalized structured events; append them for the card view.
     subscribe<{ id: string; event: ipc.AgentEvent }>("agent://event", (p) => {
-      const i = indexOf(p.id);
-      if (i >= 0) setState("agents", i, "events", state.agents[i].events.length, p.event);
+      const i = indexOf(conv(p.id));
+      if (i < 0) return;
+      setState("agents", i, "events", state.agents[i].events.length, p.event);
+      // Capture the backend conversation id so a follow-up can resume it.
+      if (p.event.kind === "sessionInit" && p.event.sessionId) {
+        setState("agents", i, "sessionId", p.event.sessionId);
+      }
     }),
   ];
 
@@ -279,6 +295,30 @@ export function createAgentStore(deps?: {
     return id;
   }
 
+  /** Send a follow-up turn in a Rich conversation. Spawns a fresh one-shot backend process that
+   *  `--resume`s the captured session and routes its events back onto this same card, so the
+   *  conversation reads as one continuous stream. No-op if the agent has no captured session id. */
+  async function followUp(agentId: string, text: string): Promise<void> {
+    const i = indexOf(agentId);
+    if (i < 0) return;
+    const a = state.agents[i];
+    if (!a.sessionId) return;
+    // Show the user's turn inline and flip the conversation back to running.
+    setState("agents", i, "events", a.events.length, { kind: "userMessage", text });
+    setState("agents", i, "exitCode", null);
+    setStatus(agentId, "running");
+    lastActivity.set(agentId, now());
+    const opts = hooks.applySpawn({
+      backend: a.backend,
+      cwd: a.cwd,
+      rich: true,
+      resumeSessionId: a.sessionId,
+      initialPrompt: text,
+    });
+    const coreId = await api.agentSpawn(opts);
+    resumeMap.set(coreId, agentId);
+  }
+
   async function kill(id: string) {
     try {
       await api.agentKill(id);
@@ -310,6 +350,7 @@ export function createAgentStore(deps?: {
     tails.delete(id);
     autoOnboard.delete(id);
     onboardSent.delete(id);
+    for (const [coreId, convId] of resumeMap) if (convId === id) resumeMap.delete(coreId);
     if (state.focusedId === id) setState("focusedId", state.agents[0]?.id ?? null);
   }
 
@@ -340,6 +381,7 @@ export function createAgentStore(deps?: {
     focused,
     hooks,
     spawn,
+    followUp,
     kill,
     killAll,
     close,

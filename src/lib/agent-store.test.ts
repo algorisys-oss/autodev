@@ -289,6 +289,52 @@ describe("agent store", () => {
     });
   });
 
+  it("captures sessionId from sessionInit and a follow-up resumes into the same conversation", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p"); // agent-1
+      h.emit("agent://event", {
+        id: "agent-1",
+        event: { kind: "sessionInit", sessionId: "sid-1", model: "m", cwd: "/p", permissionMode: "default" },
+      });
+      h.emit("agent://event", { id: "agent-1", event: { kind: "assistantText", text: "turn one" } });
+      h.emit("agent://exit", { id: "agent-1", code: 0 });
+      expect(store.focused()?.sessionId).toBe("sid-1");
+      expect(store.focused()?.status).toBe("exited");
+
+      await store.followUp("agent-1", "now turn two");
+      // Resumes the captured session with the follow-up prompt.
+      expect(h.api.agentSpawn).toHaveBeenLastCalledWith(
+        expect.objectContaining({ rich: true, resumeSessionId: "sid-1", initialPrompt: "now turn two" }),
+      );
+      // The user's turn is shown inline and the conversation is running again.
+      const evs = store.focused()!.events;
+      expect(evs[evs.length - 1]).toEqual({ kind: "userMessage", text: "now turn two" });
+      expect(store.focused()?.status).toBe("running");
+
+      // The follow-up process (agent-2) routes its events/exit back onto agent-1's card.
+      h.emit("agent://event", { id: "agent-2", event: { kind: "assistantText", text: "turn two reply" } });
+      expect(store.focused()!.events.some((e) => e.kind === "assistantText" && e.text === "turn two reply")).toBe(true);
+      h.emit("agent://exit", { id: "agent-2", code: 0 });
+      expect(store.focused()?.status).toBe("exited");
+      dispose();
+    });
+  });
+
+  it("followUp is a no-op until a sessionId has been captured", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p");
+      expect(h.api.agentSpawn).toHaveBeenCalledTimes(1);
+      await store.followUp("agent-1", "too early"); // no sessionInit yet
+      expect(h.api.agentSpawn).toHaveBeenCalledTimes(1); // no second spawn
+      expect(store.focused()?.events).toEqual([]);
+      dispose();
+    });
+  });
+
   it("a non-rich agent is not rich and ignores stray events for unknown ids", async () => {
     await createRoot(async (dispose) => {
       const h = harness();

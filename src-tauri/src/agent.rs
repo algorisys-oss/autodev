@@ -84,6 +84,10 @@ pub struct AgentOptions {
     /// capability; ignored otherwise. Like print mode, this runs one-shot.
     #[serde(default)]
     pub rich: bool,
+    /// Resume a prior Rich session by its backend session id (a follow-up turn in the same
+    /// conversation). Only meaningful with `rich` and a backend whose spec has `resume_flags`.
+    #[serde(default)]
+    pub resume_session_id: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
     /// Prompt to start the session with, passed as the CLI's positional prompt.
@@ -344,6 +348,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -399,6 +404,7 @@ mod tests {
             bypass_permissions: true,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: Some("big".into()),
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -423,6 +429,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: true,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: Some("do it".into()),
             add_dirs: vec![],
@@ -444,6 +451,7 @@ mod tests {
             bypass_permissions: true,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: Some("claude-opus-4-8".into()),
             initial_prompt: Some("hello".into()),
             add_dirs: vec!["/a".into(), "/b".into()],
@@ -478,6 +486,7 @@ mod tests {
             bypass_permissions: true,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: Some("gemini-3.1-pro".into()),
             initial_prompt: Some("build it".into()),
             add_dirs: vec!["/a".into()],
@@ -517,6 +526,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec![],
@@ -538,6 +548,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: None,
             add_dirs: vec!["/work/zlog".into(), "/other".into()],
@@ -557,6 +568,7 @@ mod tests {
             bypass_permissions: false,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: None,
             initial_prompt: Some("look".into()),
             add_dirs: vec![],
@@ -586,6 +598,7 @@ mod tests {
             bypass_permissions: true,
             print_mode: false,
             rich: false,
+            resume_session_id: None,
             model: Some("o3".into()),
             initial_prompt: None,
             add_dirs: vec![],

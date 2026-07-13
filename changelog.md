@@ -4,6 +4,16 @@ Newest first. Functional changes only (LOOPS XXIV).
 
 ## Unreleased (branch `feat/rich-view`)
 
+- **New: Rich view is now interactive — multi-turn follow-up conversations.** After a Rich turn
+  finishes, a composer at the bottom of the card view lets you reply; the follow-up runs as a
+  fresh one-shot turn that `--resume`s the same backend session, and its cards **append to the
+  same conversation stream**. Stays entirely in the existing PTY model — no new transport. Built
+  declaratively: `StructuredMode.resume_flags` (with an `{id}` placeholder) expresses each
+  backend's resume form (Claude adds `--resume <id>`; Codex switches to `exec resume <id>`), and
+  the session id is captured from the normalized `SessionInit` event. Verified end-to-end against
+  real `claude` 2.1.207 (resumed turns recall prior context). *Per-action approval buttons are a
+  separate, later increment (headless stream-json has no inline permission events; needs an MCP
+  permission tool).*
 - **New (spike): Rich view — an opt-in, structured, card-based agent session.** As an
   alternative to the raw terminal, a session can render the agent's activity as native cards —
   assistant text, thinking, tool calls (with a summarized argument), tool results, and a final
