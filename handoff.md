@@ -5,16 +5,17 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Focused-terminal viewport fix + status footer (on `dev`). The focused agent's
-  reply prompt could fall off-screen — `.terminal-pane` was a fixed 420px at the bottom of a
-  scrolling panel. `.main-panel` is now a flex column: upper content scrolls in `.main-scroll`,
-  the focused `.agent-session` is pinned (`max-height:62vh`) with the terminal on `flex:1`, so the
-  input always sits within the viewport. New `StatusFooter` (`src/components/status-footer.tsx`)
-  is a persistent bottom bar showing each active-workspace project folder + its git branch
-  (● = dirty), via the existing `gitWorktreeStatus` command (no core change). **Verify:**
-  `./dev.sh verify` green (98 Rust + 111 frontend); lint + `vite build` clean; changes
-  hot-reloaded into the running dev server. **GUI-only:** eyeball that the prompt is visible and
-  the footer branch is correct. **Scope:** CSS + one new component + App wiring; no Rust touched.
+- **Last task:** Agent-terminal visibility fixes (v0.10.1, on `dev`). Two CSS-only fixes in
+  `src/App.css`. (1) The focused terminal could be squeezed too short to show a full-screen agent
+  menu: `.main-scroll`'s flex-grow shrank `.agent-session` (which had `min-height: 0`) to a few
+  rows, so the highlighted selection in Claude Code's MCP-onboarding prompt rendered off-screen and
+  arrow keys moved an invisible cursor. `.agent-session` now has `min-height: 300px` (~17 rows).
+  (2) xterm's scrollback had no visible scrollbar — WebKitGTK renders the viewport's
+  `overflow-y: scroll` as a transient overlay that never shows at rest; added an explicit
+  `.terminal-pane .xterm-viewport::-webkit-scrollbar` style for a persistent themed bar. **Verify:**
+  `./dev.sh verify` green (98 Rust + frontend); lint + build clean. **GUI-confirmed by user** in
+  the running dev instance (menu selection now visible; scrolling works). **Scope:** CSS only; no
+  Rust, no TS logic, no new deps.
 - **Prior task:** Cross-agent structured annotation (P9, on `dev`). The screenshot/annotate flow
   now captures **notes** (one per line) with the drawing; a capture is an `Annotation { image,
   notes }` that **fans out to every agent in a launch** — notes as prompt text (so they reach any

@@ -2,6 +2,37 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Agent-terminal visibility fixes (v0.10.1) — COMPLETE (branch `dev`)
+
+**Context:** User opened an existing workspace's `yappy · agent-1 · claude` terminal, which was
+showing Claude Code's MCP-onboarding prompt (a full-screen alternate-screen menu). Two reports:
+(1) no visible scrollbar though content overflowed; (2) the menu "shows choices but I can't see
+the selection" — arrow keys worked but the highlighted row wasn't visible.
+
+**Diagnosis:**
+- **Scrollbar** — xterm's `.xterm-viewport` is `overflow-y: scroll`, but this is a Tauri app on
+  WebKitGTK, which renders that as a transient GTK overlay scrollbar that never shows at rest. The
+  wheel scrolled fine (user confirmed on a trackpad); only the bar was missing.
+- **Hidden selection** — the menu is an alternate-screen TUI (no scrollback), so the only way to
+  see all of it is enough PTY rows. `.agent-session` had `min-height: 0`, which let
+  `.main-scroll`'s `flex-grow: 1` squeeze the pane to ~5 rows; the terminal-pane's own
+  `min-height: 200px` was defeated because `.agent-session` (its overflow-hidden parent) could
+  shrink below it. The highlighted line rendered below the fold.
+
+**Approach (CSS only, `src/App.css`):**
+- `.agent-session` `min-height: 0` → `min-height: 300px` (~17 rows), keeping `max-height: 62vh`.
+  Honours the file's own "terminal pinned below, upper content scrolls" intent.
+- Added `.terminal-pane .xterm-viewport::-webkit-scrollbar{,-track,-thumb,-thumb:hover}` rules;
+  defining any `::-webkit-scrollbar` flips WebKitGTK off the overlay onto a persistent themed bar
+  (dark track blending with `#1a1a1a`, grey thumb).
+
+**Tests:** No unit test — both are WebKitGTK-specific rendering behaviours a jsdom/Vitest run can't
+observe (no real scrollbar layout, no PTY). Verified by launching the app.
+
+**Verify:** `./dev.sh verify` green (98 Rust + frontend, lint, `vite build`). GUI-confirmed by the
+user in the running dev instance: selection now visible, scrolling works. **Scope:** CSS only —
+no Rust, no TS logic, no new deps (LOOPS IV).
+
 ## Terminal-in-viewport fix + status footer — COMPLETE (branch `dev`)
 
 **Context:** User (on Ubuntu) reported the agent's reply prompt was not visible "at the bottom",

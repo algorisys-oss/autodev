@@ -917,7 +917,10 @@ button.danger {
 
 .agent-session {
   flex: 0 1 auto;
-  min-height: 0;
+  /* Floor the terminal at enough rows to show an agent's interactive menus (Claude Code's
+     prompts render full-screen with no scrollback). Without this, `.main-scroll`'s flex-grow
+     squeezes the pane down to a few rows and the highlighted selection lands off-screen. */
+  min-height: 300px;
   max-height: 62vh;
   display: flex;
   flex-direction: column;
@@ -960,6 +963,25 @@ button.danger {
   min-height: 200px;
   padding: 4px;
   background: #1a1a1a;
+}
+
+/* xterm's viewport is `overflow-y: scroll`, but WebKitGTK renders that as a transient GTK
+   overlay bar that never shows at rest — so an agent's scrollback looks unreachable even
+   though the wheel scrolls it. Styling the scrollbar switches WebKitGTK to a persistent,
+   themed bar. */
+.terminal-pane .xterm-viewport::-webkit-scrollbar {
+  width: 12px;
+}
+.terminal-pane .xterm-viewport::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+.terminal-pane .xterm-viewport::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 6px;
+  border: 3px solid #1a1a1a;
+}
+.terminal-pane .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #5f5f5f;
 }
 
 :root[data-theme="dark"] .agent-session {

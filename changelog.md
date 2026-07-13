@@ -2,6 +2,18 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.10.1 — 2026-07-13
+
+- **Fixed: the focused agent's terminal was too short to show interactive menus.** On shorter
+  windows `.main-scroll`'s flex-grow squeezed `.agent-session` (which had `min-height: 0`) down to
+  a few rows, so a full-screen agent prompt — like Claude Code's MCP onboarding menu — had its
+  highlighted selection rendered off-screen. Arrow keys moved an invisible cursor. The pane now
+  has a `min-height: 300px` floor (~17 rows), so interactive menus stay fully in view.
+- **Fixed: the terminal's scrollback had no visible scrollbar.** xterm's viewport is
+  `overflow-y: scroll`, but WebKitGTK draws that as a transient overlay bar that never appears at
+  rest, so scrollback looked unreachable even though the wheel scrolled it. The viewport now has an
+  explicit `::-webkit-scrollbar` style, which switches WebKitGTK to a persistent, themed bar.
+
 ## v0.10.0 — 2026-07-13
 
 - **Fixed: the focused agent's prompt could sit off-screen.** The terminal had a fixed
