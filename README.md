@@ -1,17 +1,22 @@
 # AutoDev
 
 A desktop app for running and managing many terminal coding agents (Claude Code, Codex,
-Google Antigravity) in parallel across multiple project workspaces. It wraps the agents you already use with
-a workspace model, live status, git-worktree isolation, voice and screenshot input, and
-an optional autonomous build loop.
+Google Antigravity, Pi — and any other CLI you add) in parallel across multiple project
+workspaces. It wraps the agents you already use with a workspace model, live status,
+git-worktree isolation, voice and screenshot input, cross-agent annotation, an optional
+autonomous build loop, and a file-based extension surface (backends, prompt templates, skills,
+and JS extensions under `~/.autodev/`).
 
 Built with Tauri (Rust core) and SolidJS. See [`PLAN.md`](PLAN.md) for the full roadmap
 and [`LOOPS.md`](LOOPS.md) for the engineering method the project follows.
 
 > Status: all planned phases (0–9) are implemented — workspaces, multi-agent
 > orchestration, prompt composer, git-worktree isolation, voice input, screenshot +
-> annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop. See
-> [`handoff.md`](handoff.md) for exactly what works today and the known gaps.
+> annotate, browser handoff, and the autonomous Planner/Generator/Evaluator loop — plus an
+> extensibility track (pluggable backends, a public hook lifecycle, prompt templates, skills,
+> JS extensions, a verified Pi backend, and cross-agent structured annotation). See
+> [`handoff.md`](handoff.md) for exactly what works today and the known gaps, and
+> [`PI-PARITY-PLAN.md`](PI-PARITY-PLAN.md) for the extensibility roadmap.
 
 > **Demo:** [`demo/`](demo/) has a real screen recording of the app — 3 agents building an app in
 > parallel, then the built app opened and used (`autodev-multi-agent-demo.mp4`) — plus a runnable
@@ -28,7 +33,8 @@ Grab the file for your platform from the latest release's **Assets**:
 | **macOS** | `AutoDev_<version>_universal.dmg` | Open the `.dmg` and drag AutoDev to Applications. |
 | **Windows** | `AutoDev_<version>_x64-setup.exe` | Run the installer. |
 
-To drive agents you still need their CLIs on your `PATH` (`claude`, `codex`, and/or `agy`), and on
+To drive agents you still need at least one agent CLI on your `PATH` (`claude`, `codex`, `agy`,
+`pi`, … — see [Agent backends](#2-agent-backends-install-at-least-one-on-your-path)), and on
 Linux the WebKit/GTK system libraries listed under [Prerequisites](#prerequisites). Releases
 are currently **unsigned**, so macOS Gatekeeper / Windows SmartScreen may warn on first launch
 (right-click → Open on macOS; "More info → Run anyway" on Windows) — see
@@ -36,17 +42,73 @@ are currently **unsigned**, so macOS Gatekeeper / Windows SmartScreen may warn o
 
 ## Prerequisites
 
+You need three groups of things: a build toolchain (only to run from source), at least one
+**agent backend** CLI, and — optionally — small helper tools for screenshots, voice, and the
+browser handoff. If you installed a prebuilt release you can skip the build toolchain.
+
+### 1. Build toolchain (to build / run from source)
+
 - **Rust** (stable) and **Cargo** — https://rustup.rs
 - **Node.js** 20+ and **npm**
-- **Linux system libraries** for Tauri (Debian/Ubuntu names):
-  ```
-  sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-    libayatana-appindicator3-dev build-essential
-  ```
-  On macOS install Xcode command line tools; on Windows install the WebView2 runtime and
-  the MSVC build tools. See https://tauri.app/start/prerequisites/ for the current list.
-- To actually drive agents you need their CLIs on your `PATH`: `claude` (Claude Code),
-  `codex`, and/or `agy` (Google Antigravity).
+- **git**
+- **Linux system libraries** for Tauri (WebKitGTK), per distro:
+
+  | Distro | Command |
+  |---|---|
+  | Debian / Ubuntu | `sudo apt-get install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev build-essential curl file` |
+  | Fedora | `sudo dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel libayatana-appindicator-gtk3-devel @development-tools` |
+  | Arch | `sudo pacman -S webkit2gtk-4.1 gtk3 librsvg libayatana-appindicator base-devel` |
+
+- **macOS** — `xcode-select --install` (Xcode command line tools).
+- **Windows** — the **WebView2 runtime** (preinstalled on Windows 11) and the **MSVC v143 Build
+  Tools** (Visual Studio Build Tools with the "Desktop development with C++" workload).
+
+See https://tauri.app/start/prerequisites/ for the current authoritative list.
+
+### 2. Agent backends (install at least one, on your `PATH`)
+
+AutoDev drives real agent CLIs — install the ones you use. Adding *another* backend is a
+drop-in `~/.autodev/backends/<id>.json` file (see [Extending](#extending-autodev)); no rebuild.
+
+| Backend | Install | Binary |
+|---|---|---|
+| **Claude Code** | `npm i -g @anthropic-ai/claude-code` (or the [native installer](https://docs.claude.com/en/docs/claude-code)) | `claude` |
+| **Codex** | `npm i -g @openai/codex` | `codex` |
+| **Google Antigravity** | Follow [Google's Antigravity CLI](https://antigravity.google/) setup | `agy` |
+| **Pi** | `npm i -g @earendil-works/pi-coding-agent`, then `pi` → `/login`, then copy [`examples/backends/pi.json`](examples/backends/pi.json) to `~/.autodev/backends/` | `pi` |
+
+### 3. Optional helper tools (per feature)
+
+Configure these in **Settings** (⚙) or `~/.autodev/settings.json`. The `{file}` placeholder is
+replaced with a path AutoDev provides.
+
+**Screenshots (📷).** AutoDev auto-detects a tool on Linux/macOS; if none is found it tells you.
+Install one for your desktop, or set `screenshotCommand` yourself:
+
+| Platform / desktop | Install | `screenshotCommand` |
+|---|---|---|
+| Linux — GNOME (Ubuntu, Wayland or X11) | `sudo apt install gnome-screenshot` | `gnome-screenshot -f {file}` |
+| Linux — KDE Plasma | `sudo apt install kde-spectacle` | `spectacle -b -n -o {file}` |
+| Linux — Sway / Hyprland (wlroots Wayland) | `sudo apt install grim` | `grim {file}` |
+| Linux — generic X11 | `sudo apt install scrot` (or `maim`) | `scrot {file}` |
+| macOS | built in | `screencapture -x {file}` (auto-detected) |
+| Windows | no built-in CLI — use a tool that writes a PNG to a path, or a PowerShell one-liner | `<your-tool> {file}` |
+
+> Note: `grim` only works on **wlroots** compositors; on **GNOME/KDE Wayland** use
+> `gnome-screenshot` / `spectacle`. X11 tools (`scrot`, `maim`, ImageMagick `import`) capture a
+> black frame under a Wayland session.
+
+**Voice-to-text (🎤).** Any command that transcribes an audio `{file}` to stdout. Example with
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`brew install whisper-cpp` on macOS, or
+build from source on Linux): `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`. Set as
+`transcribeCommand`.
+
+**Browser handoff (🌐).** Node + [Playwright](https://playwright.dev): `cd browser-runner &&
+npm install && npx playwright install chromium`, then set `browserCommand` to
+`node /abs/path/browser-runner/browser-runner.mjs {file}`. See [Browser handoff](#browser-handoff).
+
+**Open in editor.** Any editor with a CLI — `code`, `cursor`, `subl`, `nvim`. Set `editorCommand`
+(default `code`). On macOS enable the `code` command via VS Code's *Shell Command: Install 'code'*.
 
 ## Quick start
 
@@ -180,6 +242,18 @@ repo secrets above; without them the release ships unsigned.
 
 Configuration and state live at `~/.autodev/` (settings, prompt history, per-agent logs,
 loop state).
+
+## Extending AutoDev
+
+Everything below is a plain file under `~/.autodev/` — drop it in, restart, done. No rebuild.
+(The in-app **Help** panel — the `?` in the header — documents all of this too.)
+
+| Add… | Where | What it does |
+|---|---|---|
+| **A backend** | `~/.autodev/backends/<id>.json` | A new agent CLI in the Backend picker. Declarative flag mapping; see [`examples/backends/`](examples/backends/) (includes a verified **Pi** spec). |
+| **A prompt template** | `~/.autodev/templates/<name>.md` | Type `/name` in the task box to expand it (Tab or click). |
+| **Skills** | `~/.autodev/skills/` | Files added to *every* agent's context on every backend. |
+| **An extension** | `~/.autodev/extensions/<name>.js` | Trusted JS that registers lifecycle hooks and composer commands. Surfaced in Settings. ⚠ runs with the app's full access. |
 
 ### Browser handoff
 
