@@ -83,7 +83,22 @@ export function resolveMention(
 
 // --- Agents (Phase 2) ---
 
-export type AgentBackend = "claude" | "codex" | "antigravity" | "mock";
+/** A backend is identified by its spec `id`. The bundled ids are spelled out for
+ *  autocomplete; `(string & {})` keeps the union open so disk-registered backends
+ *  (`~/.autodev/backends/*.json`) are valid too. */
+export type AgentBackend = "claude" | "codex" | "antigravity" | "mock" | (string & {});
+
+/** A launchable backend as reported by `backendList`, for the composer's picker. */
+export interface BackendInfo {
+  id: string;
+  label: string;
+  models: string[];
+}
+
+/** List available backends (bundled + disk-registered). `mock` is excluded. */
+export function backendList(): Promise<BackendInfo[]> {
+  return invoke<BackendInfo[]>("backend_list");
+}
 
 export interface AgentOptions {
   backend: AgentBackend;

@@ -8,7 +8,9 @@ import {
   transcribeAudio,
   captureScreen,
   saveShot,
+  backendList,
   type AgentBackend,
+  type BackendInfo,
   type Workspace,
   type WorktreeInfo,
   type TaskPlan,
@@ -50,12 +52,22 @@ export function PromptComposer(props: {
   const [plan, setPlan] = createSignal<TaskPlan | null>(null);
   // True once the user sets the agent count by hand — analyze-on-launch then defers to them.
   const [countTouched, setCountTouched] = createSignal(false);
+  // Backends offered in the picker: bundled + any disk-registered (`~/.autodev/backends`).
+  const [backends, setBackends] = createSignal<BackendInfo[]>([]);
 
   onMount(async () => {
     try {
       setHistory(await getPromptHistory());
     } catch {
       /* no history yet */
+    }
+    try {
+      const list = await backendList();
+      setBackends(list);
+      // If the default backend isn't offered, fall back to the first available one.
+      if (list.length && !list.some((b) => b.id === backend())) setBackend(list[0].id);
+    } catch {
+      /* keep the hardcoded default if the list can't be fetched */
     }
   });
 
@@ -357,9 +369,7 @@ export function PromptComposer(props: {
         <label class="control">
           Backend
           <select value={backend()} onChange={(e) => setBackend(e.currentTarget.value as AgentBackend)}>
-            <option value="claude">Claude</option>
-            <option value="codex">Codex</option>
-            <option value="antigravity">Antigravity</option>
+            <For each={backends()}>{(b) => <option value={b.id}>{b.label}</option>}</For>
           </select>
         </label>
 

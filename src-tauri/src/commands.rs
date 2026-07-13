@@ -36,6 +36,30 @@ pub fn app_info() -> AppInfo {
     }
 }
 
+/// A backend the UI can launch, for the composer's picker. Sourced from the bundled
+/// defaults plus any disk-registered specs (`~/.autodev/backends/*.json`).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendInfo {
+    pub id: String,
+    pub label: String,
+    pub models: Vec<String>,
+}
+
+/// List every available backend so the frontend can build its picker without hardcoding
+/// them. `mock` is excluded — it is a test-only backend, not a user-selectable one.
+#[tauri::command]
+pub fn backend_list() -> Vec<BackendInfo> {
+    crate::backend_spec::load_specs()
+        .into_iter()
+        .map(|s| BackendInfo {
+            label: s.display_label(),
+            id: s.id,
+            models: s.models,
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub fn get_settings() -> AppResult<AppSettings> {
     state::load_settings()

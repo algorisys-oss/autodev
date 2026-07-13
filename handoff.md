@@ -5,7 +5,21 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Auto-split — intelligent parallel decomposition (branch `feat/auto-decompose`,
+- **Last task:** Pluggable agent backends via declarative specs (on `dev`) — the first step
+  (M0/P1) of the new extensibility roadmap `PI-PARITY-PLAN.md`. Backend launch is now data, not
+  a hardcoded `match`: each backend is a `BackendSpec` (program + flag mappings) built by one
+  canonical `build_args` (`src-tauri/src/backend_spec.rs`). **Add a backend by dropping
+  `~/.autodev/backends/<id>.json`** — `load_specs` merges disk specs over the bundled
+  `claude`/`codex`/`antigravity` (disk can also retune a shipped backend by id). `AgentBackend`
+  gained a `Custom(String)` variant (transparent string serde), a `backend_list` command feeds
+  the composer's now-dynamic picker, and the existing `agent.rs` conformance tests pass
+  unchanged. **Verify:** `./dev.sh verify` (87 Rust + 70 frontend green, lint clean); an
+  end-to-end test (`a_disk_registered_backend_is_launchable_end_to_end`) drives the real
+  disk→spec→command-line path a spawn uses. Only the literal in-app dropdown *click* is
+  unverified (composer component tests + the `backend_list` path cover it indirectly).
+  **Next per the roadmap:** M1 — the Pi spike (embed Pi via a spec, test whether `pi-annotate`
+  bridges), then Track A: P3 hooks → P4 templates → P9 cross-agent annotation.
+- **Prior task:** Auto-split — intelligent parallel decomposition (branch `feat/auto-decompose`,
   **Phase 10**, not yet merged). The composer's **✨ Auto-split** button runs a one-shot read-only
   classifier (`claude -p`) that infers difficulty and whether the task parallelizes, then pre-fills
   the per-agent fan-out (parallel → N units as per-agent prompts + Isolate; not parallel → 1 agent).

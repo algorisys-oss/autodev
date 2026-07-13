@@ -1,4 +1,5 @@
 mod agent;
+mod backend_spec;
 mod capture;
 mod commands;
 mod editor;
@@ -31,6 +32,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::backend_list,
             commands::get_settings,
             commands::set_settings,
             commands::open_in_editor,

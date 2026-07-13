@@ -2,6 +2,45 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Pluggable backends via `BackendSpec` (P1 — extensibility track) — COMPLETE (branch `dev`)
+
+**Context:** A new extensibility roadmap (`PI-PARITY-PLAN.md`) was agreed with the user after
+comparing AutoDev to the Pi harness. Its foundation (M0/P1) is making the "agent adapter" real:
+`CLAUDE.md`/`PLAN.md` promised *"add a backend = add an adapter, change nothing else,"* but
+`command_line` was a hardcoded `match` over an `AgentBackend` enum — adding a backend meant
+editing the enum + match + tests. P1 turns backend launch into data so a new CLI is a JSON file.
+
+**Approach — one declarative spec, one canonical builder, disk-loaded registry.** Done in two
+scope-locked steps so the riskiest claim was proven first:
+
+- **Step 1 (de-risk the builder):** `src-tauri/src/backend_spec.rs` (new) defines `BackendSpec`
+  (program, print/plan/bypass flags, model flag, add-dir flag + cwd rule, `ImageMode`,
+  `PromptMode`) and `build_args`, a single fixed-order algorithm
+  (print|plan → bypass → model → add-dirs → image-flags → prompt+appended-images). Bundled
+  specs for the three real backends. `command_line` delegates to it; `Mock` stays a special
+  case (arbitrary command, no spec). The existing 10 `agent.rs` conformance tests passed
+  **unchanged** — proof one algorithm reproduces every backend's exact arg vector.
+- **Step 2 (make it data-driven):** `AgentBackend` became an enum with a `Custom(String)`
+  variant + manual `Serialize`/`Deserialize` (transparent string id), preserving every existing
+  call site and the wire contract while letting unknown ids round-trip. `command_line(opts,
+  specs)` now resolves against an injected registry (hermetic tests); `build_command` feeds it
+  `load_specs()`. `load_specs_from(dir)` reads `<data_dir>/backends/*.json`, sorts for
+  determinism, and overrides bundled specs by id. New `backend_list` command +
+  `BackendInfo`/`backendList()` in `ipc.ts`; the composer fetches the list on mount and renders
+  options dynamically, falling back to its default backend if the list lacks it.
+
+**Files:** `src-tauri/src/backend_spec.rs` (new), `agent.rs` (enum + `command_line` signature +
+tests), `commands.rs` (`backend_list`), `lib.rs` (module + command registration),
+`src/lib/ipc.ts` (`AgentBackend` widened, `BackendInfo`, `backendList`),
+`src/components/prompt-composer.tsx` (dynamic picker).
+
+**Verification:** `backend_spec.rs` and `agent.rs` tests cover JSON→args, disk registration +
+override, missing-dir fallback, serde round-trip incl. `Custom`, and an end-to-end drop-in test
+(`a_disk_registered_backend_is_launchable_end_to_end`) that writes a JSON spec and drives the
+real `load_specs_from` + `command_line` path a spawn would use. 87 Rust + 70 frontend green,
+lint clean. Not exercised: the literal GUI dropdown click (covered indirectly by the composer
+tests + the `backend_list` unit path).
+
 ## Auto-split — intelligent parallel decomposition (Phase 10) — COMPLETE (branch `feat/auto-decompose`)
 
 **Context:** AutoDev could fan out to N agents, but the human decided N (difficulty was a

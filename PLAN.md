@@ -193,6 +193,20 @@ Each phase ships working, tested, and is a natural stopping point.
 
 ---
 
+## Extensibility track (parallel to the phases above)
+
+A separate roadmap, `PI-PARITY-PLAN.md`, plans making AutoDev as extensible as the Pi harness
+(pluggable backends, a public hook lifecycle, prompt templates, extension loading, headless
+mode, cross-agent structured annotation). It runs alongside the product phases here.
+
+- **P1 — pluggable backends via declarative `BackendSpec` — DONE (2026-07-13).** Backend launch
+  is data, not a `match`; a new CLI is a `~/.autodev/backends/<id>.json` file. This delivers the
+  "add a backend = change nothing else" promise this plan's Phase 2 first made.
+- **Next:** M1 Pi spike, then P3 (hooks) → P4 (templates) → P9 (cross-agent annotation). See
+  `PI-PARITY-PLAN.md` for the full sequence and open decisions.
+
+---
+
 ## Risks & how we handle them
 
 - **Agent status detection is fuzzy.** CLIs signal "done" differently. Adapters parse

@@ -9,17 +9,58 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult};
 
-/// Which coding-agent CLI to launch. `Mock` runs an arbitrary command and exists so
-/// the spawn/stream/write/exit path can be integration-tested without the real CLIs
-/// or their auth (used in tests and CI).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+/// Which coding-agent CLI to launch. The named variants are the backends the app ships
+/// with; `Custom` is any backend registered by a disk spec (`~/.autodev/backends/*.json`),
+/// so a new CLI needs no new variant. `Mock` runs an arbitrary command and exists so the
+/// spawn/stream/write/exit path can be integration-tested without the real CLIs or their
+/// auth (used in tests and CI).
+///
+/// Serialized transparently as its string `id` (e.g. `"claude"`), so the on-the-wire and
+/// on-disk contract is unchanged from when this was a plain string enum.
+#[derive(Debug, Clone, PartialEq)]
 pub enum AgentBackend {
     Claude,
     Codex,
     /// Google Antigravity's terminal agent, invoked as `agy`.
     Antigravity,
     Mock,
+    /// A backend defined by a disk spec, identified by its `id`.
+    Custom(String),
+}
+
+impl AgentBackend {
+    /// The stable string id used to look up this backend's spec and to serialize it.
+    pub fn id(&self) -> &str {
+        match self {
+            AgentBackend::Claude => "claude",
+            AgentBackend::Codex => "codex",
+            AgentBackend::Antigravity => "antigravity",
+            AgentBackend::Mock => "mock",
+            AgentBackend::Custom(id) => id,
+        }
+    }
+
+    fn from_id(id: &str) -> Self {
+        match id {
+            "claude" => AgentBackend::Claude,
+            "codex" => AgentBackend::Codex,
+            "antigravity" => AgentBackend::Antigravity,
+            "mock" => AgentBackend::Mock,
+            other => AgentBackend::Custom(other.to_string()),
+        }
+    }
+}
+
+impl Serialize for AgentBackend {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.id())
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentBackend {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        Ok(AgentBackend::from_id(&String::deserialize(d)?))
+    }
 }
 
 /// Options for launching one agent session.
@@ -59,114 +100,40 @@ pub struct AgentOptions {
 /// Compute the program and argument vector for a backend from its options. Pure and
 /// therefore unit-tested; `build_command` wraps it into a `CommandBuilder`.
 ///
+/// The real backends are described declaratively by a `BackendSpec` (see `backend_spec`),
+/// so their flags live in data, not in this function. `Mock` is the one exception: it runs
+/// an arbitrary command supplied by the test, which no spec describes.
+///
 /// Flags verified against the installed CLIs: `claude --permission-mode plan`,
 /// `claude --dangerously-skip-permissions`, `claude --add-dir`;
 /// `codex --dangerously-bypass-approvals-and-sandbox`. Antigravity (`agy`) flags follow
 /// Google's published CLI guide (`-i`/`--prompt-interactive`, `-m`, `--add-dir`,
 /// `--dangerously-skip-permissions`) — reconfirm against the installed `agy` version if they
 /// drift; it is the only backend whose flags are not verified against a local install here.
-pub fn command_line(opts: &AgentOptions) -> AppResult<(String, Vec<String>)> {
-    let mut args: Vec<String> = Vec::new();
-    let program = match &opts.backend {
-        AgentBackend::Claude => {
-            if opts.print_mode {
-                // One-shot: run the prompt and exit (the loop advances on exit). Plan mode is
-                // irrelevant here — read-only roles are enforced by their prompts.
-                args.push("-p".into());
-            } else if opts.plan_mode {
-                args.push("--permission-mode".into());
-                args.push("plan".into());
-            }
-            if opts.bypass_permissions {
-                args.push("--dangerously-skip-permissions".into());
-            }
-            if let Some(m) = &opts.model {
-                args.push("--model".into());
-                args.push(m.clone());
-            }
-            for dir in &opts.add_dirs {
-                args.push("--add-dir".into());
-                args.push(dir.clone());
-            }
-            // Claude has no image CLI flag, so reference screenshot paths in the prompt.
-            let mut prompt = opts.initial_prompt.clone().unwrap_or_default();
-            for img in &opts.images {
-                prompt.push_str(&format!("\n\n[Screenshot attached: {img}]"));
-            }
-            if !prompt.is_empty() {
-                args.push(prompt);
-            }
-            "claude".to_string()
-        }
-        AgentBackend::Codex => {
-            if opts.bypass_permissions {
-                args.push("--dangerously-bypass-approvals-and-sandbox".into());
-            }
-            if let Some(m) = &opts.model {
-                args.push("-m".into());
-                args.push(m.clone());
-            }
-            for img in &opts.images {
-                args.push("-i".into());
-                args.push(img.clone());
-            }
-            if let Some(p) = &opts.initial_prompt {
-                args.push(p.clone());
-            }
-            "codex".to_string()
-        }
-        AgentBackend::Antigravity => {
-            // `agy` mirrors Claude Code's flags. Interactive sessions (what AutoDev drives in a
-            // PTY) take the initial prompt via `-i`/`--prompt-interactive`. There is no
-            // documented plan/read-only flag, so `plan_mode` is not mapped for this backend.
-            if opts.bypass_permissions {
-                args.push("--dangerously-skip-permissions".into());
-            }
-            if let Some(m) = &opts.model {
-                args.push("-m".into());
-                args.push(m.clone());
-            }
-            // agy has its own project/workspace model and does NOT treat its process cwd as the
-            // place to write files: given a self-contained task with no directory in its
-            // workspace, it spins up a scratch project under ~/.gemini and writes there. Adding
-            // the cwd to the workspace keeps deliverables in the opened project. cwd goes first;
-            // skip it if a later @-mention already names it so it isn't passed twice.
-            args.push("--add-dir".into());
-            args.push(opts.cwd.clone());
-            for dir in &opts.add_dirs {
-                if dir == &opts.cwd {
-                    continue;
-                }
-                args.push("--add-dir".into());
-                args.push(dir.clone());
-            }
-            // No documented image flag; reference screenshot paths in the prompt, like Claude.
-            let mut prompt = opts.initial_prompt.clone().unwrap_or_default();
-            for img in &opts.images {
-                prompt.push_str(&format!("\n\n[Screenshot attached: {img}]"));
-            }
-            if !prompt.is_empty() {
-                args.push("-i".into());
-                args.push(prompt);
-            }
-            "agy".to_string()
-        }
-        AgentBackend::Mock => {
-            let parts = opts
-                .mock_command
-                .as_ref()
-                .filter(|v| !v.is_empty())
-                .ok_or_else(|| AppError::NotFound("mock_command".to_string()))?;
-            args.extend(parts[1..].iter().cloned());
-            parts[0].clone()
-        }
-    };
-    Ok((program, args))
+pub fn command_line(
+    opts: &AgentOptions,
+    specs: &[crate::backend_spec::BackendSpec],
+) -> AppResult<(String, Vec<String>)> {
+    if let AgentBackend::Mock = opts.backend {
+        let parts = opts
+            .mock_command
+            .as_ref()
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| AppError::NotFound("mock_command".to_string()))?;
+        return Ok((parts[0].clone(), parts[1..].to_vec()));
+    }
+    let id = opts.backend.id();
+    let spec = specs
+        .iter()
+        .find(|s| s.id == id)
+        .ok_or_else(|| AppError::NotFound(format!("backend spec {id}")))?;
+    Ok((spec.program.clone(), spec.build_args(opts)))
 }
 
-/// Build the process command line for a backend from its options.
+/// Build the process command line for a backend from its options, resolving its spec from
+/// the bundled defaults plus any disk-registered backends (`~/.autodev/backends/*.json`).
 pub fn build_command(opts: &AgentOptions) -> AppResult<CommandBuilder> {
-    let (program, args) = command_line(opts)?;
+    let (program, args) = command_line(opts, &crate::backend_spec::load_specs())?;
     let mut cmd = CommandBuilder::new(program);
     for a in args {
         cmd.arg(a);
@@ -360,6 +327,7 @@ impl AgentManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend_spec::builtin_specs;
     use std::sync::mpsc;
     use std::time::Duration;
 
@@ -378,6 +346,67 @@ mod tests {
         }
     }
 
+    /// A backend id round-trips through JSON as a bare string, and an unknown id becomes
+    /// `Custom` — this is the wire contract the frontend relies on when it sends a
+    /// disk-registered backend id.
+    #[test]
+    fn agent_backend_serde_roundtrips_including_custom() {
+        for (variant, json) in [
+            (AgentBackend::Claude, "\"claude\""),
+            (AgentBackend::Mock, "\"mock\""),
+            (AgentBackend::Custom("opencode".into()), "\"opencode\""),
+        ] {
+            assert_eq!(serde_json::to_string(&variant).unwrap(), json);
+            assert_eq!(serde_json::from_str::<AgentBackend>(json).unwrap(), variant);
+        }
+    }
+
+    /// The end-to-end P1 promise: dropping a JSON spec into `<data_dir>/backends/` makes a
+    /// brand-new backend launchable — its `id` deserializes to `Custom`, `load_specs_from`
+    /// registers it, and the real spawn arg-builder produces its command line. Zero Rust edits.
+    #[test]
+    fn a_disk_registered_backend_is_launchable_end_to_end() {
+        let data =
+            std::env::temp_dir().join(format!("autodev-dropin-{:?}", std::thread::current().id()));
+        std::fs::create_dir_all(data.join("backends")).unwrap();
+        std::fs::write(
+            data.join("backends/opencode.json"),
+            r#"{
+                "id": "opencode",
+                "label": "OpenCode",
+                "program": "opencode",
+                "bypassFlag": ["--yolo"],
+                "modelFlag": "--model",
+                "prompt": { "mode": "positional" }
+            }"#,
+        )
+        .unwrap();
+
+        // The backend id arrives from the frontend as a bare string.
+        let backend: AgentBackend = serde_json::from_str("\"opencode\"").unwrap();
+        assert_eq!(backend, AgentBackend::Custom("opencode".into()));
+
+        let opts = AgentOptions {
+            backend,
+            cwd: "/tmp".into(),
+            plan_mode: false,
+            bypass_permissions: true,
+            print_mode: false,
+            model: Some("big".into()),
+            initial_prompt: Some("do it".into()),
+            add_dirs: vec![],
+            images: vec![],
+            mock_command: None,
+        };
+        // Resolve through the same path spawn uses: specs loaded from disk.
+        let specs = crate::backend_spec::load_specs_from(&data);
+        let (program, args) = command_line(&opts, &specs).unwrap();
+        assert_eq!(program, "opencode");
+        assert_eq!(args, vec!["--yolo", "--model", "big", "do it"]);
+
+        std::fs::remove_dir_all(&data).ok();
+    }
+
     #[test]
     fn claude_print_mode_is_one_shot_and_skips_plan_mode() {
         let opts = AgentOptions {
@@ -392,7 +421,7 @@ mod tests {
             images: vec![],
             mock_command: None,
         };
-        let (program, args) = command_line(&opts).unwrap();
+        let (program, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(program, "claude");
         assert_eq!(args, vec!["-p", "do it"]);
         assert!(!args.iter().any(|a| a == "--permission-mode"));
@@ -412,7 +441,7 @@ mod tests {
             images: vec![],
             mock_command: None,
         };
-        let (program, args) = command_line(&opts).unwrap();
+        let (program, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(program, "claude");
         assert_eq!(
             args,
@@ -445,7 +474,7 @@ mod tests {
             images: vec!["/shots/a.png".into()],
             mock_command: None,
         };
-        let (program, args) = command_line(&opts).unwrap();
+        let (program, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(program, "agy");
         assert_eq!(
             args,
@@ -483,7 +512,7 @@ mod tests {
             images: vec![],
             mock_command: None,
         };
-        let (program, args) = command_line(&opts).unwrap();
+        let (program, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(program, "agy");
         assert_eq!(args, vec!["--add-dir", "/work/zlog"]);
     }
@@ -503,7 +532,7 @@ mod tests {
             images: vec![],
             mock_command: None,
         };
-        let (_, args) = command_line(&opts).unwrap();
+        let (_, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(args, vec!["--add-dir", "/work/zlog", "--add-dir", "/other"]);
     }
 
@@ -521,7 +550,7 @@ mod tests {
             images: vec!["/shots/a.png".into()],
             mock_command: None,
         };
-        let (_, args) = command_line(&codex).unwrap();
+        let (_, args) = command_line(&codex, &builtin_specs()).unwrap();
         assert_eq!(args, vec!["-i", "/shots/a.png", "look"]);
 
         let claude = AgentOptions {
@@ -529,7 +558,7 @@ mod tests {
             images: vec!["/shots/a.png".into()],
             ..codex
         };
-        let (_, args) = command_line(&claude).unwrap();
+        let (_, args) = command_line(&claude, &builtin_specs()).unwrap();
         assert_eq!(args.len(), 1);
         assert!(args[0].contains("look"));
         assert!(args[0].contains("[Screenshot attached: /shots/a.png]"));
@@ -549,7 +578,7 @@ mod tests {
             images: vec![],
             mock_command: None,
         };
-        let (program, args) = command_line(&opts).unwrap();
+        let (program, args) = command_line(&opts, &builtin_specs()).unwrap();
         assert_eq!(program, "codex");
         assert_eq!(
             args,

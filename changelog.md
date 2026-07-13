@@ -2,6 +2,26 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## [2026-07-13]
+
+### Pluggable agent backends via declarative specs (P1 — extensibility track)
+- First step (M0/P1) of `PI-PARITY-PLAN.md`: making the backend adapter real. Backends are
+  no longer a hardcoded `match` in `command_line` — each is a declarative `BackendSpec`
+  (program + flag mappings) and the argument vector is built by one canonical `build_args`.
+  Bundled specs for `claude`/`codex`/`antigravity` reproduce their exact previous command
+  lines; the existing `agent.rs` tests are the conformance suite and pass unchanged.
+- **A new backend needs no code.** Drop `~/.autodev/backends/<id>.json`; `load_specs` merges
+  disk specs over the bundled defaults (a disk file may also retune a shipped backend by id).
+  `AgentBackend` gained a `Custom(String)` variant, serialized transparently as its string id,
+  so the on-the-wire/on-disk contract is unchanged and an unknown id round-trips to `Custom`.
+- New `backend_list` command feeds the composer's backend picker dynamically (bundled +
+  disk-registered); the hardcoded `<option>` list is gone. If the fetch fails the composer
+  keeps its default.
+- Tests: `backend_spec.rs` — JSON→args, disk registration + builtin override, missing-dir
+  fallback; `agent.rs` — `AgentBackend` serde round-trip incl. `Custom`, and an end-to-end
+  drop-in test proving a JSON-only backend is launchable through the real spawn arg-builder.
+  87 Rust + 70 frontend tests green; lint clean.
+
 ## [2026-07-12]
 
 ### Auto-split: intelligent parallel decomposition (Phase 10)
