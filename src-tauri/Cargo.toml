@@ -1,6 +1,6 @@
 [package]
 name = "autodev"
-version = "0.9.0"
+version = "0.9.1"
 description = "Agentic development environment: run and manage many terminal coding agents in parallel."
 authors = ["algorisys-oss"]
 license = "AGPL-3.0-only"
