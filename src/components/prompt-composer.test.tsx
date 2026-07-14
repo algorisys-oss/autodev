@@ -3,16 +3,25 @@ import { render, fireEvent, waitFor } from "@solidjs/testing-library";
 import { createAgentStore } from "../lib/agent-store";
 import type * as ipcTypes from "../lib/ipc";
 import { PromptComposer } from "./prompt-composer";
+import { voiceStatus, setVoiceStatus } from "../lib/status";
 
 // The composer reaches ipc directly for history + git + settings checks; stub just those.
-const getSettingsMock = vi.fn(() => Promise.resolve({ autoSplitOnLaunch: false }));
+const getSettingsMock = vi.fn(
+  (): Promise<{ autoSplitOnLaunch: boolean; transcribeCommand?: string }> =>
+    Promise.resolve({ autoSplitOnLaunch: false }),
+);
+const recordStartMock = vi.fn(() => Promise.resolve());
+const recordStopMock = vi.fn(() => Promise.resolve(""));
+const onTranscribeProgressMock = vi.fn(() => Promise.resolve(() => {}));
 vi.mock("../lib/ipc", () => ({
   getPromptHistory: vi.fn(() => Promise.resolve([])),
   addPromptHistory: vi.fn(() => Promise.resolve([])),
   getSettings: () => getSettingsMock(),
   gitIsRepo: vi.fn(() => Promise.resolve(false)),
   gitCreateWorktree: vi.fn(),
-  transcribeAudio: vi.fn(),
+  recordStart: (...a: unknown[]) => recordStartMock(...(a as [])),
+  recordStop: (...a: unknown[]) => recordStopMock(...(a as [])),
+  onTranscribeProgress: (...a: unknown[]) => onTranscribeProgressMock(...(a as [])),
   captureScreen: vi.fn(),
   saveShot: vi.fn(),
   backendList: vi.fn(() =>
@@ -223,6 +232,75 @@ describe("PromptComposer auto-split", () => {
       expect((container.querySelector('input[type="number"]') as HTMLInputElement).value).toBe("1"),
     );
     expect(getByText(/Best as a single agent/)).toBeTruthy();
+  });
+});
+
+describe("PromptComposer voice input", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSettingsMock.mockResolvedValue({ autoSplitOnLaunch: false });
+    setVoiceStatus(null);
+  });
+
+  it("guides to Settings and does not record when no transcribe command is configured", async () => {
+    // getSettings returns no transcribeCommand → voice is not set up.
+    const { agents } = storeWithRecorder();
+    const { getByTitle, findByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+
+    fireEvent.click(getByTitle("Record voice"));
+
+    // A clear, actionable notice appears instead of a raw error, and nothing is recorded.
+    expect(await findByText(/Voice input isn't set up/i)).toBeTruthy();
+    expect(recordStartMock).not.toHaveBeenCalled();
+  });
+
+  it("opens Settings from the voice-setup notice", async () => {
+    const onOpenSettings = vi.fn();
+    const { agents } = storeWithRecorder();
+    const { getByTitle, findByText } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} onOpenSettings={onOpenSettings} />
+    ));
+
+    fireEvent.click(getByTitle("Record voice"));
+    fireEvent.click(await findByText("Open Settings"));
+
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts recording when a transcribe command is configured", async () => {
+    getSettingsMock.mockResolvedValue({ autoSplitOnLaunch: false, transcribeCommand: "whisper {file}" });
+    const { agents } = storeWithRecorder();
+    const { getByTitle } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+
+    fireEvent.click(getByTitle("Record voice"));
+
+    await waitFor(() => expect(recordStartMock).toHaveBeenCalledTimes(1));
+    // The footer status reflects the recording state as soon as capture starts.
+    await waitFor(() => expect(voiceStatus()?.kind).toBe("recording"));
+  });
+
+  it("subscribes to progress and appends the transcript on stop", async () => {
+    getSettingsMock.mockResolvedValue({ autoSplitOnLaunch: false, transcribeCommand: "whisper {file}" });
+    recordStopMock.mockResolvedValue("hello world");
+    const { agents } = storeWithRecorder();
+    const { container, getByTitle } = render(() => (
+      <PromptComposer workspace={workspace} agents={agents} />
+    ));
+
+    fireEvent.click(getByTitle("Record voice"));
+    await waitFor(() => expect(getByTitle("Stop and transcribe")).toBeTruthy());
+    fireEvent.click(getByTitle("Stop and transcribe"));
+
+    await waitFor(() => expect(onTranscribeProgressMock).toHaveBeenCalled());
+    await waitFor(() =>
+      expect((container.querySelector(".composer-text") as HTMLTextAreaElement).value).toBe(
+        "hello world",
+      ),
+    );
   });
 });
 

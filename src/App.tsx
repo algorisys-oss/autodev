@@ -195,7 +195,11 @@ function App() {
                     </ul>
                   </Show>
 
-                  <PromptComposer workspace={ws()} agents={agents} />
+                  <PromptComposer
+                    workspace={ws()}
+                    agents={agents}
+                    onOpenSettings={() => setShowSettings(true)}
+                  />
                 </div>
               )}
             </Show>

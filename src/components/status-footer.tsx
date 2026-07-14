@@ -1,5 +1,6 @@
 import { For, Show, createSignal, createEffect, on, onCleanup } from "solid-js";
 import { gitWorktreeStatus, type Workspace } from "../lib/ipc";
+import { voiceStatus } from "../lib/status";
 
 /** One footer row: a project folder and, when it is a git repo, its branch + dirty flag. */
 type Row = { name: string; path: string; branch: string | null; dirty: boolean };
@@ -82,6 +83,22 @@ export function StatusFooter(props: { workspace: Workspace | null; pollMs?: numb
               </For>
             </Show>
           </>
+        )}
+      </Show>
+
+      <Show when={voiceStatus()}>
+        {(s) => (
+          <span
+            class="footer-status"
+            classList={{ recording: s().kind === "recording" }}
+            title={s().text}
+          >
+            <span
+              class={s().kind === "recording" ? "footer-rec-dot" : "footer-spinner"}
+              aria-hidden="true"
+            />
+            <span class="footer-status-text">{s().text}</span>
+          </span>
         )}
       </Show>
     </footer>

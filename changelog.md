@@ -2,7 +2,37 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
-## v0.12.1 — 2026-07-14
+## v0.13.0 — 2026-07-14
+
+- **Fix: microphone capture moved into the Rust core — the webview recorder was unreliable.**
+  On Linux the webview records via webkit2gtk/GStreamer, which returned an empty or undecodable
+  file (`Invalid data … recording.mp4`, `moov atom not found`). Recording now happens in the core
+  via a configurable `recordCommand` (default: ffmpeg capturing the PulseAudio default to a 16 kHz
+  mono WAV) — matching the repo rule that process/hardware access belongs to the core, not the
+  frontend. New `record_start`/`record_stop` commands: start spawns the capture child; stop writes
+  `q` to its stdin so ffmpeg finalizes the container (escalating to a kill if it lingers), then
+  transcribes the WAV. The recording child is owned and killed on window close, so no ffmpeg is
+  orphaned. A `recordCommand` field was added to Settings (blank = the ffmpeg default; override for
+  ALSA or another OS). The transcribe command still normalizes through system `ffmpeg` before
+  whisper as a safety net, and the core **keeps the recording on failure** so a bad capture can be
+  inspected at the path named in the error. The old webview `MediaRecorder` path was removed.
+- **New: voice status in the footer — recording and live transcription progress.** Voice used to
+  give no footer feedback: the mic glyph was the only cue, and a slow first-run model download
+  looked like a hang. The footer now shows the whole flow in a right-aligned slot: a pulsing red
+  record-dot + "Recording…" while capturing, then a spinner + the transcription tool's live stderr
+  (first-run model download, detected language, each segment) once you stop. The transcribe path
+  changed from a blocking `output()` to a streamed child that reads stdout on a thread and emits
+  each `\n`/`\r`-delimited stderr token on `transcribe://progress` (so a `tqdm` download bar
+  surfaces as discrete updates, not one line that never breaks). Recording uses a red record-light
+  (a convention, kept visually distinct from the red *error* text); transcription uses a
+  neutral/accent color.
+- **Fix: mic gave a raw "no transcribeCommand configured" error.** Clicking the mic with voice
+  input unconfigured recorded audio and then failed in the backend with a cryptic message. The
+  composer now checks the setting *before* recording: if no Transcribe command is set it shows a
+  plain-language notice — "Voice input isn't set up. Add a Transcribe command in Settings" — with
+  an inline **Open Settings** button, and doesn't capture audio it can't transcribe. Unlike
+  screenshots, transcription has no zero-config platform fallback (a whisper backend must be
+  installed and pointed at), so the fix is to guide setup rather than silently fail.
 
 - **Fix: `./dev.sh dev` failed to launch after P6.** Adding the `autodev-headless` binary
   gave the crate two binaries, so the bare `cargo run` that `tauri dev` invokes could no

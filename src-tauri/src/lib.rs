@@ -1,6 +1,7 @@
 mod agent;
 mod agent_event;
 mod approvals;
+mod audio_record;
 mod backend_spec;
 mod capture;
 mod commands;
@@ -48,18 +49,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(agent::AgentManager::default())
+        .manage(audio_record::RecorderState::default())
         .setup(|app| {
             #[cfg(target_os = "linux")]
             allow_media_capture(app);
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Kill every live agent when the window closes, so no PTY child is orphaned.
+            // Kill every live agent (and any in-progress mic capture) when the window closes, so
+            // no PTY or ffmpeg child is orphaned.
             if let WindowEvent::CloseRequested { .. } = event {
-                window
-                    .app_handle()
-                    .state::<agent::AgentManager>()
-                    .kill_all();
+                let app = window.app_handle();
+                app.state::<agent::AgentManager>().kill_all();
+                audio_record::kill(&app.state::<audio_record::RecorderState>());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -93,6 +95,8 @@ pub fn run() {
             commands::git_merge_worktree,
             commands::git_remove_worktree,
             commands::transcribe_audio,
+            commands::record_start,
+            commands::record_stop,
             commands::capture_screen,
             commands::save_shot,
             commands::generate_handoff,

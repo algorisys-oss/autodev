@@ -7,6 +7,7 @@ const DEFAULTS: AppSettings = {
   theme: "system",
   defaultEffort: "high",
   transcribeCommand: "",
+  recordCommand: "",
   screenshotCommand: "",
   browserCommand: "",
   editorCommand: "",
@@ -31,6 +32,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
       setForm({
         ...s,
         transcribeCommand: s.transcribeCommand ?? "",
+        recordCommand: s.recordCommand ?? "",
         screenshotCommand: s.screenshotCommand ?? "",
         browserCommand: s.browserCommand ?? "",
         editorCommand: s.editorCommand ?? "",
@@ -52,6 +54,7 @@ export function SettingsPanel(props: { onClose: () => void }) {
     const payload: AppSettings = {
       ...f,
       transcribeCommand: f.transcribeCommand?.trim() ? f.transcribeCommand.trim() : null,
+      recordCommand: f.recordCommand?.trim() ? f.recordCommand.trim() : null,
       screenshotCommand: f.screenshotCommand?.trim() ? f.screenshotCommand.trim() : null,
       browserCommand: f.browserCommand?.trim() ? f.browserCommand.trim() : null,
       editorCommand: f.editorCommand?.trim() ? f.editorCommand.trim() : null,
@@ -117,6 +120,15 @@ export function SettingsPanel(props: { onClose: () => void }) {
               value={form().transcribeCommand ?? ""}
               onInput={(e) => patch({ transcribeCommand: e.currentTarget.value })}
               placeholder="whisper-cli -f {file} -otxt -of {file} && cat {file}.txt"
+            />
+          </label>
+          <label class="handoff-field">
+            Record (microphone → {"{file}"}, captured by the core)
+            <input
+              type="text"
+              value={form().recordCommand ?? ""}
+              onInput={(e) => patch({ recordCommand: e.currentTarget.value })}
+              placeholder="ffmpeg -f pulse -i default -ar 16000 -ac 1 -y {file}  ·  (blank = ffmpeg default)"
             />
           </label>
           <label class="handoff-field">

@@ -5,7 +5,9 @@ import {
   getSettings,
   gitCreateWorktree,
   gitIsRepo,
-  transcribeAudio,
+  recordStart,
+  recordStop,
+  onTranscribeProgress,
   captureScreen,
   saveShot,
   backendList,
@@ -19,7 +21,7 @@ import {
 } from "../lib/ipc";
 import { expandTemplate, templateMatches } from "../lib/templates";
 import { extensionCommands } from "../lib/extensions";
-import { startRecording, extFromMime, type Recorder } from "../lib/recorder";
+import { setVoiceStatus } from "../lib/status";
 import { suggestForDifficulty } from "../lib/difficulty";
 import { analyzeTask } from "../lib/task-split";
 import { selectPrompts, composeAgentPrompt, promptsDiffer } from "../lib/agent-prompts";
@@ -34,6 +36,7 @@ import type { createAgentStore } from "../lib/agent-store";
 export function PromptComposer(props: {
   workspace: Workspace | null;
   agents: ReturnType<typeof createAgentStore>;
+  onOpenSettings?: () => void;
 }) {
   const [text, setText] = createSignal("");
   const [backend, setBackend] = createSignal<AgentBackend>("claude");
@@ -58,8 +61,11 @@ export function PromptComposer(props: {
   const [runIn, setRunIn] = createSignal<string>("");
   const [history, setHistory] = createSignal<string[]>([]);
   const [error, setError] = createSignal<string | null>(null);
-  const [recorder, setRecorder] = createSignal<Recorder | null>(null);
+  const [recording, setRecording] = createSignal(false);
   const [transcribing, setTranscribing] = createSignal(false);
+  // True when the mic is clicked but no transcribe command is configured — surfaces an
+  // actionable "set it up in Settings" notice instead of recording audio that can't be transcribed.
+  const [needsTranscribeSetup, setNeedsTranscribeSetup] = createSignal(false);
   const [captured, setCaptured] = createSignal<string | null>(null);
   // Structured annotations (annotated screenshot + text notes). Captured once, dispatched to
   // every agent in a launch — notes as prompt text (any backend), the image where supported.
@@ -192,23 +198,43 @@ export function PromptComposer(props: {
 
   async function toggleRecord() {
     setError(null);
-    const rec = recorder();
-    if (rec) {
-      setRecorder(null);
+    setNeedsTranscribeSetup(false);
+    if (recording()) {
+      // Stop: the Rust core finalizes the capture and transcribes it, streaming progress.
+      setRecording(false);
       setTranscribing(true);
+      setVoiceStatus({ text: "Transcribing…", kind: "working" });
+      let unlisten: (() => void) | null = null;
       try {
-        const blob = await rec.stop();
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        const transcript = await transcribeAudio(bytes, extFromMime(blob.type));
+        // Surface the tool's live stderr in the footer — first-run model download can take a
+        // while and otherwise looks like a hang.
+        unlisten = await onTranscribeProgress((line) =>
+          setVoiceStatus({ text: line, kind: "working" }),
+        );
+        const transcript = await recordStop();
         if (transcript) setText((t) => (t ? `${t} ${transcript}` : transcript));
       } catch (e) {
         setError(String(e));
       } finally {
+        unlisten?.();
         setTranscribing(false);
+        setVoiceStatus(null);
       }
     } else {
+      // Check config before recording: capturing audio that can't be transcribed just wastes the
+      // user's breath and surfaces a cryptic backend error. Guide them to Settings instead.
+      const configured = await getSettings()
+        .then((s) => !!s.transcribeCommand?.trim())
+        .catch(() => false);
+      if (!configured) {
+        setNeedsTranscribeSetup(true);
+        setError("Voice input isn't set up. Add a Transcribe command in Settings to enable the mic.");
+        return;
+      }
       try {
-        setRecorder(await startRecording());
+        await recordStart();
+        setRecording(true);
+        setVoiceStatus({ text: "Recording… (click the ◼ to transcribe)", kind: "recording" });
       } catch (e) {
         setError(`microphone unavailable: ${e}`);
       }
@@ -380,12 +406,12 @@ export function PromptComposer(props: {
         />
         <button
           class="mic"
-          classList={{ recording: !!recorder() }}
-          title={recorder() ? "Stop and transcribe" : "Record voice"}
+          classList={{ recording: recording() }}
+          title={recording() ? "Stop and transcribe" : "Record voice"}
           onClick={toggleRecord}
           disabled={transcribing()}
         >
-          {transcribing() ? "…" : recorder() ? "◼" : "🎤"}
+          {transcribing() ? "…" : recording() ? "◼" : "🎤"}
         </button>
         <button class="mic" title="Screenshot" onClick={takeScreenshot}>
           📷
@@ -653,7 +679,19 @@ export function PromptComposer(props: {
         <p class="warn">Agents share one working directory — enable Isolate to avoid collisions.</p>
       </Show>
 
-      <Show when={error()}>{(e) => <p class="error">{e()}</p>}</Show>
+      <Show when={error()}>
+        {(e) => (
+          <p class="error">
+            {e()}
+            <Show when={needsTranscribeSetup() && props.onOpenSettings}>
+              {" "}
+              <button class="link-btn" onClick={() => props.onOpenSettings?.()}>
+                Open Settings
+              </button>
+            </Show>
+          </p>
+        )}
+      </Show>
 
       <Show when={history().length}>
         <details class="history">

@@ -18,6 +18,7 @@ export interface AppSettings {
   theme: "system" | "light" | "dark";
   defaultEffort: "high" | "extra-high";
   transcribeCommand?: string | null;
+  recordCommand?: string | null;
   screenshotCommand?: string | null;
   browserCommand?: string | null;
   editorCommand?: string | null;
@@ -275,6 +276,23 @@ export function gitRemoveWorktree(repo: string, path: string, force: boolean): P
 
 export function transcribeAudio(data: Uint8Array, ext: string): Promise<string> {
   return invoke<string>("transcribe_audio", { data: Array.from(data), ext });
+}
+
+/** Start capturing the microphone in the Rust core (reliable, unlike the webview recorder). */
+export function recordStart(): Promise<void> {
+  return invoke<void>("record_start");
+}
+
+/** Stop the active capture, finalize the file, and return its transcript. */
+export function recordStop(): Promise<string> {
+  return invoke<string>("record_stop");
+}
+
+/** Subscribe to live transcription progress (the tool's stderr: first-run model download,
+ *  detected language, segments). Returns an unlisten function. */
+export async function onTranscribeProgress(cb: (line: string) => void): Promise<() => void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<{ line: string }>("transcribe://progress", (e) => cb(e.payload.line));
 }
 
 // --- Screenshot + annotate (Phase 7) ---

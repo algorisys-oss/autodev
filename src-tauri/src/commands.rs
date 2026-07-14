@@ -481,15 +481,41 @@ pub fn git_remove_worktree(repo: String, path: String, force: bool) -> AppResult
 
 // --- Voice-to-text (Phase 6) ---
 
-/// Write recorded audio bytes to a temp file, run the configured transcription command,
-/// and return the transcript. Errors clearly if no `transcribeCommand` is set.
-#[tauri::command]
-pub fn transcribe_audio(data: Vec<u8>, ext: String) -> AppResult<String> {
+/// A line of live progress from the transcription tool's stderr, carried on
+/// `transcribe://progress` (first-run model download, detected language, segments).
+#[derive(Clone, Serialize)]
+struct TranscribeProgress {
+    line: String,
+}
+
+/// Run the configured transcription command on `file`, streaming the tool's progress to
+/// `transcribe://progress` as it runs (first-run model download can take a while). Keeps the
+/// recording on failure so a decode problem can be inspected at the path named in the error;
+/// cleans it up only on success. Errors clearly if no `transcribeCommand` is set.
+fn transcribe_file(app: &AppHandle, file: &std::path::Path) -> AppResult<String> {
     let template = state::load_settings()?.transcribe_command.ok_or_else(|| {
         crate::error::AppError::Transcribe(
             "no transcribeCommand configured in settings (~/.autodev/settings.json)".into(),
         )
     })?;
+    let result = crate::transcribe::run_transcription_streaming(&template, file, |line| {
+        let _ = app.emit(
+            "transcribe://progress",
+            TranscribeProgress {
+                line: line.to_string(),
+            },
+        );
+    });
+    if result.is_ok() {
+        let _ = std::fs::remove_file(file);
+    }
+    result
+}
+
+/// Write recorded audio bytes to a temp file and transcribe them. Kept for callers that already
+/// hold the audio (e.g. an uploaded clip); live mic capture uses `record_start`/`record_stop`.
+#[tauri::command]
+pub fn transcribe_audio(app: AppHandle, data: Vec<u8>, ext: String) -> AppResult<String> {
     let dir = state::data_dir()?.join("tmp");
     std::fs::create_dir_all(&dir)?;
     let safe_ext: String = ext.chars().filter(|c| c.is_alphanumeric()).collect();
@@ -502,9 +528,47 @@ pub fn transcribe_audio(data: Vec<u8>, ext: String) -> AppResult<String> {
         }
     ));
     std::fs::write(&file, &data)?;
-    let result = crate::transcribe::run_transcription(&template, &file);
-    let _ = std::fs::remove_file(&file);
-    result
+    transcribe_file(&app, &file)
+}
+
+/// Start capturing the microphone in the Rust core (reliable, unlike the WebKitGTK webview
+/// recorder). Records to `~/.autodev/tmp/recording.wav` via the configured `recordCommand`
+/// (or a built-in ffmpeg default). Errors if a recording is already in progress.
+#[tauri::command]
+pub fn record_start(state: State<'_, crate::audio_record::RecorderState>) -> AppResult<()> {
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|_| AppError::Transcribe("recorder is busy".into()))?;
+    if guard.is_some() {
+        return Err(AppError::Transcribe("already recording".into()));
+    }
+    let template = state::load_settings()?
+        .record_command
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| crate::audio_record::DEFAULT_RECORD_COMMAND.to_string());
+    let dir = state::data_dir()?.join("tmp");
+    std::fs::create_dir_all(&dir)?;
+    let file = dir.join("recording.wav");
+    *guard = Some(crate::audio_record::spawn(&template, &file)?);
+    Ok(())
+}
+
+/// Stop the active mic capture, finalize the file, and transcribe it. Errors if nothing is
+/// recording.
+#[tauri::command]
+pub fn record_stop(
+    app: AppHandle,
+    state: State<'_, crate::audio_record::RecorderState>,
+) -> AppResult<String> {
+    let recording = state
+        .0
+        .lock()
+        .map_err(|_| AppError::Transcribe("recorder is busy".into()))?
+        .take()
+        .ok_or_else(|| AppError::Transcribe("not recording".into()))?;
+    let file = crate::audio_record::finalize(recording);
+    transcribe_file(&app, &file)
 }
 
 // --- Screenshot + annotate (Phase 7) ---

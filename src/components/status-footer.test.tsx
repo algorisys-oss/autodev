@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render } from "@solidjs/testing-library";
 
 const gitWorktreeStatus = vi.fn();
@@ -7,6 +7,7 @@ vi.mock("../lib/ipc", () => ({
 }));
 
 import { StatusFooter } from "./status-footer";
+import { setVoiceStatus } from "../lib/status";
 
 const ws = (projects: { name: string; path: string }[]) => ({
   id: "w1",
@@ -44,6 +45,33 @@ describe("StatusFooter", () => {
   it("shows a placeholder when no workspace is selected", () => {
     const { getByText } = render(() => <StatusFooter workspace={null} />);
     expect(getByText("No workspace selected")).toBeTruthy();
+  });
+
+  describe("voice status", () => {
+    afterEach(() => setVoiceStatus(null));
+
+    it("shows the live transcription status with a spinner", async () => {
+      setVoiceStatus({ text: "Preparing speech model (first run)…", kind: "working" });
+      const { findByText, container } = render(() => <StatusFooter workspace={null} />);
+      expect(await findByText("Preparing speech model (first run)…")).toBeTruthy();
+      expect(container.querySelector(".footer-spinner")).toBeTruthy();
+      expect(container.querySelector(".footer-rec-dot")).toBeNull();
+    });
+
+    it("shows a red record-dot while recording, not a spinner", async () => {
+      setVoiceStatus({ text: "Recording…", kind: "recording" });
+      const { findByText, container } = render(() => <StatusFooter workspace={null} />);
+      expect(await findByText("Recording…")).toBeTruthy();
+      expect(container.querySelector(".footer-rec-dot")).toBeTruthy();
+      expect(container.querySelector(".footer-status.recording")).toBeTruthy();
+      expect(container.querySelector(".footer-spinner")).toBeNull();
+    });
+
+    it("hides the status slot when idle", () => {
+      setVoiceStatus(null);
+      const { container } = render(() => <StatusFooter workspace={null} />);
+      expect(container.querySelector(".footer-status")).toBeNull();
+    });
   });
 
   it("polls and reflects a branch change without a workspace change", async () => {

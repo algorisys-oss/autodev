@@ -23,6 +23,11 @@ pub struct AppSettings {
     /// the audio path. Empty/absent means voice input is not configured. Example:
     /// `whisper-cli -f {file} -otxt -of {file} && cat {file}.txt`.
     pub transcribe_command: Option<String>,
+    /// Shell command template used to capture microphone audio to `{file}` (a WAV path). Run in
+    /// the Rust core, not the webview, so recording is reliable across platforms. Stopped by
+    /// writing `q` to its stdin (ffmpeg quits and finalizes). Absent ⇒ a built-in ffmpeg default.
+    /// Example (Linux/PulseAudio): `ffmpeg -f pulse -i default -ar 16000 -ac 1 -y {file}`.
+    pub record_command: Option<String>,
     /// Shell command template used to capture a screenshot to `{file}` (a PNG path).
     /// Example: `grim {file}` (Wayland), `scrot {file}` (X11), `screencapture {file}` (macOS).
     pub screenshot_command: Option<String>,
@@ -44,6 +49,7 @@ impl Default for AppSettings {
             theme: "system".to_string(),
             default_effort: "high".to_string(),
             transcribe_command: None,
+            record_command: None,
             screenshot_command: None,
             browser_command: None,
             editor_command: None,
@@ -183,6 +189,7 @@ mod tests {
             theme: "dark".to_string(),
             default_effort: "extra-high".to_string(),
             transcribe_command: Some("whisper {file}".to_string()),
+            record_command: Some("ffmpeg -f pulse -i default {file}".to_string()),
             screenshot_command: Some("grim {file}".to_string()),
             browser_command: Some("node run.js {file}".to_string()),
             editor_command: Some("code -n".to_string()),

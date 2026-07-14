@@ -87,6 +87,16 @@ body {
   font-size: 0.9em;
 }
 
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .new-workspace {
   display: flex;
   gap: 0.4rem;
@@ -1778,6 +1788,63 @@ button.danger {
 .footer-dirty {
   color: #d9a406;
   font-size: 0.9em;
+}
+.footer-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: #2563eb;
+}
+.footer-status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 42ch;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.footer-spinner {
+  flex: 0 0 auto;
+  width: 0.8em;
+  height: 0.8em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: footer-spin 0.7s linear infinite;
+}
+@keyframes footer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Recording is not "processing": a red record-light (a convention, distinct from the error text
+   color) that pulses, rather than a spinner. */
+.footer-status.recording {
+  color: #b91c1c;
+}
+.footer-rec-dot {
+  flex: 0 0 auto;
+  width: 0.7em;
+  height: 0.7em;
+  background: currentColor;
+  border-radius: 50%;
+  animation: footer-pulse 1.1s ease-in-out infinite;
+}
+@keyframes footer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+:root[data-theme="dark"] .footer-status {
+  color: #60a5fa;
+}
+:root[data-theme="dark"] .footer-status.recording {
+  color: #f87171;
 }
 :root[data-theme="dark"] .app-footer {
   border-top-color: rgba(255, 255, 255, 0.12);
