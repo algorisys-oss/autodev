@@ -1,5 +1,6 @@
 [package]
 name = "autodev"
+default-run = "autodev"
 version = "0.12.0"
 description = "Agentic development environment: run and manage many terminal coding agents in parallel."
 authors = ["algorisys-oss"]
