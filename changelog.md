@@ -2,6 +2,15 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.13.1 — 2026-07-14
+
+- **Mic capture default now auto-detects per OS**, like the screenshot command. With no
+  `recordCommand` set, the core picks an ffmpeg capture for the current platform: PulseAudio/
+  PipeWire on Linux (detected by its socket, no `pactl` needed) falling back to ALSA, and
+  avfoundation on macOS. If ffmpeg isn't installed (or the OS has no wired-up default, e.g.
+  Windows dshow which needs a device name), recording errors with a clear "install ffmpeg or set a
+  Record command in Settings" instead of a hardcoded PulseAudio command that only worked on Linux.
+
 ## v0.13.0 — 2026-07-14
 
 - **Fix: microphone capture moved into the Rust core — the webview recorder was unreliable.**

@@ -13,7 +13,7 @@ fn shell_quote(path: &Path) -> String {
 
 /// True if `bin` is found as a file on the `PATH` — a good-enough "is this tool installed"
 /// check for picking a default screenshot command.
-fn program_on_path(bin: &str) -> bool {
+pub(crate) fn program_on_path(bin: &str) -> bool {
     let Some(paths) = std::env::var_os("PATH") else {
         return false;
     };

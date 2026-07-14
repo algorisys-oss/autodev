@@ -2,9 +2,10 @@
 //!
 //! WebKitGTK's `MediaRecorder` (the Linux webview) is unreliable — it can return an empty or
 //! undecodable file — so recording lives here instead of the frontend, matching the repo rule
-//! that process/hardware access belongs to the core. A configurable command (default: ffmpeg
-//! capturing PulseAudio to a 16 kHz mono WAV) writes the mic to a file; stopping writes `q` to
-//! its stdin so ffmpeg quits and finalizes the container, escalating to a kill if it lingers.
+//! that process/hardware access belongs to the core. A configurable command (default: a per-OS
+//! ffmpeg capture to a 16 kHz mono WAV — PulseAudio/ALSA on Linux, avfoundation on macOS) writes
+//! the mic to a file; stopping writes `q` to its stdin so ffmpeg quits and finalizes the
+//! container, escalating to a kill if it lingers.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -14,10 +15,58 @@ use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
 
-/// Default capture command when the user has set none: ffmpeg from the PulseAudio default source
-/// to a 16 kHz mono WAV (what whisper wants), quiet unless it errors.
-pub const DEFAULT_RECORD_COMMAND: &str =
-    "ffmpeg -hide_banner -loglevel error -f pulse -i default -ar 16000 -ac 1 -y {file}";
+/// A capture command to use when the user hasn't set one, picked for the current OS (and, on
+/// Linux, the available audio server). All variants use ffmpeg to write a 16 kHz mono WAV — what
+/// whisper wants — quiet unless it errors. `{file}` is the output path. `None` if ffmpeg is not
+/// installed (or the OS has no wired-up default), so the caller can prompt the user.
+pub fn default_record_command() -> Option<String> {
+    if !crate::capture::program_on_path("ffmpeg") {
+        return None;
+    }
+    let input: &str = record_input_args();
+    if input.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "ffmpeg -hide_banner -loglevel error {input} -ar 16000 -ac 1 -y {{file}}"
+    ))
+}
+
+/// The ffmpeg input flags for capturing the default microphone on this platform. On Linux this
+/// prefers a PulseAudio/PipeWire server (detected by its socket) and falls back to ALSA. Empty
+/// when there is no sensible default (e.g. Windows dshow needs a device name the user must set).
+fn record_input_args() -> &'static str {
+    #[cfg(target_os = "macos")]
+    {
+        // avfoundation index `:0` is the default audio input (no video).
+        "-f avfoundation -i :0"
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if pulse_available() {
+            "-f pulse -i default"
+        } else {
+            "-f alsa -i default"
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        ""
+    }
+}
+
+/// Whether a PulseAudio-compatible server (PulseAudio or PipeWire's pulse shim) is reachable,
+/// detected without needing the `pactl` CLI: an explicit `PULSE_SERVER`, or the native socket
+/// under `XDG_RUNTIME_DIR`.
+#[cfg(target_os = "linux")]
+fn pulse_available() -> bool {
+    if std::env::var_os("PULSE_SERVER").is_some() {
+        return true;
+    }
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .map(|rt| Path::new(&rt).join("pulse/native").exists())
+        .unwrap_or(false)
+}
 
 /// A capture in progress: the child process writing audio and the file it writes to.
 pub struct Recording {
@@ -86,6 +135,20 @@ mod tests {
         let rec = spawn("sleep 30", &file).unwrap();
         let returned = finalize(rec);
         assert_eq!(returned, file);
+    }
+
+    #[test]
+    fn default_record_command_is_well_formed_when_present() {
+        // ffmpeg may or may not be installed on CI; if a default is offered it must be a valid,
+        // substitutable ffmpeg template.
+        if let Some(t) = default_record_command() {
+            assert!(
+                t.contains("{file}"),
+                "template must have a {{file}} slot: {t}"
+            );
+            assert!(t.contains("ffmpeg"), "default capture uses ffmpeg: {t}");
+            assert!(t.contains("-ar 16000"), "captures 16 kHz for whisper: {t}");
+        }
     }
 
     #[test]

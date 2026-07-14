@@ -543,10 +543,19 @@ pub fn record_start(state: State<'_, crate::audio_record::RecorderState>) -> App
     if guard.is_some() {
         return Err(AppError::Transcribe("already recording".into()));
     }
-    let template = state::load_settings()?
+    let template = match state::load_settings()?
         .record_command
         .filter(|t| !t.trim().is_empty())
-        .unwrap_or_else(|| crate::audio_record::DEFAULT_RECORD_COMMAND.to_string());
+    {
+        Some(t) => t,
+        None => crate::audio_record::default_record_command().ok_or_else(|| {
+            AppError::Transcribe(
+                "no Record command set and no default capture tool found. Install ffmpeg, or set a \
+                 Record command in Settings."
+                    .into(),
+            )
+        })?,
+    };
     let dir = state::data_dir()?.join("tmp");
     std::fs::create_dir_all(&dir)?;
     let file = dir.join("recording.wav");
