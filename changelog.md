@@ -2,6 +2,13 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.12.1 — 2026-07-14
+
+- **Fix: `./dev.sh dev` failed to launch after P6.** Adding the `autodev-headless` binary
+  gave the crate two binaries, so the bare `cargo run` that `tauri dev` invokes could no
+  longer choose a target (`could not determine which binary to run`). Declared
+  `default-run = "autodev"` in `src-tauri/Cargo.toml` so dev launches the GUI as before.
+
 ## v0.12.0 — 2026-07-13
 
 - **New: headless / RPC mode (P6) — drive the orchestrator with no GUI.** A new
