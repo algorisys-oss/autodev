@@ -2,7 +2,7 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
-## Unreleased
+## v0.14.0 — 2026-07-28
 
 - **Agent state detection moved into the core, and made per-backend.** AutoDev now reads each
   agent's state — **working**, **waiting on you**, or **idle** — from a reconstructed snapshot of
