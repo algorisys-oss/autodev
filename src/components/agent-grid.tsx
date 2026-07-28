@@ -34,6 +34,10 @@ export function AgentGrid(props: { store: ReturnType<typeof createAgentStore> })
                   {a.backend} · {STATUS_LABEL[a.status]}
                   <Show when={isTerminal(a.status)}> ({a.exitCode ?? "?"})</Show>
                 </div>
+                {/* What the agent says it is doing, from the terminal title it sets. */}
+                <Show when={!isTerminal(a.status) && a.title}>
+                  <div class="card-sub muted activity">{a.title}</div>
+                </Show>
               </div>
               <Show when={isTerminal(a.status)}>
                 <button

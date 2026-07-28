@@ -54,7 +54,7 @@ function agentHarness() {
     agentKill: vi.fn(async () => {}),
     agentKillAll: vi.fn(async () => 0),
   } as unknown as typeof ipcTypes;
-  const store = createAgentStore({ api, subscribe, now: () => 1000 });
+  const store = createAgentStore({ api, subscribe });
   return { store, emit };
 }
 

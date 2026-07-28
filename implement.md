@@ -2,6 +2,77 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Agent state detection — core-side, per-backend (branch `dev`)
+
+**Context:** User asked to study herdr (herdr.dev, an agent-aware terminal multiplexer) and
+firstmate (an agent distro that supervises a crew across tmux/herdr/zellij/cmux) and apply what
+holds up here. Both solve the same problem AutoDev's status dot does, and both had arrived
+independently at conclusions AutoDev had not.
+
+**What was taken, and why:**
+- *Per-agent detection manifests* (herdr: `~/.config/herdr/agent-detection/<agent>.toml`;
+  firstmate: `FM_TMUX_<HARNESS>_BUSY_REGEX_DEFAULT` with the explicit rule that "a supplied
+  harness must never borrow another harness's signature"). AutoDev had one hardcoded global regex
+  list applied to every backend. Taken: signatures are per-`BackendSpec` data, and a backend
+  without them is never classified waiting.
+- *A screen snapshot, not a byte tail* (herdr matches "the live bottom-buffer screen snapshot").
+  AutoDev matched the last 600 chars of the raw stream, so an answered prompt read as "waiting"
+  indefinitely. Taken: `Screen` applies erase-display/erase-line/CR so the match target is what is
+  visible.
+- *Positive busy evidence* (firstmate's busy footers, verified per harness). AutoDev inferred
+  "working" purely from recent bytes, so a silent think became idle at 1.5s. Taken: `busy`
+  signatures checked before silence is interpreted.
+- *OSC title as a state channel*. AutoDev's `stripAnsi` discarded OSC outright. Taken: captured
+  and surfaced as the card's activity line.
+- *Strict blocked-detection* (herdr: "only marks blocked when the snapshot matches known visible
+  approval UI"; unmatched defaults to idle). AutoDev already did this; kept.
+
+**What was deliberately NOT taken:** herdr's own multiplexer, and firstmate's session-backend
+adapter layer — AutoDev owns its PTYs through `ProcessManager` and adding a second process owner
+underneath it would violate the core/UI boundary for no gain. Firstmate's *declared*-status
+protocol (crews append `working:`/`blocked:`/`done:` to a status file, and the run-step of a
+`no-mistakes` run is authoritative over any screen read) is the strongest idea in either project
+and is a better fit for AutoDev's existing hook infrastructure (`approvals.rs` already installs a
+`PreToolUse` hook), but it is a separate piece of work: it needs an agent-side contract, not just
+a better reader. Left as the documented follow-on.
+
+**Design decision:** classification lives in the Rust core, not the frontend. It is a read of
+process output, so per `CLAUDE.md` it belongs to the core; keeping it in the UI also meant the
+frontend owned a clock, which the same rules forbid. The frontend keeps its existing status
+vocabulary (`running`/`idle`/`waiting`/`exited`/`error`) and maps the core's three states onto
+it — the core deliberately does not report terminal outcomes, because an exit code is
+authoritative and a screen read is not. That mapping kept `agent-grid`, the hook bus, extensions
+and the loop runner working unchanged.
+
+**Approach:** new `src-tauri/src/detection.rs`, pure (no threads, no clock, no Tauri):
+`Screen::feed` reconstructs the visible bottom of the terminal; `StateTracker::state(now, quiet)`
+classifies in a fixed order — busy footer ⇒ Working (even mid-silence), else blocked UI while
+quiet ⇒ Waiting, else recent output ⇒ Working, else Idle. `DetectionSpec` (`busy`, `blocked`,
+`menuCursor`) hangs off `BackendSpec`, so the existing `<data_dir>/backends/*.json` loader gives
+per-backend overrides for free. Matching is case-insensitive substrings plus one structural
+menu-cursor check — every verified signature is a literal phrase, so no regex dependency
+(LOOPS VIII). `AgentManager::poll_states` returns only changed states; `lib.rs` and `headless.rs`
+each run one tick thread over it and emit `agent://state` / a JSONL `state` event.
+
+**Two bugs the tests caught, worth recording:**
+1. `String::from_utf8_lossy` per PTY chunk corrupts a multi-byte glyph split across two reads
+   (`❯` became `???`). Fixed by decoding only the complete UTF-8 prefix and holding the tail.
+2. **A PTY rewrites every `\n` as `\r\n`.** Treating that `\r` as a redraw blanked every line
+   the agent printed, leaving an empty screen that classified as idle regardless of content. The
+   unit tests missed this because they used bare `\n`; the end-to-end run against a real PTY
+   caught it (LOOPS V — this is the case for running it rather than reading the diff). `\r` now
+   only clears when it is not part of a CRLF, including when the pair is split across chunks.
+
+**Verification:** `./dev.sh verify` green (165 Rust tests, 128 frontend). Proven end-to-end
+through the headless JSONL API against a real PTY with a scripted TUI agent: `working` held
+through 4s of total silence on the busy footer → `waiting` on the approval menu → `working` when
+the menu was repainted away → `idle` with the OSC title captured → `exit 0`. GUI launched clean
+with the state watcher running.
+
+**Follow-ons:** the declared-status protocol described above (Claude Code `Stop`/`Notification`
+hooks as an authoritative state source, the way firstmate treats its run-step); verified
+signatures for the shipped Pi example spec; a `waiting`-triggered notification.
+
 ## Headless / RPC mode — P6 (branch `feat/headless-rpc`)
 
 **Context:** User picked P6 after v0.11.0 shipped. Spec (`PI-PARITY-PLAN.md`): expose the

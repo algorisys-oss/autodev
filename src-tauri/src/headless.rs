@@ -14,6 +14,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::agent::{AgentInfo, AgentManager, AgentOptions};
+use crate::detection::{self, AgentState};
 
 /// A command read from stdin.
 #[derive(Debug, Deserialize)]
@@ -45,6 +46,14 @@ enum Event {
         id: String,
         code: Option<i32>,
     },
+    /// The agent's state changed (working / waiting / idle), as the core reads it from the
+    /// agent's screen. Emitted on transitions only, mirroring the GUI's `agent://state`.
+    State {
+        id: String,
+        state: AgentState,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+    },
     List {
         agents: Vec<AgentInfo>,
     },
@@ -69,6 +78,7 @@ pub fn run() {
         }
     });
     let manager = Arc::new(AgentManager::default());
+    start_state_watcher(manager.clone(), emit.clone());
     let stdin = io::stdin();
     for line in stdin.lock().lines().map_while(Result::ok) {
         if line.trim().is_empty() {
@@ -77,6 +87,18 @@ pub fn run() {
         dispatch(&manager, &emit, &line);
     }
     manager.kill_all();
+}
+
+/// Recompute agent states on a tick and emit the transitions, so a script driving the JSONL
+/// API sees the same working/waiting/idle signal the GUI does. One thread for all agents; the
+/// classification itself lives in `detection`.
+fn start_state_watcher(manager: Arc<AgentManager>, emit: Emit) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(detection::TICK_MS));
+        for (id, state, title) in manager.poll_states() {
+            emit(&Event::State { id, state, title });
+        }
+    });
 }
 
 /// Parse and act on one command line, emitting events. Separated from `run` so tests can drive

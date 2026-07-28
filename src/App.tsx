@@ -46,7 +46,6 @@ function App() {
     await installSkillsHook(agents.hooks);
     // Load executable extensions (P5): they register hooks and composer commands.
     await loadExtensions(agents.hooks, info()?.version ?? "");
-    agents.start();
   });
   onCleanup(() => {
     agents.dispose();

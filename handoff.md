@@ -5,7 +5,30 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** Headless / RPC mode — **P6** (branch `feat/headless-rpc`, off `dev`, **not yet
+- **Last task:** **Agent state detection rebuilt in the core** (branch `dev`, committed, **not
+  yet shipped**). Prompted by studying [herdr](https://herdr.dev) and firstmate — both solve the
+  same problem AutoDev's status dot does, and both keep detection signatures **per agent**, which
+  AutoDev did not. What changed: classification moved from the frontend to the Rust core
+  (`src-tauri/src/detection.rs`, pure — no threads, clock or Tauri); it matches against a
+  **reconstructed screen snapshot** (erase-display / erase-line / CR applied) instead of a raw
+  byte tail, so an answered prompt no longer sticks as "waiting"; it takes **positive busy
+  evidence** (the agent's own `esc to interrupt` footer) before it interprets silence, so a long
+  silent think stays "working" instead of decaying to idle at 1.5s; signatures are a
+  `detection` block on `BackendSpec`, so a drop-in `~/.autodev/backends/<id>.json` ships its own
+  (documented in `examples/backends/README.md`) and no backend is ever classified with another
+  backend's prompt shapes. The core emits **transitions only** on `agent://state` (and a `state`
+  event in headless JSONL); the frontend renders what it is told and no longer owns a clock.
+  Agent-set terminal titles (OSC), previously discarded, are captured and shown on the card.
+  **Verify:** `./dev.sh verify` (165 Rust + 128 frontend tests). **Proven end-to-end** through the
+  headless JSONL API against a real PTY running a scripted TUI agent: working held through 4s of
+  total silence → waiting on the approval menu → working when repainted → idle with the title
+  captured → exit 0. Two bugs the run caught and fixed: multi-byte UTF-8 split across PTY chunks,
+  and **CRLF from the PTY blanking every line** (unit tests used bare `\n` and missed it).
+  **Follow-on worth doing:** firstmate's *declared*-status protocol — the agent writes
+  `working:`/`blocked:`/`done:` and that beats any screen read. AutoDev already installs a
+  `PreToolUse` hook in `approvals.rs`, so Claude Code's `Stop`/`Notification` hooks are the
+  obvious next source; it needs an agent-side contract, not just a better reader.
+- **Previous task:** Headless / RPC mode — **P6** (branch `feat/headless-rpc`, off `dev`, **not yet
   merged/shipped**). New `autodev-headless` binary + `./dev.sh headless` drive the orchestrator
   over **JSONL on stdin/stdout**, no GUI: `{"cmd":"spawn"|"write"|"kill"|"list"}` in →
   `{"event":"spawned"|"output"|"exit"|"list"|"error"}` out. `src-tauri/src/headless.rs` (`run()` +

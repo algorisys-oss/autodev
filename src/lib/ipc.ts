@@ -169,6 +169,11 @@ export interface AgentOptions {
   mockCommand?: string[] | null;
 }
 
+/** What an agent is doing, as the core reads it from the agent's screen (mirrors Rust
+ *  `detection::AgentState`). Arrives on the `agent://state` channel, on transitions only.
+ *  Terminal outcomes are not here: those come from the exit code, via `agent://exit`. */
+export type AgentState = "working" | "waiting" | "idle";
+
 /** A normalized agent event from a Rich session (mirrors Rust `agent_event::AgentEvent`).
  *  Discriminated on `kind`; arrives on the `agent://event` channel. */
 export type AgentEvent =

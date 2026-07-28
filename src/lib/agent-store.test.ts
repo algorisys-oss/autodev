@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { createRoot } from "solid-js";
 import {
   createAgentStore,
-  detectWaiting,
   isTerminal,
   onboardingReply,
   stripAnsi,
@@ -30,15 +29,14 @@ function harness() {
     agentWrite: vi.fn(async () => {}),
     respondApproval: vi.fn(async () => {}),
   } as unknown as typeof ipc;
-  let clock = 1000;
-  return { subscribe, emit, api, now: () => clock, setClock: (t: number) => (clock = t) };
+  return { subscribe, emit, api };
 }
 
 describe("agent store", () => {
   it("spawn adds an agent, focuses it, running", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       const id = await store.spawn({ backend: "claude", cwd: "/p" }, "proj");
       expect(id).toBe("agent-1");
       expect(store.state.agents).toHaveLength(1);
@@ -51,7 +49,7 @@ describe("agent store", () => {
   it("buffers output and replays it to a terminal attached later", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "mock", cwd: "/p" }, "m");
       h.emit("agent://output", { id: "agent-1", data: btoa("hello ") });
       h.emit("agent://output", { id: "agent-1", data: btoa("world") });
@@ -67,20 +65,38 @@ describe("agent store", () => {
     });
   });
 
-  it("marks an agent idle after silence, running again on new output", async () => {
+  it("takes its status from the core's state events", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
-      h.emit("agent://output", { id: "agent-1", data: btoa("x") });
       expect(store.focused()?.status).toBe("running");
 
-      h.setClock(1000 + 2000); // advance past IDLE_AFTER_MS
-      store.tick();
+      h.emit("agent://state", { id: "agent-1", state: "idle", title: null });
       expect(store.focused()?.status).toBe("idle");
 
-      h.emit("agent://output", { id: "agent-1", data: btoa("y") });
+      h.emit("agent://state", { id: "agent-1", state: "waiting", title: null });
+      expect(store.focused()?.status).toBe("waiting");
+
+      h.emit("agent://state", { id: "agent-1", state: "working", title: null });
       expect(store.focused()?.status).toBe("running");
+      dispose();
+    });
+  });
+
+  it("shows the agent's self-reported activity from the terminal title it sets", async () => {
+    await createRoot(async (dispose) => {
+      const h = harness();
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
+      await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      expect(store.focused()?.title).toBeUndefined();
+
+      h.emit("agent://state", { id: "agent-1", state: "working", title: "editing agent.rs" });
+      expect(store.focused()?.title).toBe("editing agent.rs");
+
+      // A later event without a title keeps the last one rather than blanking the line.
+      h.emit("agent://state", { id: "agent-1", state: "idle", title: null });
+      expect(store.focused()?.title).toBe("editing agent.rs");
       dispose();
     });
   });
@@ -88,7 +104,7 @@ describe("agent store", () => {
   it("exit event sets exited + code and does not flip back to running", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       h.emit("agent://exit", { id: "agent-1", code: 0 });
       expect(store.focused()?.status).toBe("exited");
@@ -104,7 +120,7 @@ describe("agent store", () => {
   it("a non-zero exit code is an error, and does not resurrect on late output", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       h.emit("agent://exit", { id: "agent-1", code: 1 });
       expect(store.focused()?.status).toBe("error");
@@ -116,51 +132,21 @@ describe("agent store", () => {
     });
   });
 
-  it("classifies silence as waiting when parked on a prompt, else idle; output clears it", async () => {
+  it("a state event never resurrects an exited agent", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
+      h.emit("agent://exit", { id: "agent-1", code: 0 });
+      expect(store.focused()?.status).toBe("exited");
 
-      // A Claude-style multi-line approval menu (prompt line + options), still actively drawing.
-      h.emit("agent://output", {
-        id: "agent-1",
-        data: b64("Do you want to proceed?\n❯ 1. Yes\n  2. No, and tell Claude what to do\n"),
-      });
-      expect(store.focused()?.status).toBe("running");
-
-      // It goes quiet at the menu → waiting (not idle).
-      h.setClock(1000 + 2000);
-      store.tick();
-      expect(store.focused()?.status).toBe("waiting");
-
-      // The user answers; the agent acts again → running, and staying quiet now is plain idle.
-      h.emit("agent://output", { id: "agent-1", data: btoa("Editing src/app.ts\n".repeat(8)) });
-      expect(store.focused()?.status).toBe("running");
-      h.setClock(1000 + 5000);
-      store.tick();
-      expect(store.focused()?.status).toBe("idle");
+      // A tick already in flight when the process exited must not undo the outcome.
+      h.emit("agent://state", { id: "agent-1", state: "working", title: null });
+      expect(store.focused()?.status).toBe("exited");
       dispose();
     });
   });
 
-  it("detectWaiting matches prompts and TUI menus but not ordinary output", () => {
-    expect(detectWaiting("... Do you want to proceed?")).toBe(true);
-    expect(detectWaiting("Continue? (y/n)")).toBe(true);
-    expect(detectWaiting("Press enter to continue")).toBe(true);
-    // Claude/Codex selection menu, prompt line followed by options (not at the very end).
-    expect(
-      detectWaiting("Do you want to proceed?\n❯ 1. Yes\n  2. No, and keep going\n"),
-    ).toBe(true);
-    // Colourised menu — ANSI codes must not defeat detection.
-    expect(detectWaiting("\x1b[1mSelect an option\x1b[0m\n\x1b[36m❯ 1.\x1b[0m Approve")).toBe(
-      true,
-    );
-    expect(detectWaiting("(Use arrow keys)")).toBe(true);
-    expect(detectWaiting("Running tests, 42 passed.")).toBe(false);
-    expect(detectWaiting("What is the meaning of life?")).toBe(false);
-    expect(detectWaiting("Step 1. clone the repo")).toBe(false);
-  });
 
   it("stripAnsi removes escape codes and applies carriage-return redraws", () => {
     expect(stripAnsi("\x1b[31mred\x1b[0m text")).toBe("red text");
@@ -181,7 +167,7 @@ describe("agent store", () => {
   it("auto-onboard answers the trust prompt once when enabled, and again for a fresh one", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       const id = await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       store.setAutoOnboard(id, true);
 
@@ -207,7 +193,7 @@ describe("agent store", () => {
   it("does not touch the agent's input unless auto-onboard is enabled", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       const id = await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       h.emit("agent://output", {
         id,
@@ -221,7 +207,7 @@ describe("agent store", () => {
   it("spawn hooks rewrite launch options before the agent starts", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       store.hooks.onSpawn((o) => ({ ...o, addDirs: [...(o.addDirs ?? []), "/skills"] }));
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       expect(h.api.agentSpawn).toHaveBeenCalledWith(
@@ -234,7 +220,7 @@ describe("agent store", () => {
   it("emits output and exit through the hook bus", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       const outputs: string[] = [];
       const exits: Array<[string, number | null]> = [];
       store.hooks.onOutput((id, tail) => outputs.push(`${id}:${tail}`));
@@ -253,13 +239,11 @@ describe("agent store", () => {
   it("emits waiting through the hook bus when an agent parks on a prompt", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       const waited: string[] = [];
       store.hooks.onWaiting((id) => waited.push(id));
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
-      h.emit("agent://output", { id: "agent-1", data: b64("Continue? (y/n)") });
-      h.setClock(1000 + 2000);
-      store.tick();
+      h.emit("agent://state", { id: "agent-1", state: "waiting", title: null });
       expect(waited).toEqual(["agent-1"]);
       dispose();
     });
@@ -268,7 +252,7 @@ describe("agent store", () => {
   it("collects agent://event into a rich session's events, in order", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p");
       expect(store.focused()?.rich).toBe(true);
       expect(store.focused()?.events).toEqual([]);
@@ -293,7 +277,7 @@ describe("agent store", () => {
   it("captures sessionId from sessionInit and a follow-up resumes into the same conversation", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p"); // agent-1
       h.emit("agent://event", {
         id: "agent-1",
@@ -326,7 +310,7 @@ describe("agent store", () => {
   it("followUp is a no-op until a sessionId has been captured", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p", rich: true }, "p");
       expect(h.api.agentSpawn).toHaveBeenCalledTimes(1);
       await store.followUp("agent-1", "too early"); // no sessionInit yet
@@ -339,7 +323,7 @@ describe("agent store", () => {
   it("respondApproval marks the request's card resolved and tells the core", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p", rich: true, interactiveApproval: true }, "p");
       h.emit("agent://event", {
         id: "agent-1",
@@ -358,7 +342,7 @@ describe("agent store", () => {
   it("a non-rich agent is not rich and ignores stray events for unknown ids", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/p" }, "p");
       expect(store.focused()?.rich).toBe(false);
       // event for a non-existent id must not throw or add anything
@@ -371,7 +355,7 @@ describe("agent store", () => {
   it("close removes an agent and reselects", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/a" }, "a");
       await store.spawn({ backend: "codex", cwd: "/b" }, "b");
       expect(store.state.agents).toHaveLength(2);
@@ -385,7 +369,7 @@ describe("agent store", () => {
   it("killAll delegates to the core", async () => {
     await createRoot(async (dispose) => {
       const h = harness();
-      const store = createAgentStore({ api: h.api, subscribe: h.subscribe, now: h.now });
+      const store = createAgentStore({ api: h.api, subscribe: h.subscribe });
       await store.spawn({ backend: "claude", cwd: "/a" }, "a");
       await store.killAll();
       expect(h.api.agentKillAll).toHaveBeenCalled();

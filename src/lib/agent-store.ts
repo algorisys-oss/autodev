@@ -57,36 +57,6 @@ export function stripAnsi(input: string): string {
     .join("\n");
 }
 
-// Signals that an agent is parked on the user: shell y/n prompts, "press enter", and the
-// interactive selection menus Claude Code and Codex render for permission/approval (a `❯`/`>`
-// cursor on a numbered option, or the arrow-key hint). Matched against the last few lines of
-// recent output; clearing is handled by "any output ⇒ running", not by the prompt scrolling off.
-const WAITING_PATTERNS = [
-  /Do you want to proceed\?/i,
-  /Do you want to continue\?/i,
-  /\bPress\s+enter\s+to\s+continue/i,
-  /\by\s*\/\s*n\b/i,
-  /\(y\/n\)/i,
-  /\[y\/N\]/i,
-  /[❯▶►›➤]\s*\d+[.)]\s/, // selection cursor on a numbered option (Claude/Codex approval menu)
-  /\(use\s+arrow\s+keys\)/i,
-  /\bNo,\s+and\s+(tell|keep)\b/i, // the "No, and tell Claude…" menu option
-];
-
-const WAITING_SCAN_LINES = 6; // how many trailing non-empty lines to inspect for a prompt
-
-/** Does the recent output tail look like the agent is waiting for the user to answer a prompt?
- *  Only the last few non-empty lines are considered — a prompt means the agent is currently
- *  parked at it. */
-export function detectWaiting(tail: string): boolean {
-  const lines = stripAnsi(tail)
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const recent = lines.slice(-WAITING_SCAN_LINES).join("\n");
-  return WAITING_PATTERNS.some((re) => re.test(recent));
-}
-
 // Onboarding gates an unattended agent can safely clear itself, and the keystrokes that accept
 // them. Kept deliberately narrow: only Claude Code's "trust this folder?" dialog, shown on first
 // access to a new directory — the gate that stalls loops in fresh worktrees/projects. Enter
@@ -115,6 +85,9 @@ export interface AgentView {
   exitCode: number | null;
   /** Set when the agent runs in an isolated git worktree (Phase 5). */
   worktree?: ipc.WorktreeInfo;
+  /** The terminal title the agent last set (OSC), when it sets one — a short, self-reported
+   *  description of what it is doing. Undefined for agents that never set one. */
+  title?: string;
   /** Launched in Rich mode: renders as structured cards from `events` rather than a terminal. */
   rich: boolean;
   /** Normalized structured events for a Rich session, in arrival order (empty for terminal ones). */
@@ -134,9 +107,8 @@ export interface AgentView {
 /** Injectable event subscription, so tests can drive `agent://*` events without Tauri. */
 export type Subscribe = <T>(event: string, cb: (payload: T) => void) => Promise<() => void>;
 
-const IDLE_AFTER_MS = 1500;
 const MAX_BUFFER_BYTES = 1_000_000; // ~1 MB scrollback kept in memory per agent
-const TAIL_CHARS = 600; // recent decoded output kept per agent for waiting-prompt detection
+const TAIL_CHARS = 600; // recent decoded output kept per agent, for the onboarding-gate hook
 
 async function tauriSubscribe<T>(event: string, cb: (payload: T) => void): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
@@ -149,11 +121,9 @@ async function tauriSubscribe<T>(event: string, cb: (payload: T) => void): Promi
 export function createAgentStore(deps?: {
   api?: typeof ipc;
   subscribe?: Subscribe;
-  now?: () => number;
 }) {
   const api = deps?.api ?? ipc;
   const subscribe = deps?.subscribe ?? tauriSubscribe;
-  const now = deps?.now ?? (() => Date.now());
 
   const [state, setState] = createStore<{ agents: AgentView[]; focusedId: string | null }>({
     agents: [],
@@ -163,11 +133,18 @@ export function createAgentStore(deps?: {
   const buffers = new Map<string, Uint8Array[]>();
   const bufferBytes = new Map<string, number>();
   const subscribers = new Map<string, (chunk: Uint8Array) => void>();
-  const lastActivity = new Map<string, number>();
   const tails = new Map<string, string>();
   const autoOnboard = new Set<string>(); // agents allowed to auto-clear onboarding gates
   const onboardSent = new Set<string>(); // debounce: a reply is in flight for this agent's gate
   const decoder = new TextDecoder();
+  /** The core's semantic states, mapped onto the store's status vocabulary. The store keeps
+   *  `exited`/`error` too, which the core deliberately does not report — a process outcome is
+   *  read from its exit code, not its screen. */
+  const STATUS_OF_STATE: Record<ipc.AgentState, AgentStatus> = {
+    working: "running",
+    waiting: "waiting",
+    idle: "idle",
+  };
   // A Rich follow-up runs as a fresh one-shot backend process (a new core id) that `--resume`s
   // the same conversation. This maps that follow-up process's id back to the conversation agent
   // so its output/events/exit land on the original card, keeping one continuous stream.
@@ -196,14 +173,8 @@ export function createAgentStore(deps?: {
       }
       bufferBytes.set(id, size);
     }
-    lastActivity.set(id, now());
     const tail = ((tails.get(id) ?? "") + decoder.decode(bytes)).slice(-TAIL_CHARS);
     tails.set(id, tail);
-    const i = indexOf(id);
-    // Fresh output ⇒ running. This also reliably clears an earlier "waiting"/"idle" the moment
-    // the agent acts again. Whether it is *now* waiting on a prompt is decided in tick(), once
-    // it goes quiet — so the prompt-text lingering in the tail can't keep it stuck on waiting.
-    if (i >= 0 && !isTerminal(state.agents[i].status)) setStatus(id, "running");
     hooks.emitOutput(id, tail);
     subscribers.get(id)?.(bytes);
   }
@@ -237,6 +208,24 @@ export function createAgentStore(deps?: {
         hooks.emitExit(id, p.code);
       }
     }),
+    // The core classifies each agent's state from its screen (see Rust `detection.rs`) and
+    // emits only transitions. The store maps that onto its status vocabulary and republishes it
+    // on the hook bus, which extensions and the loop runner already listen to.
+    subscribe<{ id: string; state: ipc.AgentState; title: string | null }>(
+      "agent://state",
+      (p) => {
+        const id = conv(p.id);
+        const i = indexOf(id);
+        // An exited agent's outcome is its exit code; a late state event must not revive it.
+        if (i < 0 || isTerminal(state.agents[i].status)) return;
+        if (p.title && state.agents[i].title !== p.title) setState("agents", i, "title", p.title);
+        const next = STATUS_OF_STATE[p.state];
+        if (state.agents[i].status === next) return;
+        setStatus(id, next);
+        if (next === "waiting") hooks.emitWaiting(id);
+        else if (next === "idle") hooks.emitIdle(id);
+      },
+    ),
     // Rich sessions also emit normalized structured events; append them for the card view.
     subscribe<{ id: string; event: ipc.AgentEvent }>("agent://event", (p) => {
       const i = indexOf(conv(p.id));
@@ -249,30 +238,7 @@ export function createAgentStore(deps?: {
     }),
   ];
 
-  /** Once an agent goes quiet, classify the silence: a trailing prompt in its output means it
-   *  is blocked on the user (waiting); otherwise it is merely idle. Called by an interval in the
-   *  app; tests call it. Fresh output flips it back to running via pushOutput. */
-  function tick() {
-    const t = now();
-    for (const a of state.agents) {
-      if (isTerminal(a.status)) continue;
-      if (t - (lastActivity.get(a.id) ?? 0) > IDLE_AFTER_MS) {
-        const next = detectWaiting(tails.get(a.id) ?? "") ? "waiting" : "idle";
-        if (a.status !== next) {
-          setStatus(a.id, next);
-          if (next === "waiting") hooks.emitWaiting(a.id);
-          else hooks.emitIdle(a.id);
-        }
-      }
-    }
-  }
-
-  let timer: ReturnType<typeof setInterval> | undefined;
-  function start() {
-    if (!timer) timer = setInterval(tick, 750);
-  }
   function dispose() {
-    if (timer) clearInterval(timer);
     unlistens.forEach((p) => void p.then((u) => u()));
   }
 
@@ -286,7 +252,6 @@ export function createAgentStore(deps?: {
     const id = await api.agentSpawn(opts);
     buffers.set(id, []);
     bufferBytes.set(id, 0);
-    lastActivity.set(id, now());
     setState("agents", state.agents.length, {
       id,
       label,
@@ -317,7 +282,6 @@ export function createAgentStore(deps?: {
     setState("agents", i, "events", a.events.length, { kind: "userMessage", text });
     setState("agents", i, "exitCode", null);
     setStatus(agentId, "running");
-    lastActivity.set(agentId, now());
     const opts = hooks.applySpawn({
       backend: a.backend,
       cwd: a.cwd,
@@ -373,7 +337,6 @@ export function createAgentStore(deps?: {
     buffers.delete(id);
     bufferBytes.delete(id);
     subscribers.delete(id);
-    lastActivity.delete(id);
     tails.delete(id);
     autoOnboard.delete(id);
     onboardSent.delete(id);
@@ -417,8 +380,6 @@ export function createAgentStore(deps?: {
     setAutoOnboard,
     attach,
     detach,
-    tick,
-    start,
     dispose,
   };
 }

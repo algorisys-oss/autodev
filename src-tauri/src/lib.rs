@@ -5,6 +5,7 @@ mod audio_record;
 mod backend_spec;
 mod capture;
 mod commands;
+mod detection;
 mod editor;
 mod error;
 mod extensions;
@@ -19,7 +20,7 @@ mod transcribe;
 mod verify;
 mod workspace;
 
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 /// On Linux, WebKitGTK disables the media-stream feature and denies `getUserMedia` by default,
 /// so the voice recorder fails with a permission error. Enable media-stream and grant permission
@@ -43,6 +44,23 @@ fn allow_media_capture(app: &tauri::App) {
     });
 }
 
+/// Recompute every agent's state on a fixed tick and emit the transitions as `agent://state`.
+///
+/// One thread for the whole app, not one per agent, and it emits only when a state actually
+/// changes — a dozen live terminals must not each push an event twice a second (LOOPS XXXIX).
+/// The classification itself is the core's ([`detection`]); this is only its clock and channel.
+fn start_state_watcher(app: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(detection::TICK_MS));
+        for (id, state, title) in app.state::<agent::AgentManager>().poll_states() {
+            let _ = app.emit(
+                "agent://state",
+                serde_json::json!({ "id": id, "state": state, "title": title }),
+            );
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -53,6 +71,7 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "linux")]
             allow_media_capture(app);
+            start_state_watcher(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {

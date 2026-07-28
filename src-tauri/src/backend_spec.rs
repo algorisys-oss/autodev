@@ -11,6 +11,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::agent::AgentOptions;
+use crate::detection::DetectionSpec;
 
 /// How a backend consumes attached image (screenshot) paths.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -115,6 +116,11 @@ pub struct BackendSpec {
     /// If set, the backend can emit a structured event stream (Rich view). Absent = terminal only.
     #[serde(default)]
     pub structured: Option<StructuredMode>,
+    /// Screen signatures used to read this backend's state (working / waiting / idle). Absent
+    /// means this backend is never classified as waiting — one backend's prompt shapes must not
+    /// be applied to another's output.
+    #[serde(default)]
+    pub detection: DetectionSpec,
 }
 
 impl BackendSpec {
@@ -264,6 +270,54 @@ pub fn load_specs() -> Vec<BackendSpec> {
     }
 }
 
+/// Prompt shapes that belong to no particular harness: the shell-level questions any CLI can
+/// ask. Safe to give every backend, unlike a harness's own footer or menu wording, which is
+/// only ever attached to the backend it was observed on.
+fn generic_blocked() -> Vec<String> {
+    vec![
+        "y/n".into(),
+        "press enter to continue".into(),
+        "(use arrow keys)".into(),
+    ]
+}
+
+/// Claude Code's verified signatures: `esc to interrupt` in the busy footer, and its permission
+/// dialog's wording and numbered menu.
+fn claude_detection() -> DetectionSpec {
+    let mut blocked = generic_blocked();
+    blocked.extend([
+        "do you want to proceed?".into(),
+        "do you want to continue?".into(),
+        "no, and tell".into(),
+        "no, and keep".into(),
+    ]);
+    DetectionSpec {
+        busy: vec!["esc to interrupt".into()],
+        blocked,
+        menu_cursor: true,
+    }
+}
+
+/// Codex's verified signatures. It shares Claude's `esc to interrupt` footer and renders
+/// approvals as a numbered menu, but not Claude's dialog wording.
+fn codex_detection() -> DetectionSpec {
+    DetectionSpec {
+        busy: vec!["esc to interrupt".into()],
+        blocked: generic_blocked(),
+        menu_cursor: true,
+    }
+}
+
+/// `agy` publishes no verified busy footer, so it gets the generic prompt shapes only — no
+/// borrowed busy signature that would report it working when it is not.
+fn antigravity_detection() -> DetectionSpec {
+    DetectionSpec {
+        busy: vec![],
+        blocked: generic_blocked(),
+        menu_cursor: true,
+    }
+}
+
 fn screenshot_append() -> ImageMode {
     ImageMode::AppendToPrompt {
         text: "\n\n[Screenshot attached: {path}]".to_string(),
@@ -305,6 +359,7 @@ fn claude_spec() -> BackendSpec {
                 "{id}".into(),
             ],
         }),
+        detection: claude_detection(),
     }
 }
 
@@ -343,6 +398,7 @@ fn codex_spec() -> BackendSpec {
                 "--skip-git-repo-check".into(),
             ],
         }),
+        detection: codex_detection(),
     }
 }
 
@@ -365,6 +421,7 @@ fn antigravity_spec() -> BackendSpec {
         images: screenshot_append(),
         prompt: PromptMode::Flag { flag: "-i".into() },
         structured: None,
+        detection: antigravity_detection(),
     }
 }
 
@@ -634,6 +691,56 @@ mod tests {
         assert_eq!(by("codex").unwrap().program, "codex");
         assert_eq!(specs.iter().filter(|s| s.id == "claude").count(), 1);
 
+        std::fs::remove_dir_all(&data).ok();
+    }
+
+    /// Detection signatures are per-backend and never borrowed: Claude carries its own busy
+    /// footer and dialog wording, `agy` (which publishes no verified footer) carries no busy
+    /// signature at all rather than Claude's.
+    #[test]
+    fn detection_signatures_are_per_backend_and_not_borrowed() {
+        let specs = builtin_specs();
+        let by = |id: &str| specs.iter().find(|s| s.id == id).unwrap().detection.clone();
+
+        let claude = by("claude");
+        assert!(claude.busy.iter().any(|b| b == "esc to interrupt"));
+        assert!(claude
+            .blocked
+            .iter()
+            .any(|b| b == "do you want to proceed?"));
+        assert!(claude.menu_cursor);
+
+        // Codex shares the footer but not Claude's dialog wording.
+        let codex = by("codex");
+        assert!(codex.busy.iter().any(|b| b == "esc to interrupt"));
+        assert!(!codex.blocked.iter().any(|b| b == "do you want to proceed?"));
+
+        // No verified footer ⇒ no busy signature, so it is never reported working on another
+        // backend's evidence. Generic shell prompts still apply.
+        let agy = by("antigravity");
+        assert!(agy.busy.is_empty());
+        assert!(agy.blocked.iter().any(|b| b == "y/n"));
+    }
+
+    /// A disk-registered backend can ship its own signatures, so adding a backend's state
+    /// detection needs no Rust change — the same drop-in promise `build_args` already keeps.
+    #[test]
+    fn a_disk_spec_can_carry_its_own_detection_signatures() {
+        let data = temp_data_dir("detect");
+        std::fs::write(
+            data.join("backends/opencode.json"),
+            r#"{
+                "id": "opencode",
+                "program": "opencode",
+                "detection": { "busy": ["esc interrupt"], "blocked": ["allow this?"] }
+            }"#,
+        )
+        .unwrap();
+        let specs = load_specs_from(&data);
+        let oc = specs.iter().find(|s| s.id == "opencode").unwrap();
+        assert_eq!(oc.detection.busy, vec!["esc interrupt".to_string()]);
+        assert_eq!(oc.detection.blocked, vec!["allow this?".to_string()]);
+        assert!(!oc.detection.menu_cursor);
         std::fs::remove_dir_all(&data).ok();
     }
 

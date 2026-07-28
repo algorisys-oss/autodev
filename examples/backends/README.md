@@ -29,3 +29,36 @@ passed positionally.
   spec format can't emit).
 - Pi's own extensions (e.g. pi-annotate) run *inside* the Pi cell; AutoDev doesn't yet drive
   Pi's RPC mode to surface them in AutoDev's UI (that's the still-planned P7).
+
+## Telling AutoDev when your backend is busy or waiting
+
+AutoDev reads each agent's state — **working**, **waiting on you**, or **idle** — from what the
+agent draws in its terminal. The signatures it matches are per-backend, in an optional
+`detection` block:
+
+```json
+{
+  "id": "opencode",
+  "program": "opencode",
+  "detection": {
+    "busy": ["esc interrupt"],
+    "blocked": ["allow this command?"],
+    "menuCursor": true
+  }
+}
+```
+
+- **`busy`** — text the agent shows *while it is mid-turn*, usually its interrupt hint. This is
+  what keeps a long silent think reading as working instead of decaying to idle, so it is the
+  one worth getting right.
+- **`blocked`** — text it shows when it is parked on you: an approval, permission, or y/n prompt.
+- **`menuCursor`** — also treat a selection cursor on a numbered option (`❯ 1. Yes`) as parked.
+
+Both lists are case-insensitive substrings matched against the bottom of the agent's screen —
+not regexes, and not the raw byte stream, so a prompt the agent has already answered and
+repainted away does not keep reading as waiting.
+
+Signatures are never shared between backends: a spec with no `detection` block still shows
+working and idle from output activity, but is never reported as waiting, because guessing with
+another agent's prompt shapes produces a card that says "needs you" when nothing does. Find your
+agent's strings by running it and looking at the footer it draws while it works.

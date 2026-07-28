@@ -981,6 +981,15 @@ button.danger {
   font-size: 0.8em;
 }
 
+/* The agent's self-reported activity: one line, truncated rather than wrapping, so a long
+   title can't change the card's height as it updates. */
+.card-sub.activity {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
 .dot {
   flex: 0 0 auto;
   width: 9px;

@@ -7,6 +7,7 @@ use std::thread;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 
+use crate::detection::{self, AgentState, DetectionSpec, StateTracker};
 use crate::error::{AppError, AppResult};
 
 /// Which coding-agent CLI to launch. The named variants are the backends the app ships
@@ -173,6 +174,9 @@ pub struct AgentSession {
     pub id: String,
     pub backend: AgentBackend,
     pub cwd: String,
+    /// Reads this agent's state from what it draws. Shared with the reader thread, which feeds
+    /// it every PTY chunk; `AgentManager::poll_states` reads it on a tick.
+    tracker: Arc<Mutex<StateTracker>>,
     running: Arc<AtomicBool>,
     writer: Mutex<Box<dyn std::io::Write + Send>>,
     master: Mutex<Box<dyn MasterPty + Send>>,
@@ -206,6 +210,19 @@ impl AgentSession {
 
     pub fn kill(&self) -> AppResult<()> {
         self.child.lock().unwrap().kill().map_err(AppError::Io)
+    }
+
+    /// What this agent is doing right now, read from its screen.
+    pub fn state(&self) -> AgentState {
+        self.tracker
+            .lock()
+            .unwrap()
+            .state(detection::now_ms(), detection::QUIET_AFTER_MS)
+    }
+
+    /// The last terminal title the agent set, if any.
+    pub fn title(&self) -> Option<String> {
+        self.tracker.lock().unwrap().title().map(str::to_string)
     }
 }
 
@@ -247,11 +264,18 @@ pub fn spawn_session(
 
     let running = Arc::new(AtomicBool::new(true));
     let child = Arc::new(Mutex::new(child));
+    // The detection signatures for this backend, resolved from the same spec list that built
+    // the command line. An unknown backend gets no signatures and is never read as waiting.
+    let tracker = Arc::new(Mutex::new(StateTracker::new(
+        detection_spec_for(&opts.backend),
+        detection::now_ms(),
+    )));
 
     let session = Arc::new(AgentSession {
         id: id.clone(),
         backend: opts.backend.clone(),
         cwd: opts.cwd.clone(),
+        tracker: tracker.clone(),
         running: running.clone(),
         writer: Mutex::new(writer),
         master: Mutex::new(pty.master),
@@ -264,7 +288,10 @@ pub fn spawn_session(
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
-                Ok(n) => on_output(buf[..n].to_vec()),
+                Ok(n) => {
+                    tracker.lock().unwrap().feed(&buf[..n], detection::now_ms());
+                    on_output(buf[..n].to_vec());
+                }
                 Err(_) => break,
             }
         }
@@ -279,6 +306,18 @@ pub fn spawn_session(
     });
 
     Ok(session)
+}
+
+/// The detection signatures for a backend, from the bundled specs plus any disk-registered
+/// ones. A backend with no matching spec (including `Mock`) gets none — classification then
+/// falls back to activity alone, never to another backend's prompt shapes.
+fn detection_spec_for(backend: &AgentBackend) -> DetectionSpec {
+    let id = backend.id();
+    crate::backend_spec::load_specs()
+        .into_iter()
+        .find(|s| s.id == id)
+        .map(|s| s.detection)
+        .unwrap_or_default()
 }
 
 /// Serializable snapshot of a session for the frontend.
@@ -296,6 +335,9 @@ pub struct AgentInfo {
 pub struct AgentManager {
     sessions: Mutex<HashMap<String, Arc<AgentSession>>>,
     counter: AtomicU64,
+    /// The last state reported for each live session, so a tick emits only transitions rather
+    /// than the same state twice a second.
+    reported: Mutex<HashMap<String, AgentState>>,
 }
 
 impl AgentManager {
@@ -332,6 +374,30 @@ impl AgentManager {
                 running: s.is_running(),
             })
             .collect()
+    }
+
+    /// Recompute every running session's state and return only the ones that changed, as
+    /// `(id, state, title)`. Called on a tick by whoever owns the event channel (the GUI app,
+    /// or the headless driver), so this module stays free of Tauri.
+    ///
+    /// A session that has exited is dropped from the report set: its outcome comes from the
+    /// exit code, which is authoritative, and its screen must not keep producing states.
+    pub fn poll_states(&self) -> Vec<(String, AgentState, Option<String>)> {
+        let sessions = self.sessions.lock().unwrap();
+        let mut reported = self.reported.lock().unwrap();
+        reported.retain(|id, _| sessions.get(id).is_some_and(|s| s.is_running()));
+        let mut changed = Vec::new();
+        for s in sessions.values() {
+            if !s.is_running() {
+                continue;
+            }
+            let state = s.state();
+            if reported.get(&s.id) != Some(&state) {
+                reported.insert(s.id.clone(), state);
+                changed.push((s.id.clone(), state, s.title()));
+            }
+        }
+        changed
     }
 
     /// Kill every live session. Returns how many were signalled.
@@ -725,6 +791,54 @@ mod tests {
         }
         assert!(String::from_utf8_lossy(&out).contains("ping"));
         session.kill().unwrap();
+    }
+
+    /// The state pipeline end to end on a real PTY: bytes from the reader thread reach the
+    /// session's tracker (proved by the OSC title it sets), a running session is `Working` while
+    /// output is fresh and `Idle` once it goes quiet, and `poll_states` reports each transition
+    /// exactly once rather than on every tick.
+    #[test]
+    fn session_state_follows_the_pty_and_poll_reports_only_transitions() {
+        let manager = AgentManager::default();
+        let id = manager.next_id();
+        let opts = mock_opts(vec![
+            "bash",
+            "-c",
+            // Set a terminal title, print a line, then go quiet.
+            "printf '\\033]0;autodev-test-title\\007building...'; sleep 30",
+        ]);
+        let session = spawn_session(id.clone(), &opts, 80, 24, |_| {}, |_| {}).unwrap();
+        manager.insert(session.clone());
+
+        // Wait for the first output to land in the tracker.
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while session.title().is_none() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(session.title().as_deref(), Some("autodev-test-title"));
+        assert_eq!(session.state(), AgentState::Working);
+
+        let first = manager.poll_states();
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].0, id);
+        assert_eq!(first[0].1, AgentState::Working);
+        // Unchanged state ⇒ nothing reported on the next tick.
+        assert!(manager.poll_states().is_empty());
+
+        // Once it goes quiet past the threshold it is idle, and that is reported once.
+        std::thread::sleep(Duration::from_millis(detection::QUIET_AFTER_MS + 300));
+        let next = manager.poll_states();
+        assert_eq!(next.len(), 1);
+        assert_eq!(next[0].1, AgentState::Idle);
+        assert!(manager.poll_states().is_empty());
+
+        // An exited session stops producing states — its outcome is its exit code.
+        session.kill().unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while session.is_running() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(manager.poll_states().is_empty());
     }
 
     #[test]

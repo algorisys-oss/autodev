@@ -2,6 +2,31 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## Unreleased
+
+- **Agent state detection moved into the core, and made per-backend.** AutoDev now reads each
+  agent's state — **working**, **waiting on you**, or **idle** — from a reconstructed snapshot of
+  the agent's screen rather than a tail of its byte stream, in the Rust core rather than the UI.
+  Three things change in practice:
+  - **A silently thinking agent no longer decays to idle.** Detection now looks for positive
+    evidence that the agent is mid-turn — its own interrupt footer (`esc to interrupt`) — before
+    it interprets silence. An agent that thinks for thirty seconds without printing anything
+    stayed "working" through it in an end-to-end run; previously it flipped to idle after 1.5s.
+  - **A prompt the agent already answered no longer sticks as "waiting".** The core applies the
+    screen-clear, erase-line and carriage-return sequences a TUI agent repaints with, so what it
+    matches against is what is actually on screen. A byte tail keeps the answered prompt forever.
+  - **Signatures are per-backend data, not one global list.** Each `BackendSpec` carries an
+    optional `detection` block (`busy`, `blocked`, `menuCursor`), so a drop-in
+    `~/.autodev/backends/<id>.json` can ship its own — see `examples/backends/README.md`. A
+    backend with no signatures still shows working/idle from activity but is never reported as
+    waiting, rather than being classified with another agent's prompt shapes.
+  The core emits transitions only (`agent://state`, and a `state` event in headless JSONL), so a
+  dozen live terminals don't each push an event twice a second. The frontend no longer classifies
+  anything or reads a clock — it renders what the core reports.
+- **Agent cards show what the agent says it is doing.** Agents announce their activity by setting
+  the terminal title; that was previously discarded with the rest of the escape sequences. It is
+  now captured and shown as a second line on the card.
+
 ## v0.13.1 — 2026-07-14
 
 - **Mic capture default now auto-detects per OS**, like the screenshot command. With no
