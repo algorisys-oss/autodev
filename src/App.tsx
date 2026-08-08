@@ -1,9 +1,17 @@
 import { createSignal, onMount, onCleanup, Show, For } from "solid-js";
-import { appInfo, gitMergeWorktree, gitRemoveWorktree, openInEditor, type AppInfo } from "./lib/ipc";
+import {
+  appInfo,
+  getSettings,
+  gitMergeWorktree,
+  gitRemoveWorktree,
+  openInEditor,
+  type AppInfo,
+} from "./lib/ipc";
 import { createWorkspaceStore } from "./lib/workspace-store";
 import { createAgentStore, isTerminal } from "./lib/agent-store";
 import { installSkillsHook } from "./lib/skills";
 import { loadExtensions } from "./lib/extensions";
+import { installBellHook, setBellEnabled } from "./lib/bell";
 import { getThemePref, setThemePref, resolveTheme, watchSystemTheme } from "./lib/theme";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { AgentGrid } from "./components/agent-grid";
@@ -40,6 +48,14 @@ function App() {
       setInfo(await appInfo());
     } catch {
       /* header shows "connecting…" if the core is unreachable */
+    }
+    // Chime on agent completion, if the user turned it on. Registered before any agent can
+    // spawn; the toggle in Settings flips the signal live.
+    installBellHook(agents.hooks);
+    try {
+      setBellEnabled((await getSettings()).bellOnComplete ?? false);
+    } catch {
+      /* settings unreadable — stay silent */
     }
     await workspaces.refresh();
     // Add the skills dir (if any) to every agent's context via a spawn hook (P4).

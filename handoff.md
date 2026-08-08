@@ -5,7 +5,18 @@ Updated as the final step of every task (LOOPS XXVI).
 
 ## Where things stand
 
-- **Last task:** **Agent state detection rebuilt in the core** (branch `dev`, committed, **not
+- **Last task:** **"Ring a bell" on agent completion** (branch `dev`, **not yet shipped**). A
+  checkbox in Settings (off by default) plays a short chime when an agent settles into idle or its
+  process exits — for leaving a long run unattended. `src/lib/bell.ts` hangs off the P3 hook bus
+  (`onIdle`/`onExit`), remembers the last state per agent so an exit-after-idle rings once rather
+  than twice, and synthesizes the chime with WebAudio (no asset, no decode, no-op where there is
+  no `AudioContext`). Persisted as `bellOnComplete` in `~/.autodev/settings.json`; the toggle
+  applies live like the theme switch, and a **Test** button beside it plays the chime.
+  **Verify:** `./dev.sh verify` (165 Rust + 139 frontend tests, +11 for this). App launches clean
+  with the change (`./dev.sh dev`, no errors). **Not machine-verified: the sound itself** — the
+  synth path is covered by a fake `AudioContext` asserting two scheduled tones, but whether it is
+  audible on this box needs a human to click **Test** in Settings.
+- **Previous task:** **Agent state detection rebuilt in the core** (branch `dev`, committed, **not
   yet shipped**). Prompted by studying [herdr](https://herdr.dev) and firstmate — both solve the
   same problem AutoDev's status dot does, and both keep detection signatures **per agent**, which
   AutoDev did not. What changed: classification moved from the frontend to the Rust core
@@ -28,7 +39,7 @@ Updated as the final step of every task (LOOPS XXVI).
   `working:`/`blocked:`/`done:` and that beats any screen read. AutoDev already installs a
   `PreToolUse` hook in `approvals.rs`, so Claude Code's `Stop`/`Notification` hooks are the
   obvious next source; it needs an agent-side contract, not just a better reader.
-- **Previous task:** Headless / RPC mode — **P6** (branch `feat/headless-rpc`, off `dev`, **not yet
+- **Earlier:** Headless / RPC mode — **P6** (branch `feat/headless-rpc`, off `dev`, **not yet
   merged/shipped**). New `autodev-headless` binary + `./dev.sh headless` drive the orchestrator
   over **JSONL on stdin/stdout**, no GUI: `{"cmd":"spawn"|"write"|"kill"|"list"}` in →
   `{"event":"spawned"|"output"|"exit"|"list"|"error"}` out. `src-tauri/src/headless.rs` (`run()` +

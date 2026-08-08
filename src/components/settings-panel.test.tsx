@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type * as ipcTypes from "../lib/ipc";
 import { SettingsPanel } from "./settings-panel";
+import { bellEnabled, setBellEnabled } from "../lib/bell";
 
 vi.mock("../lib/ipc", () => ({
   getSettings: vi.fn(),
@@ -26,6 +27,7 @@ describe("settings panel", () => {
   beforeEach(() => {
     mocked.getSettings.mockReset();
     mocked.setSettings.mockReset();
+    setBellEnabled(false);
   });
 
   it("loads settings, edits a command, and saves — persisting blank fields as null", async () => {
@@ -54,6 +56,27 @@ describe("settings panel", () => {
     expect(payload.transcribeCommand).toBe("my-transcriber {file}");
     expect(payload.screenshotCommand).toBe("grim {file}");
     expect(payload.browserCommand).toBeNull();
+  });
+
+  it("toggles the bell — live for this session, and persisted on save", async () => {
+    mocked.getSettings.mockResolvedValue({ ...base, bellOnComplete: false });
+    mocked.setSettings.mockResolvedValue(base);
+
+    const { getByLabelText, getByText, findByText } = render(() => (
+      <SettingsPanel onClose={() => {}} />
+    ));
+
+    const bell = (await waitFor(() => getByLabelText(/Ring a bell/))) as HTMLInputElement;
+    expect(bell.checked).toBe(false);
+    expect(bellEnabled()).toBe(false);
+
+    fireEvent.click(bell);
+    expect(bellEnabled()).toBe(true); // applies immediately, before Save
+
+    fireEvent.click(getByText("Save"));
+    await findByText("saved");
+    const payload = mocked.setSettings.mock.calls[0][0] as ipcTypes.AppSettings;
+    expect(payload.bellOnComplete).toBe(true);
   });
 
   it("closes via the Close button", async () => {

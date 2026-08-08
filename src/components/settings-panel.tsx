@@ -2,6 +2,7 @@ import { createSignal, onMount, Show, For } from "solid-js";
 import { getSettings, setSettings, type AppSettings } from "../lib/ipc";
 import { getThemePref, setThemePref, type ThemePref } from "../lib/theme";
 import { loadedExtensions } from "../lib/extensions";
+import { ringBell, setBellEnabled } from "../lib/bell";
 
 const DEFAULTS: AppSettings = {
   theme: "system",
@@ -12,6 +13,7 @@ const DEFAULTS: AppSettings = {
   browserCommand: "",
   editorCommand: "",
   autoSplitOnLaunch: false,
+  bellOnComplete: false,
 };
 
 /** Modal to view and edit app settings — including the pluggable shell commands (voice,
@@ -168,6 +170,23 @@ export function SettingsPanel(props: { onClose: () => void }) {
             Auto-split on Launch — analyze the task for a parallel split before fanning out
             (unless already split or the agent count was set by hand)
           </label>
+
+          <div class="settings-check">
+            <label class="settings-check-label">
+              <input
+                type="checkbox"
+                checked={form().bellOnComplete ?? false}
+                onChange={(e) => {
+                  patch({ bellOnComplete: e.currentTarget.checked });
+                  setBellEnabled(e.currentTarget.checked); // live, like the theme toggle
+                }}
+              />
+              Ring a bell — play a chime when an agent finishes a turn or its process exits
+            </label>
+            <button type="button" title="Play the chime" onClick={() => ringBell()}>
+              Test
+            </button>
+          </div>
 
           <div class="settings-extensions">
             <p class="muted settings-note">

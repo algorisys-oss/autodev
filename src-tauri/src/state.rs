@@ -42,6 +42,9 @@ pub struct AppSettings {
     /// already split or the agent count was set by hand), so the user reviews the proposed
     /// parallel split before the actual fan-out. Off by default — Launch fans out immediately.
     pub auto_split_on_launch: bool,
+    /// When on, the UI plays a short chime each time an agent finishes a turn (settles into
+    /// idle) or its process exits — so a long run can be left unattended. Off by default.
+    pub bell_on_complete: bool,
 }
 
 impl Default for AppSettings {
@@ -55,6 +58,7 @@ impl Default for AppSettings {
             browser_command: None,
             editor_command: None,
             auto_split_on_launch: false,
+            bell_on_complete: false,
         }
     }
 }
@@ -180,6 +184,7 @@ mod tests {
         // Missing fields fall back to Default rather than erroring.
         assert_eq!(s.default_effort, AppSettings::default().default_effort);
         assert!(!s.auto_split_on_launch);
+        assert!(!s.bell_on_complete);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -195,6 +200,7 @@ mod tests {
             browser_command: Some("node run.js {file}".to_string()),
             editor_command: Some("code -n".to_string()),
             auto_split_on_launch: true,
+            bell_on_complete: true,
         };
         save_settings_to(&dir, &custom).unwrap();
         let loaded = load_settings_from(&dir).unwrap();

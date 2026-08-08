@@ -23,6 +23,8 @@ export interface AppSettings {
   browserCommand?: string | null;
   editorCommand?: string | null;
   autoSplitOnLaunch?: boolean;
+  /** Play a chime when an agent finishes a turn or its process exits. */
+  bellOnComplete?: boolean;
 }
 
 export function appInfo(): Promise<AppInfo> {

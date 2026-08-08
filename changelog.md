@@ -2,6 +2,18 @@
 
 Newest first. Functional changes only (LOOPS XXIV).
 
+## v0.15.0 — 2026-08-08
+
+- **"Ring a bell" — an audible notice when an agent finishes.** New checkbox in Settings (off by
+  default). With it on, AutoDev plays a short two-note chime each time an agent settles into idle
+  (its turn is done) or its process exits, so a long unattended run doesn't need watching. An exit
+  that follows an idle is the same completion and rings once, not twice; an agent killed while
+  waiting, or a one-shot that exits without settling, still rings. The chime is synthesized with
+  WebAudio — no audio file to ship and nothing to decode — and there's a **Test** button beside
+  the checkbox to hear it. The toggle applies immediately, like the theme switch, and persists as
+  `bellOnComplete` in `~/.autodev/settings.json`. It rides the existing agent-lifecycle hook bus
+  (`src/lib/bell.ts`), so it uses the same idle/exit signals the core already reports.
+
 ## v0.14.0 — 2026-07-28
 
 - **Agent state detection moved into the core, and made per-backend.** AutoDev now reads each

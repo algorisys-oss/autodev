@@ -2,6 +2,36 @@
 
 Audit trail from decision to code (LOOPS XXV). Newest first.
 
+## Bell on agent completion (branch `dev`)
+
+**Context:** User asked for a "Ring a bell" checkbox that sounds on agent task completion.
+
+**Decisions:**
+- *Which signal is "completion".* The core already classifies **idle** ("quiet, nothing on screen
+  asking for the user") — that is an interactive agent's completion, since such agents never exit.
+  A one-shot/Rich agent completes by exiting. So both `onIdle` and `onExit` ring. **Waiting** does
+  not ring: it fires on every approval menu, which would be a bell every few seconds, and the ask
+  was completion, not attention.
+- *Dedupe without a clock.* An agent that settles and then exits emits both. `installBellHook`
+  remembers the last state event per agent and skips the exit ring when it was `idle` — one bell
+  per completion, no timers, no `Date.now()` in the frontend (CLAUDE.md architecture rule).
+  `onIdle` needs no dedupe of its own: the store emits state events on **transitions only**, so a
+  follow-up turn's idle is a fresh event and rings again.
+- *Hook bus, not the store.* Registered through the P3 `HookBus` (`bus.onIdle`/`onExit`) like
+  `installSkillsHook`, so the store stays untouched and a throwing ring is already contained by
+  the bus's `safe()` wrapper.
+- *Synthesized, not a file.* `ringBell()` builds a two-partial decaying sine chime with WebAudio.
+  No asset to bundle or decode, works offline on every platform the webview runs on, and it
+  no-ops where there is no `AudioContext` rather than throwing.
+- *Live toggle.* Enabled state is a module-level signal (the `theme.ts` pattern) seeded from
+  `AppSettings.bellOnComplete` in `App.tsx` `onMount` and flipped by the checkbox on change, so it
+  takes effect before Save — matching how the theme select already behaves in the same panel.
+
+**Code:** `src/lib/bell.ts` (+ `bell.test.ts`, 10 tests incl. a fake `AudioContext` covering the
+synth path), `bell_on_complete` on `AppSettings` in `src-tauri/src/state.rs` (container-level
+`serde(default)` means an older `settings.json` still loads), `bellOnComplete` in `src/lib/ipc.ts`,
+the checkbox + Test button in `src/components/settings-panel.tsx`, wiring in `src/App.tsx`.
+
 ## Agent state detection — core-side, per-backend (branch `dev`)
 
 **Context:** User asked to study herdr (herdr.dev, an agent-aware terminal multiplexer) and
