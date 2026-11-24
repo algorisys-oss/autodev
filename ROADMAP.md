@@ -41,6 +41,11 @@ Makes the P6 seam richer and lets more flows be verified from a script.
 The autonomous loop and Auto-split already run one-shot turns — exactly what the Rich view renders.
 Wire the Rich card view into those flows so structured rendering isn't limited to manual sessions.
 
+### 4. Scale to many agents (small to medium)
+Benchmark, batch PTY output in Rust, make hidden agents cost nothing in the webview, cap
+concurrent agents. Full plan: `docs/scaling-plan.md`. A native one-process agent backend is
+deferred to its own plan.
+
 ## Remaining parity roadmap (`PI-PARITY-PLAN.md`)
 
 - **P9 — cross-agent structured annotation** *(the "beyond Pi" differentiator; large)_. Annotate a
